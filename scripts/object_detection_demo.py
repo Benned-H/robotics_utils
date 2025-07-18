@@ -37,7 +37,7 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
     image = load_image(image_path)
 
     menu_table = Table(title="Menu Options", border_style="cyan", title_style="bold cyan")
-    menu_table.add_column("Option", style="bold", width=4)
+    menu_table.add_column("Option", style="bold", width=8)
     menu_table.add_column("Description", style="white")
 
     menu_items = [
