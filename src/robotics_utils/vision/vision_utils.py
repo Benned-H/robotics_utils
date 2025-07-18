@@ -9,6 +9,9 @@ import cv2
 import numpy as np
 import torch
 
+RGB = tuple[int, int, int]
+"""A tuple of (red, green, blue) integer values between 0 and 255."""
+
 
 def load_image(image_path: str | Path) -> np.ndarray:
     """Load an RGB image from the given path into a NumPy array."""

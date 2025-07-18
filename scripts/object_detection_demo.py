@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from robotics_utils.vision.object_detector import ObjectDetector, visualize_detections
+from robotics_utils.vision.object_detector import ObjectDetector
 from robotics_utils.vision.vision_utils import load_image
 
 
@@ -68,7 +68,10 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
             elif choice == 2:
                 console.print("[yellow]Calling object detector...[/yellow]")
                 detections = detector.detect(image, current_queries)
-                vis_image = visualize_detections(image, detections)
+
+                vis_image = image.copy()
+                for detection in detections:
+                    detection.draw(vis_image)
 
                 # Convert back to BGR for OpenCV display
                 vis_image_bgr = cv2.cvtColor(vis_image, cv2.COLOR_RGB2BGR)

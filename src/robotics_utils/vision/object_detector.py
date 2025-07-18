@@ -9,7 +9,7 @@ from PIL import Image
 from transformers import OwlViTForObjectDetection, OwlViTImageProcessorFast, OwlViTProcessor
 
 from robotics_utils.vision.bounding_box import BoundingBox
-from robotics_utils.vision.vision_utils import determine_pytorch_device
+from robotics_utils.vision.vision_utils import RGB, determine_pytorch_device
 
 
 @dataclass(frozen=True)
@@ -20,34 +20,18 @@ class ObjectDetection:
     score: float
     bounding_box: BoundingBox
 
+    def draw(self, image: np.ndarray, color: RGB = (255, 255, 0), thickness: int = 3) -> None:
+        """Visualize the object detection on the given image.
 
-def visualize_detections(
-    image: np.ndarray,
-    detections: list[ObjectDetection],
-    color: tuple[int, int, int] = (255, 255, 0),
-    thickness: int = 3,
-) -> np.ndarray:
-    """Draw a collection of object detection results on an image.
+        :param image: Image on which the object detection is drawn (modified in-place)
+        :param color: RGB color of the visualization
+        :param thickness: Thickness (pixels) of the drawn bounding box
+        """
+        self.bounding_box.draw(image, color, thickness)
 
-    :param image: RGB image over which the detections are visualized
-    :param detections: List of object detection results
-    :param color: Color of the visualized bounding boxes
-    :param thickness: Thickness (pixels) of the drawn bounding boxes
-    :return: Updated image with detection visualizations added
-    """
-    vis_image = image.copy()
-    for result in detections:
-        top_left_xy = result.bounding_box.top_left_xy
-        bottom_right_xy = result.bounding_box.bottom_right_xy
-
-        cv2.rectangle(vis_image, top_left_xy, bottom_right_xy, color, thickness)
-
-        # Add a text label for each detection result
-        label = f"{result.query}: {result.score:.2f}"
-        text_xy = (result.bounding_box.top_left_x - 50, result.bounding_box.top_left_y - 10)
-        cv2.putText(vis_image, label, text_xy, cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
-    return vis_image
+        label = f"{self.query}: {self.score:.2f}"
+        text_xy = (self.bounding_box.top_left_x - 50, self.bounding_box.top_left_y - 10)
+        cv2.putText(image, label, text_xy, cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
 
 class ObjectDetector:
@@ -66,7 +50,7 @@ class ObjectDetector:
 
         :param image: RGB image to detect objects within
         :param text_queries: Text queries describing the object(s) to be detected
-        :return: Dataclass storing the result of each object detection query
+        :return: List of all successful object detections for the queries
         """
         if image.dtype != np.uint8:
             image = (image * 255).astype(np.uint8)
@@ -91,10 +75,11 @@ class ObjectDetector:
         labels = outputs["labels"].tolist()  # Integer class labels (indices into `text_queries`)
         boxes = outputs["boxes"].tolist()
 
-        results = []
-        for score, label_idx, box_data in zip(scores, labels, boxes, strict=True):
-            query = text_queries[label_idx]
-            bounding_box = BoundingBox.from_ratios(box_data, image.shape)
-            results.append(ObjectDetection(query, score, bounding_box))
-
-        return results
+        return [
+            ObjectDetection(
+                text_queries[query_idx],
+                score,
+                BoundingBox.from_ratios(box_data, image.shape),
+            )
+            for score, query_idx, box_data in zip(scores, labels, boxes, strict=True)
+        ]

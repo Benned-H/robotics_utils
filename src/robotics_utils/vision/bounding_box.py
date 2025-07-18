@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import cv2
+import numpy as np
+
+from robotics_utils.vision.vision_utils import RGB
+
 
 @dataclass(frozen=True)
 class BoundingBox:
@@ -58,3 +63,12 @@ class BoundingBox:
         center_x = int(self.top_left_x + 0.5 * self.width)
         center_y = int(self.top_left_y + 0.5 * self.height)
         return (center_x, center_y)
+
+    def draw(self, image: np.ndarray, color: RGB = (255, 255, 0), thickness: int = 3) -> None:
+        """Draw the bounding box as a rectangle on the given image.
+
+        :param image: Image on which the bounding box is drawn (modified in-place)
+        :param color: RGB color of the drawn bounding box
+        :param thickness: Thickness (pixels) of the drawn bounding box
+        """
+        cv2.rectangle(image, self.top_left_xy, self.bottom_right_xy, color, thickness)
