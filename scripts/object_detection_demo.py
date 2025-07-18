@@ -36,12 +36,12 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
 
     image = load_image(image_path)
 
-    menu_table = Table(title="Available Operations", border_style="cyan", title_style="bold cyan")
+    menu_table = Table(title="Menu Options", border_style="cyan", title_style="bold cyan")
     menu_table.add_column("Option", style="bold", width=4)
     menu_table.add_column("Description", style="white")
 
     menu_items = [
-        ("1", "Add text query"),
+        ("1", "Add a text query"),
         ("2", "Call object detector"),
         ("3", "Quit"),
     ]
@@ -55,7 +55,7 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
         console.print()
         console.print(menu_table)
 
-        choice = click.prompt("\nSelect operation", type=click.IntRange(1, 3))
+        choice = click.prompt("\nSelect option", type=click.IntRange(1, 3))
 
         try:
             if choice == 1:
@@ -72,7 +72,7 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
 
                 # Convert back to BGR for OpenCV display
                 vis_image_bgr = cv2.cvtColor(vis_image, cv2.COLOR_RGB2BGR)
-                cv2.imshow("Detections", vis_image_bgr)
+                cv2.imshow("Detections (press any key to exit)", vis_image_bgr)
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
 

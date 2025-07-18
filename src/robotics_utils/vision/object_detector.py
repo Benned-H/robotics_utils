@@ -14,7 +14,7 @@ from robotics_utils.vision.vision_utils import determine_pytorch_device
 
 @dataclass(frozen=True)
 class ObjectDetection:
-    """The result from an object detection query."""
+    """A successful object detection for a text query."""
 
     query: str
     score: float
@@ -27,12 +27,12 @@ def visualize_detections(
     color: tuple[int, int, int] = (255, 255, 0),
     thickness: int = 3,
 ) -> np.ndarray:
-    """Draw a collection of object detection results upon an image.
+    """Draw a collection of object detection results on an image.
 
     :param image: RGB image over which the detections are visualized
     :param detections: List of object detection results
-    :param color: Color of the visualized detections
-    :param thickness: Thickness (pixels) of the visualized detections
+    :param color: Color of the visualized bounding boxes
+    :param thickness: Thickness (pixels) of the drawn bounding boxes
     :return: Updated image with detection visualizations added
     """
     vis_image = image.copy()
