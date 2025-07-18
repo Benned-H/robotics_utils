@@ -72,3 +72,4 @@ class BoundingBox:
         :param thickness: Thickness (pixels) of the drawn bounding box
         """
         cv2.rectangle(image, self.top_left_xy, self.bottom_right_xy, color, thickness)
+        cv2.circle(image, self.get_center_xy(), 1, color, thickness)
