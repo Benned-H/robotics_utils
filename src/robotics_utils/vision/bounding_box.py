@@ -23,7 +23,7 @@ class BoundingBox:
         :return: Constructed BoundingBox instance
         """
         if len(ratios) != 4:
-            raise ValueError(f"Cannot construct BoundingBox from a list of shape {len(ratios)}.")
+            raise ValueError(f"Cannot construct BoundingBox from a list of length {len(ratios)}.")
 
         height, width, _ = image_shape
         top_left_x = int(ratios[0] * width)
@@ -45,12 +45,12 @@ class BoundingBox:
 
     @property
     def top_left_xy(self) -> tuple[int, int]:
-        """Retrieve the top-left (x,y) pixel coordinates of the bounding box."""
+        """Retrieve the (x,y) coordinates of the top-left corner of the bounding box."""
         return (self.top_left_x, self.top_left_y)
 
     @property
     def bottom_right_xy(self) -> tuple[int, int]:
-        """Retrieve the bottom-right (x,y) pixel coordinates of the bounding box."""
+        """Retrieve the (x,y) coordinates of the bottom-right corner of the bounding box."""
         return (self.bottom_right_x, self.bottom_right_y)
 
     def get_center_xy(self) -> tuple[int, int]:

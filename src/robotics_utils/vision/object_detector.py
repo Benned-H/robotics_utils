@@ -27,7 +27,7 @@ def visualize_detections(
     color: tuple[int, int, int] = (255, 255, 0),
     thickness: int = 3,
 ) -> np.ndarray:
-    """Draw a collection of object detection results upon an image.
+    """Draw a collection of object detection results on an image.
 
     :param image: RGB image over which the detections are visualized
     :param detections: List of object detection results

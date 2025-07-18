@@ -32,6 +32,6 @@ def determine_pytorch_device() -> torch.device:
         and torch.backends.mps.is_available()
         and torch.backends.mps.is_built()
     ):
-        return torch.device("mps")  # Use Metal on macOS, if available
+        return torch.device("mps")  # Use Metal on macOS if available
 
-    return torch.device("cpu")  # Otherwise, fallback to CPU
+    return torch.device("cpu")  # Otherwise, fall back to CPU
