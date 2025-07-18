@@ -5,18 +5,20 @@ from collections.abc import Generator
 from dataclasses import dataclass
 from enum import StrEnum
 
+PDDL_NAME_REGEX = r"[a-zA-Z]{1}[a-zA-Z0-9\-_]*"
+
 
 class PDDLTokenType(StrEnum):
     """Enumeration of token types for parsing PDDL."""
 
-    NAME = r"[a-zA-Z]{1}[a-zA-Z0-9\-_]*"
+    NAME = PDDL_NAME_REGEX
     """Name of a PDDL domain, type, predicate, operator, etc."""
 
-    QUESTION_MARK = r"\?"
-    """Marks the beginning of a PDDL variable name (e.g., '?x')."""
+    VARIABLE = r"\?" + PDDL_NAME_REGEX
+    """Name of a PDDL variable (e.g., '?x')."""
 
-    COLON = r":"
-    """Marks the beginning of a PDDL keyword (e.g., ':types')."""
+    KEYWORD = r":" + PDDL_NAME_REGEX
+    """A PDDL keyword marked by an initial colon (e.g., ':types')."""
 
     MINUS = r"-"
     """Separates PDDL variable names from their types."""
@@ -82,32 +84,39 @@ class PDDLScanner:
 
         self.token_regex = "|".join(tt.named_group_regex for tt in PDDLTokenType)
 
-    def tokenize(self, pddl: str) -> Generator[PDDLToken]:
+    def tokenize(self, pddl_string: str) -> Generator[PDDLToken]:
         """Tokenize a string of PDDL into an iterator over tokens.
 
-        :param pddl: String of PDDL to be tokenized
+        :param pddl_string: String of PDDL to be tokenized
         :yield: Iterator over PDDL tokens in the string
         """
         line_num = 1
         line_start = 0
-        for match in re.finditer(self.token_regex, pddl):
+        for match in re.finditer(self.token_regex, pddl_string):
             if match.lastgroup is None:
-                raise RuntimeError(f"Failed to parse PDDL string:\n{pddl}")
+                raise RuntimeError(f"Failed to parse PDDL string:\n{pddl_string}")
 
-            token_type_name = match.lastgroup
-
-            token_type: PDDLTokenType = getattr(PDDLTokenType, token_type_name)
+            token_type: PDDLTokenType = getattr(PDDLTokenType, match.lastgroup)
             value = match.group()
             column = match.start() - line_start
 
             match token_type:
+                case PDDLTokenType.KEYWORD:
+                    if value not in self.keywords:
+                        raise RuntimeError(f"Unknown PDDL keyword: {value}")
+
                 case PDDLTokenType.COMMENT | PDDLTokenType.SKIP:
-                    continue
+                    continue  # Skip comments and whitespace
+
                 case PDDLTokenType.NEWLINE:
                     line_start = match.end()
                     line_num += 1
                     continue
+
                 case PDDLTokenType.MISMATCH:
                     raise RuntimeError(f"{value!r} unexpected on line {line_num}.")
+
+                case _:
+                    pass
 
             yield PDDLToken(token_type, value, line_num, column)
