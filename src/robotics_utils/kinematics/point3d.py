@@ -24,7 +24,7 @@ class Point3D:
     def from_array(cls, arr: np.ndarray) -> Point3D:
         """Construct a Point3D from a NumPy array."""
         if arr.shape != (3,):
-            raise ValueError(f"Point3D expects a three-element vector, not shape {arr.shape}")
+            raise ValueError(f"Cannot construct Point3D from an array of shape {arr.shape}")
 
         return cls(*arr)
 
