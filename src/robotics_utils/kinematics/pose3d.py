@@ -26,7 +26,7 @@ class Pose3D:
             Therefore, we see that the resulting pose takes the "left-side" reference frame.
 
         :param other: Pose defining the right-side matrix in the multiplication
-        :return: Result of the matrix multiplication
+        :return: Pose3D resulting from the matrix multiplication
         """
         left_m = self.to_homogeneous_matrix()
         right_m = other.to_homogeneous_matrix()

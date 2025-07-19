@@ -44,6 +44,6 @@ def test_pose3d_identity_multiplication(pose: Pose3D) -> None:
     # Replace the frame of the left-side result; it won't match the original pose otherwise
     left_result.ref_frame = pose.ref_frame
 
-    # Assert - Expect that the pose was unchanged by either of the multiplications
+    # Assert - Expect that both multiplication results equal the original pose
     assert pose.approx_equal(left_result)
     assert pose.approx_equal(right_result)
