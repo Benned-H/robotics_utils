@@ -15,10 +15,11 @@ dependencies = [
     "click",
     "rich",
     "opencv-python",
+    "transforms3d",
 ]
 
 [tool.uv]
-dev-dependencies = ["ruff", "pytest"]
+dev-dependencies = ["ruff", "pytest", "hypothesis", "pytest-cov"]
 
 
 [tool.hatch.build.targets.wheel]
