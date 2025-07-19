@@ -6,10 +6,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from robotics_utils.kinematics import DEFAULT_FRAME
 from robotics_utils.kinematics.point3d import Point3D
 from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
-
-DEFAULT_FRAME = "map"
 
 
 @dataclass
