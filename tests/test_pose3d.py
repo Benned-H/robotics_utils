@@ -29,3 +29,21 @@ def test_pose3d_to_list_and_back(pose: Pose3D) -> None:
     # Assert - Expect that the list has length six and the resulting Pose3D equals the original
     assert len(pose_list) == 6, "Expected pose list of the form [x, y, z, roll, pitch, yaw]"
     assert pose.approx_equal(result_pose)
+
+
+@given(poses())
+def test_pose3d_identity_multiplication(pose: Pose3D) -> None:
+    """Verify that any Pose3D is unchanged after multiplication by the identity pose."""
+    # Arrange - Create a pose representing the identity transformation
+    identity_pose = Pose3D.identity()
+
+    # Act - Compute left-side and right-side multiplications by the identity pose
+    left_result = identity_pose @ pose
+    right_result = pose @ identity_pose
+
+    # Replace the frame of the left-side result; it won't match the original pose otherwise
+    left_result.ref_frame = pose.ref_frame
+
+    # Assert - Expect that the pose was unchanged by either of the multiplications
+    assert pose.approx_equal(left_result)
+    assert pose.approx_equal(right_result)

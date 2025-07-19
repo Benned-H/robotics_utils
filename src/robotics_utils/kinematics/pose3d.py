@@ -19,6 +19,20 @@ class Pose3D:
     orientation: Quaternion
     ref_frame: str = DEFAULT_FRAME
 
+    def __matmul__(self, other: Pose3D) -> Pose3D:
+        """Multiply the homogeneous transformation matrix of this pose with another pose.
+
+        Consider: pose_A_B @ pose_B_C = pose_A_C, meaning the pose of 'C' relative to frame A.
+            Therefore, we see that the resulting pose takes the "left-side" reference frame.
+
+        :param other: Pose defining the right-side matrix in the multiplication
+        :return: Result of the matrix multiplication
+        """
+        left_m = self.to_homogeneous_matrix()
+        right_m = other.to_homogeneous_matrix()
+        result_ref_frame = self.ref_frame  # Result takes the "leftmost" reference frame
+        return Pose3D.from_homogeneous_matrix(left_m @ right_m, result_ref_frame)
+
     @classmethod
     def identity(cls) -> Pose3D:
         """Construct a Pose3D corresponding to the identity transformation."""
