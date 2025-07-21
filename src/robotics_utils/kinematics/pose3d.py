@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -106,6 +107,18 @@ class Pose3D:
         matrix[:3, 3] = self.position.to_array()
         matrix[:3, :3] = self.orientation.to_rotation_matrix()
         return matrix
+
+    def to_yaml_dict(self) -> dict[str, Any]:
+        """Convert the pose into a dictionary suitable for export to YAML."""
+        return {"xyz_rpy": self.to_list(), "frame": self.ref_frame}
+
+    def inverse(self, pose_frame: str) -> Pose3D:
+        """Return a pose representing the inverse transformation of this pose.
+
+        :param pose_frame: Name of the reference frame represented by this pose
+        """
+        inverse_matrix = np.linalg.inv(self.to_homogeneous_matrix())
+        return Pose3D.from_homogeneous_matrix(inverse_matrix, pose_frame)
 
     def approx_equal(self, other: Pose3D) -> bool:
         """Evaluate whether another Pose3D is approximately equal to this one."""
