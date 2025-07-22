@@ -133,14 +133,8 @@ class Pose3D:
 
         :param pose_frame: Name of the reference frame represented by this pose
         """
-        inv_r_matrix = np.linalg.inv(self.orientation.to_rotation_matrix())
-        inv_translation = -inv_r_matrix @ self.position.to_array()
-
-        return Pose3D(
-            Point3D.from_array(inv_translation),
-            Quaternion.from_rotation_matrix(inv_r_matrix),
-            pose_frame,
-        )
+        inverse_matrix = np.linalg.inv(self.to_homogeneous_matrix())
+        return Pose3D.from_homogeneous_matrix(inverse_matrix, pose_frame)
 
     def approx_equal(self, other: Pose3D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Pose3D is approximately equal to this one."""

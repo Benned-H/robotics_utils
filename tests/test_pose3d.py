@@ -3,7 +3,6 @@
 import hypothesis.strategies as st
 from hypothesis import given
 
-from robotics_utils.kinematics import DEFAULT_FRAME
 from robotics_utils.kinematics.pose3d import Pose3D
 
 from .hypothesis_strategies import poses

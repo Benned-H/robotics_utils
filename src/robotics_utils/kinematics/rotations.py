@@ -119,12 +119,9 @@ class Quaternion:
         self_array = self.to_array()
         other_array = other.to_array()
 
-        positive_close = np.allclose(self_array, other_array, rtol=rtol, atol=atol)
-        negated_close = np.allclose(-self_array, other_array, rtol=rtol, atol=atol)
-
-        result = positive_close or negated_close
-        if not result:
-            print(f"Self Q: {self}")
-            print(f"Other Q: {other}")
-
-        return result
+        return np.allclose(self_array, other_array, rtol=rtol, atol=atol) or np.allclose(
+            -self_array,
+            other_array,
+            rtol=rtol,
+            atol=atol,
+        )
