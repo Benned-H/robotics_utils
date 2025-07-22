@@ -26,7 +26,7 @@ class Point3D:
         if arr.shape != (3,):
             raise ValueError(f"Cannot construct Point3D from an array of shape {arr.shape}")
 
-        return cls(*arr)
+        return cls(arr[0], arr[1], arr[2])
 
     def to_array(self) -> np.ndarray:
         """Convert the 3D point to a NumPy array."""
@@ -36,6 +36,6 @@ class Point3D:
         """Convert the Point3D into a tuple of (x, y, z) coordinates."""
         return (self.x, self.y, self.z)
 
-    def approx_equal(self, other: Point3D) -> bool:
+    def approx_equal(self, other: Point3D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Point3D is approximately equal to this one."""
-        return np.allclose(self.to_array(), other.to_array())
+        return np.allclose(self.to_array(), other.to_array(), rtol=rtol, atol=atol)

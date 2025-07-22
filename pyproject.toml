@@ -6,17 +6,15 @@ build-backend = "hatchling.build"
 name = "robotics_utils"
 version = "0.0.1"
 description = "General-purpose robotics utilities"
-requires-python = ">=3.9"
-dependencies = [
-    "torch",
-    "torchvision",
-    "transformers",
-    "pillow",
-    "click",
-    "rich",
-    "opencv-python",
-    "transforms3d",
-]
+requires-python = ">=3.8"
+
+# Core dependencies - Always installed
+dependencies = ["click", "rich", "transforms3d", "numpy"]
+
+[project.optional-dependencies]
+vision = ["torch", "torchvision", "transformers", "pillow", "opencv-python"]
+
+all = ["robotics-utils[vision]"] # Complete installation with everything
 
 [tool.uv]
 dev-dependencies = ["ruff", "pytest", "hypothesis", "pytest-cov"]
@@ -51,6 +49,7 @@ flake8-annotations = { mypy-init-return = true }
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
 
 [tool.pytest.ini_options]
 minversion = "6.0"    # Needed to use pyproject.toml

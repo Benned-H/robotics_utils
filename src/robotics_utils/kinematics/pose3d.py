@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -34,9 +35,9 @@ class Pose3D:
         return Pose3D.from_homogeneous_matrix(left_m @ right_m, result_ref_frame)
 
     @classmethod
-    def identity(cls) -> Pose3D:
+    def identity(cls, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
         """Construct a Pose3D corresponding to the identity transformation."""
-        return Pose3D(Point3D.identity(), Quaternion.identity())
+        return Pose3D(Point3D.identity(), Quaternion.identity(), ref_frame)
 
     @classmethod
     def from_xyz_rpy(
@@ -96,7 +97,7 @@ class Pose3D:
         if matrix.shape != (4, 4):
             raise ValueError(f"Expected a 4x4 matrix but received shape {matrix.shape}")
 
-        position = Point3D(matrix[0, 3], matrix[1, 3], matrix[2, 3])
+        position = Point3D(float(matrix[0, 3]), float(matrix[1, 3]), float(matrix[2, 3]))
         orientation = Quaternion.from_rotation_matrix(matrix[:3, :3])
         return Pose3D(position, orientation, ref_frame)
 
@@ -107,10 +108,38 @@ class Pose3D:
         matrix[:3, :3] = self.orientation.to_rotation_matrix()
         return matrix
 
-    def approx_equal(self, other: Pose3D) -> bool:
+    @classmethod
+    def from_yaml_dict(cls, pose_dict: dict[str, Any]) -> Pose3D:
+        """Construct a Pose3D instance from data imported from YAML.
+
+        :param pose_dict: Dictionary of YAML data representing a 3D pose
+        :return: Constructed Pose3D instance
+        :raises TypeError: If the given YAML data has an unsupported type
+        """
+        if isinstance(pose_dict, dict):
+            ref_frame = pose_dict["frame"]
+            pose_list = pose_dict["xyz_rpy"]
+        else:
+            raise TypeError(f"Cannot load Pose3D from YAML data of type {type(pose_dict)}")
+
+        return Pose3D.from_list(pose_list, ref_frame)
+
+    def to_yaml_dict(self) -> dict[str, Any]:
+        """Convert the pose into a dictionary suitable for export to YAML."""
+        return {"xyz_rpy": self.to_list(), "frame": self.ref_frame}
+
+    def inverse(self, pose_frame: str) -> Pose3D:
+        """Return a pose representing the inverse transformation of this pose.
+
+        :param pose_frame: Name of the reference frame represented by this pose
+        """
+        inverse_matrix = np.linalg.inv(self.to_homogeneous_matrix())
+        return Pose3D.from_homogeneous_matrix(inverse_matrix, pose_frame)
+
+    def approx_equal(self, other: Pose3D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Pose3D is approximately equal to this one."""
         return (
             self.ref_frame == other.ref_frame
-            and self.position.approx_equal(other.position)
-            and self.orientation.approx_equal(other.orientation)
+            and self.position.approx_equal(other.position, rtol=rtol, atol=atol)
+            and self.orientation.approx_equal(other.orientation, rtol=rtol, atol=atol)
         )
