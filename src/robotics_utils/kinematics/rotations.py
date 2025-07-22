@@ -105,13 +105,13 @@ class Quaternion:
         if r_matrix.shape != (3, 3):
             raise ValueError(f"Expected a 3x3 rotation matrix; received {r_matrix.shape}")
         w, x, y, z = mat2quat(r_matrix)  # Note: transforms3d quaternions have w first
-        return Quaternion(x=x, y=y, z=z, w=w)
+        return Quaternion(x=float(x), y=float(y), z=float(z), w=float(w))
 
     def to_rotation_matrix(self) -> np.ndarray:
         """Convert the quaternion to a 3x3 rotation matrix."""
         return quat2mat(q=[self.w, self.x, self.y, self.z])
 
-    def approx_equal(self, other: Quaternion) -> bool:
+    def approx_equal(self, other: Quaternion, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Quaternion is approximately equal to this one.
 
         Note: A quaternion is considered equal to its negation, as they express the same rotation.
@@ -119,4 +119,12 @@ class Quaternion:
         self_array = self.to_array()
         other_array = other.to_array()
 
-        return np.allclose(self_array, other_array) or np.allclose(-self_array, other_array)
+        positive_close = np.allclose(self_array, other_array, rtol=rtol, atol=atol)
+        negated_close = np.allclose(-self_array, other_array, rtol=rtol, atol=atol)
+
+        result = positive_close or negated_close
+        if not result:
+            print(f"Self Q: {self}")
+            print(f"Other Q: {other}")
+
+        return result

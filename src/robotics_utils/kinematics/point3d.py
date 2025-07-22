@@ -36,6 +36,12 @@ class Point3D:
         """Convert the Point3D into a tuple of (x, y, z) coordinates."""
         return (self.x, self.y, self.z)
 
-    def approx_equal(self, other: Point3D) -> bool:
+    def approx_equal(self, other: Point3D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Point3D is approximately equal to this one."""
-        return np.allclose(self.to_array(), other.to_array())
+        result = np.allclose(self.to_array(), other.to_array(), rtol=rtol, atol=atol)
+
+        if not result:
+            print(f"Self P: {self}")
+            print(f"Other P: {other}")
+
+        return result

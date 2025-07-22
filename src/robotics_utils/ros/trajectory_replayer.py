@@ -1,8 +1,4 @@
-"""Define a class to replay relative trajectories loaded from file.
-
-TODO: This version is ROS and Spot-specific, but probably doesn't need to be.
-TODO: Depending on ROS is fine; assuming Spot is unacceptable
-"""
+"""Define a class to replay relative trajectories loaded from file."""
 
 from __future__ import annotations
 
@@ -16,7 +12,7 @@ import rospy
 from moveit_commander import MoveGroupCommander, RobotCommander, roscpp_initialize
 from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
 
-from robotics_utils.filesystem.yaml_utils import load_yaml_into_dict
+from robotics_utils.filesystem.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.pose3d import Pose3D
 from robotics_utils.ros.msg_conversion import pose_to_msg
 from robotics_utils.ros.transform_manager import TransformManager
@@ -26,9 +22,9 @@ from robotics_utils.ros.transform_manager import TransformManager
 class RelativeTrajectoryConfig:
     """Configures the trajectory replayer when loading a relative trajectory from file."""
 
-    ee_frame: str = "arm_link_wr1"
-    body_frame: str = "body"
-    move_group_name: str = "arm"
+    ee_frame: str
+    body_frame: str
+    move_group_name: str
     ee_step_resolution_m: float = 0.01  # Resolution (meters) between computed configurations
     pose_lookup_timeout_s: float = 3.0  # Duration (seconds) to wait for pose lookup retries
     required_fraction: float = 0.95  # Proportion of the trajectory Cartesian planning must follow
@@ -37,12 +33,9 @@ class RelativeTrajectoryConfig:
 class TrajectoryReplayer:
     """Play back relative trajectories loaded from file."""
 
-    def __init__(self, config: RelativeTrajectoryConfig | None = None) -> None:
-        """Configure the trajectory replayer with the given parameters (None = use defaults)."""
+    def __init__(self, config: RelativeTrajectoryConfig) -> None:
+        """Configure the trajectory replayer with the given parameters."""
         TransformManager.init_node()  # Ensure that TransformManager is listening to /tf
-
-        if config is None:
-            config = RelativeTrajectoryConfig()
 
         self.config = config
 
@@ -79,7 +72,7 @@ class TrajectoryReplayer:
         :param yaml_path: Path to a YAML file to be imported
         :return: Imported relative trajectory as a list of 3D poses
         """
-        yaml_data: list[dict[str, Any]] = load_yaml_into_dict(yaml_path)
+        yaml_data: list[dict] = load_yaml_data(yaml_path)
 
         # These poses track the end-effector frame relative to its initial pose
         relative_poses = [Pose3D.from_yaml_dict(pose_dict) for pose_dict in yaml_data]
@@ -91,7 +84,7 @@ class TrajectoryReplayer:
         # Adjust the relative poses so that they're relative to the current body frame
         return [curr_pose_b_ee @ rel_pose_ee for rel_pose_ee in relative_poses]
 
-    def compute_cartesian_plan(self, poses: list[Pose3D]) -> RobotTrajectory:
+    def compute_cartesian_plan(self, poses: list[Pose3D]) -> RobotTrajectory | None:
         """Compute a Cartesian plan along the given list of end-effector target poses.
 
         :param poses: List of target end-effector poses

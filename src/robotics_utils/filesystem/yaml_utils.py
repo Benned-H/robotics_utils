@@ -20,7 +20,7 @@ def export_yaml_data(data: dict[str, Any] | list[Any], filepath: Path) -> None:
         raise FileNotFoundError(f"Exported to YAML file '{filepath}' yet it doesn't exist")
 
 
-def load_yaml_into_dict(yaml_path: Path) -> dict | list:
+def load_yaml_data(yaml_path: Path) -> dict | list:
     """Load data from a YAML file into Python data structures.
 
     :param yaml_path: Path to the YAML file to be imported

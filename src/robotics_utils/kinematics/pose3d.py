@@ -35,9 +35,9 @@ class Pose3D:
         return Pose3D.from_homogeneous_matrix(left_m @ right_m, result_ref_frame)
 
     @classmethod
-    def identity(cls) -> Pose3D:
+    def identity(cls, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
         """Construct a Pose3D corresponding to the identity transformation."""
-        return Pose3D(Point3D.identity(), Quaternion.identity())
+        return Pose3D(Point3D.identity(), Quaternion.identity(), ref_frame)
 
     @classmethod
     def from_xyz_rpy(
@@ -89,7 +89,7 @@ class Pose3D:
     def to_list(self) -> list[float]:
         """Convert the Pose3D into a list of the form [x, y, z, roll (radians), pitch, yaw]."""
         (x, y, z), (roll_rad, pitch_rad, yaw_rad) = self.to_xyz_rpy()
-        return [float(value) for value in [x, y, z, roll_rad, pitch_rad, yaw_rad]]
+        return [x, y, z, roll_rad, pitch_rad, yaw_rad]
 
     @classmethod
     def from_homogeneous_matrix(cls, matrix: np.ndarray, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
@@ -97,7 +97,7 @@ class Pose3D:
         if matrix.shape != (4, 4):
             raise ValueError(f"Expected a 4x4 matrix but received shape {matrix.shape}")
 
-        position = Point3D(matrix[0, 3], matrix[1, 3], matrix[2, 3])
+        position = Point3D(float(matrix[0, 3]), float(matrix[1, 3]), float(matrix[2, 3]))
         orientation = Quaternion.from_rotation_matrix(matrix[:3, :3])
         return Pose3D(position, orientation, ref_frame)
 
@@ -133,13 +133,19 @@ class Pose3D:
 
         :param pose_frame: Name of the reference frame represented by this pose
         """
-        inverse_matrix = np.linalg.inv(self.to_homogeneous_matrix())
-        return Pose3D.from_homogeneous_matrix(inverse_matrix, pose_frame)
+        inv_r_matrix = np.linalg.inv(self.orientation.to_rotation_matrix())
+        inv_translation = -inv_r_matrix @ self.position.to_array()
 
-    def approx_equal(self, other: Pose3D) -> bool:
+        return Pose3D(
+            Point3D.from_array(inv_translation),
+            Quaternion.from_rotation_matrix(inv_r_matrix),
+            pose_frame,
+        )
+
+    def approx_equal(self, other: Pose3D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Pose3D is approximately equal to this one."""
         return (
             self.ref_frame == other.ref_frame
-            and self.position.approx_equal(other.position)
-            and self.orientation.approx_equal(other.orientation)
+            and self.position.approx_equal(other.position, rtol=rtol, atol=atol)
+            and self.orientation.approx_equal(other.orientation, rtol=rtol, atol=atol)
         )
