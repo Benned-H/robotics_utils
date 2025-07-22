@@ -96,7 +96,7 @@ class TransformManager:
 
         :param source_frame: Frame where the data originated
         :param target_frame: Frame to which the data will be transformed
-        :param when: Timestamp at which the relative transform is found (defaults to 'now')
+        :param when: Timestamp for which the relative transform is found (if None, uses 'now')
         :param timeout_s: Duration (seconds) after which to abandon the lookup (defaults to 5)
         :return: Pose3D representing transform (i.e., transform_t_s) or None (if lookup failed)
         """
@@ -128,8 +128,8 @@ class TransformManager:
 
         if tf_stamped_msg is None:
             rospy.logerr(
-                f"[TransformManager.lookup_transform] Could not look up transform "
-                f"from {source_frame} to {target_frame} at time {when.to_time():.2f}",
+                f"[TransformManager.lookup_transform] Could not look up transform from "
+                f"'{source_frame}' to '{target_frame}' within {timeout_s} seconds.",
             )
             return None
 

@@ -1,4 +1,4 @@
-"""Define a command-line interface to record transforms from /tf."""
+"""Record a relative trajectory from /tf and save it to file."""
 
 import argparse
 from pathlib import Path
@@ -10,7 +10,10 @@ from robotics_utils.ros.transform_recorder import TransformRecorder
 
 
 def record(output_path: Path, overwrite: bool, reference_frame: str, tracked_frame: str) -> None:
-    """Record transforms from /tf until rospy is shut down."""
+    """Record transforms from /tf until rospy is shut down.
+
+    :raises FileExistsError: If the output path already exists but the overwrite flag isn't set
+    """
     if not overwrite and output_path.exists():
         raise FileExistsError(f"Cannot overwrite existing output path: {output_path}")
 
@@ -42,7 +45,7 @@ if __name__ == "__main__":
         "--reference-frame",
         type=str,
         default="body",
-        help="Reference frame for the recording",
+        help="Reference frame for the initial tracked pose",
     )
     parser.add_argument(
         "--tracked-frame",

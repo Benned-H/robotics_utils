@@ -1,4 +1,4 @@
-"""Define a class to represent poses in 2D space."""
+"""Define a class to represent 2D poses."""
 
 from dataclasses import dataclass
 
