@@ -88,7 +88,7 @@ class Quaternion:
         if arr.shape != (4,):
             raise ValueError(f"Expected a four-element vector but received shape {arr.shape}")
 
-        return cls(*arr)
+        return cls(float(arr[0]), float(arr[1]), float(arr[2]), float(arr[3]))
 
     def to_array(self) -> np.ndarray:
         """Convert the quaternion to a NumPy array of the form [x,y,z,w]."""

@@ -29,7 +29,7 @@ def test_pose3d_to_list_and_back(pose: Pose3D) -> None:
 
     # Assert - Expect that the list has length six and the resulting Pose3D equals the original
     assert len(pose_list) == 6, "Expected pose list of the form [x, y, z, roll, pitch, yaw]"
-    assert pose.approx_equal(result_pose)
+    assert pose.approx_equal(result_pose, atol=1e-07)
 
 
 @given(poses())

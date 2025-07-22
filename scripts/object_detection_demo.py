@@ -7,6 +7,7 @@ from pathlib import Path
 
 import click
 import cv2
+import numpy as np
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -66,12 +67,22 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
                 console.print(f"[green]✓[/green] Current pending queries:\n\t{queries_str}")
 
             elif choice == 2:
+                if not current_queries:
+                    console.print("[red]Cannot call the object detector without a query![/red]")
+                    continue
+
                 console.print("[yellow]Calling object detector...[/yellow]")
                 detections = detector.detect(image, current_queries)
 
+                rng = np.random.default_rng()
+                query_colors: dict[str, tuple] = {}
+                for q in current_queries:
+                    query_colors[q] = tuple(int(n) for n in rng.integers(0, 255, size=3))
+
                 vis_image = image.copy()
                 for detection in detections:
-                    detection.draw(vis_image)
+                    color = query_colors[detection.query]
+                    detection.draw(vis_image, color)
 
                 # Convert back to BGR for OpenCV display
                 vis_image_bgr = cv2.cvtColor(vis_image, cv2.COLOR_RGB2BGR)
