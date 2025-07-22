@@ -1,4 +1,4 @@
-"""Define functions to convert between 3D kinematic data structures and ROS messages."""
+"""Define functions to convert between kinematic data structures and ROS messages."""
 
 from __future__ import annotations
 

@@ -71,7 +71,7 @@ class TransformManager:
         """Broadcast the given transform for the named frame into /tf.
 
         :param frame_name: Name of the reference frame to be updated
-        :param relative_pose: Transform of the frame relative to some other frame
+        :param relative_pose: Transform of the frame relative to its parent frame
         """
         tf_stamped_msg = pose_to_tf_stamped_msg(relative_pose, frame_name)
         tf_stamped_msg.header.stamp = rospy.Time.now()

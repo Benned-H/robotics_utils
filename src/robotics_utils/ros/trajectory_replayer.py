@@ -35,7 +35,7 @@ class RelativeTrajectoryConfig:
 
 
 class TrajectoryReplayer:
-    """Playback relative trajectories loaded from file."""
+    """Play back relative trajectories loaded from file."""
 
     def __init__(self, config: RelativeTrajectoryConfig | None = None) -> None:
         """Configure the trajectory replayer with the given parameters (None = use defaults)."""
