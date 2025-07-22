@@ -1,23 +1,14 @@
 """Define a command-line interface to record transforms from /tf."""
 
+import argparse
 from pathlib import Path
 
-import click
 import rospy
 
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.ros.transform_recorder import TransformRecorder
 
 
-@click.command
-@click.argument("output_path", type=click.Path(path_type=Path))
-@click.option("--overwrite", is_flag=True, help="Whether to allow overwriting the output path")
-@click.option("--reference-frame", default="body", help="Reference frame for the recording")
-@click.option(
-    "--tracked-frame",
-    default="arm_link_wr1",
-    help="Frame for which relative motion is tracked",
-)
 def record(output_path: Path, overwrite: bool, reference_frame: str, tracked_frame: str) -> None:
     """Record transforms from /tf until rospy is shut down."""
     if not overwrite and output_path.exists():
@@ -35,8 +26,35 @@ def record(output_path: Path, overwrite: bool, reference_frame: str, tracked_fra
     except rospy.ROSInterruptException:
         pass
     finally:
-        recorder.save_to_file()
+        recorder.save_to_file(output_path)
 
 
 if __name__ == "__main__":
-    record()
+    parser = argparse.ArgumentParser("record_transforms")
+    parser.add_argument("output_path", type=Path)
+    parser.add_argument(
+        "--overwrite",
+        type=bool,
+        default=False,
+        help="Whether to allow overwriting the output path",
+    )
+    parser.add_argument(
+        "--reference-frame",
+        type=str,
+        default="body",
+        help="Reference frame for the recording",
+    )
+    parser.add_argument(
+        "--tracked-frame",
+        type=str,
+        default="arm_link_wr1",
+        help="Frame for which relative motion is tracked",
+    )
+
+    args = parser.parse_args()
+    output_path: Path = args.output_path
+    overwrite: bool = args.overwrite
+    reference_frame: str = args.reference_frame
+    tracked_frame: str = args.tracked_frame
+
+    record(output_path, overwrite, reference_frame, tracked_frame)

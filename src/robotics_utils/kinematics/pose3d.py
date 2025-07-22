@@ -89,7 +89,7 @@ class Pose3D:
     def to_list(self) -> list[float]:
         """Convert the Pose3D into a list of the form [x, y, z, roll (radians), pitch, yaw]."""
         (x, y, z), (roll_rad, pitch_rad, yaw_rad) = self.to_xyz_rpy()
-        return [x, y, z, roll_rad, pitch_rad, yaw_rad]
+        return [float(value) for value in [x, y, z, roll_rad, pitch_rad, yaw_rad]]
 
     @classmethod
     def from_homogeneous_matrix(cls, matrix: np.ndarray, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
@@ -107,6 +107,22 @@ class Pose3D:
         matrix[:3, 3] = self.position.to_array()
         matrix[:3, :3] = self.orientation.to_rotation_matrix()
         return matrix
+
+    @classmethod
+    def from_yaml_dict(cls, pose_dict: dict[str, Any]) -> Pose3D:
+        """Construct a Pose3D instance from data imported from YAML.
+
+        :param pose_dict: Dictionary of YAML data representing a 3D pose
+        :return: Constructed Pose3D instance
+        :raises TypeError: If the given YAML data has an unsupported type
+        """
+        if isinstance(pose_dict, dict):
+            ref_frame = pose_dict["frame"]
+            pose_list = pose_dict["xyz_rpy"]
+        else:
+            raise TypeError(f"Cannot load Pose3D from YAML data of type {type(pose_dict)}")
+
+        return Pose3D.from_list(pose_list, ref_frame)
 
     def to_yaml_dict(self) -> dict[str, Any]:
         """Convert the pose into a dictionary suitable for export to YAML."""

@@ -26,7 +26,7 @@ class Point3D:
         if arr.shape != (3,):
             raise ValueError(f"Cannot construct Point3D from an array of shape {arr.shape}")
 
-        return cls(*arr)
+        return cls(arr[0], arr[1], arr[2])
 
     def to_array(self) -> np.ndarray:
         """Convert the 3D point to a NumPy array."""
