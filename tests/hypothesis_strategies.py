@@ -5,7 +5,7 @@ from typing import Callable
 import hypothesis.strategies as st
 
 from robotics_utils.kinematics.point3d import Point3D
-from robotics_utils.kinematics.pose3d import Pose3D
+from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.rotations import Quaternion
 
 

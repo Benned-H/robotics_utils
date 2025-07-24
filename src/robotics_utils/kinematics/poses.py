@@ -1,4 +1,4 @@
-"""Define a class to represent poses in 3D space."""
+"""Define classes to represent poses in 2D and 3D space."""
 
 from __future__ import annotations
 
@@ -10,6 +10,51 @@ import numpy as np
 from robotics_utils.kinematics import DEFAULT_FRAME
 from robotics_utils.kinematics.point3d import Point3D
 from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
+
+
+@dataclass
+class Pose2D:
+    """A position and orientation on the 2D plane."""
+
+    x: float
+    y: float
+    yaw_rad: float
+    ref_frame: str = DEFAULT_FRAME  # Reference frame of the pose
+
+    @classmethod
+    def from_list(cls, pose_list: list[float], ref_frame: str = DEFAULT_FRAME) -> Pose2D:
+        """Construct a Pose2D instance from a list.
+
+        :param pose_list: List of the pose data in the form [x, y, yaw]
+        :param ref_frame: Reference frame of the constructed pose (defaults to `DEFAULT_FRAME`)
+        :return: Constructed Pose2D instance
+        """
+        x, y, yaw_rad = pose_list
+        return Pose2D(x, y, yaw_rad, ref_frame)
+
+    def to_list(self) -> list[float]:
+        """Convert the Pose2D into a list of x, y, and yaw (radians) values."""
+        return [self.x, self.y, self.yaw_rad]
+
+    def to_yaml_data(self, default_frame: str | None) -> dict[str, Any] | list[float]:
+        """Convert the Pose2D into a form suitable for export to YAML.
+
+        :param default_frame: Default frame assumed in the parent YAML file (or ignored if None)
+        :return: Dictionary specifying the pose's data and frame, or a list if the frame is default
+        """
+        if default_frame is not None and self.ref_frame == default_frame:
+            return self.to_list()
+
+        return {"x_y_yaw": self.to_list(), "frame": self.ref_frame}
+
+    def to_3d(self) -> Pose3D:
+        """Convert the 2D pose into an equivalent Pose3D."""
+        return Pose3D.from_xyz_rpy(
+            x=self.x,
+            y=self.y,
+            yaw_rad=self.yaw_rad,
+            ref_frame=self.ref_frame,
+        )
 
 
 @dataclass
@@ -33,6 +78,11 @@ class Pose3D:
         right_m = other.to_homogeneous_matrix()
         result_ref_frame = self.ref_frame  # Result takes the "leftmost" reference frame
         return Pose3D.from_homogeneous_matrix(left_m @ right_m, result_ref_frame)
+
+    @property
+    def yaw_rad(self) -> float:
+        """Retrieve the yaw (radians) from the orientation of the pose."""
+        return self.orientation.to_euler_rpy().yaw_rad
 
     @classmethod
     def identity(cls, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
@@ -127,6 +177,11 @@ class Pose3D:
     def to_yaml_dict(self) -> dict[str, Any]:
         """Convert the pose into a dictionary suitable for export to YAML."""
         return {"xyz_rpy": self.to_list(), "frame": self.ref_frame}
+
+    def to_2d(self) -> Pose2D:
+        """Convert the 3D pose into a 2D pose by discarding its z-coordinate, roll, and pitch."""
+        (x, y, _), (_, _, yaw_rad) = self.to_xyz_rpy()
+        return Pose2D(x=x, y=y, yaw_rad=yaw_rad, ref_frame=self.ref_frame)
 
     def inverse(self, pose_frame: str) -> Pose3D:
         """Return a pose representing the inverse transformation of this pose.

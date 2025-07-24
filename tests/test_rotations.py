@@ -4,7 +4,8 @@ import numpy as np
 import pytest
 from hypothesis import given
 
-from robotics_utils.kinematics.rotations import Quaternion, normalize_angle
+from robotics_utils.kinematics.rotations import Quaternion
+from robotics_utils.math.angles import normalize_angle
 
 from .hypothesis_strategies import angles_rad, quaternions
 

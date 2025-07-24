@@ -20,11 +20,13 @@ def export_yaml_data(data: dict[str, Any] | list[Any], filepath: Path) -> None:
         raise FileNotFoundError(f"Exported to YAML file '{filepath}' yet it doesn't exist")
 
 
-def load_yaml_data(yaml_path: Path) -> dict | list:
+def load_yaml_data(yaml_path: Path, required_keys: set[str]) -> Any:
     """Load data from a YAML file into Python data structures.
 
     :param yaml_path: Path to the YAML file to be imported
+    :param required_keys: Set of keys required to exist in the loaded data (assumes a dictionary)
     :return: Dictionary mapping strings to values, or a list of dictionaries, etc.
+    :raises KeyError: If a required key is missing in the loaded data
     """
     if not yaml_path.exists():
         raise FileNotFoundError(f"Cannot load data from nonexistent YAML file: {yaml_path}")
@@ -34,5 +36,9 @@ def load_yaml_data(yaml_path: Path) -> dict | list:
             yaml_data: dict | list = yaml.safe_load(yaml_file)
     except yaml.YAMLError as error:
         raise RuntimeError(f"Failed to load from YAML file: {yaml_path}") from error
+
+    for key in required_keys:
+        if key not in yaml_data:
+            raise KeyError(f"Required key '{key}' was missing in data loaded from {yaml_path}")
 
     return yaml_data
