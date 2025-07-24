@@ -21,7 +21,7 @@ def euclidean_distance_2d_m(pose_a: Pose2D, pose_b: Pose2D, change_frames: bool)
 
         pose_a = TransformManager.convert_to_frame(pose_a.to_3d(), pose_b.ref_frame).to_2d()
 
-    return np.linalg.norm(np.array([pose_a.x, pose_a.y]), np.array([pose_b.x, pose_b.y]))
+    return float(np.linalg.norm(np.array([pose_a.x - pose_b.x, pose_a.y - pose_b.y])))
 
 
 def angle_difference_rad(a_rad: float, b_rad: float) -> float:
