@@ -6,7 +6,7 @@ import rospy
 from geometry_msgs.msg import TransformStamped
 from tf2_ros import Buffer, TransformBroadcaster, TransformException, TransformListener
 
-from robotics_utils.kinematics.pose3d import Pose3D
+from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.ros.msg_conversion import pose_from_tf_stamped_msg, pose_to_tf_stamped_msg
 
 

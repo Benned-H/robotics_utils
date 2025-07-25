@@ -6,14 +6,13 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import rospy
 from moveit_commander import MoveGroupCommander, RobotCommander, roscpp_initialize
 from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
 
 from robotics_utils.filesystem.yaml_utils import load_yaml_data
-from robotics_utils.kinematics.pose3d import Pose3D
+from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.ros.msg_conversion import pose_to_msg
 from robotics_utils.ros.transform_manager import TransformManager
 
@@ -101,7 +100,7 @@ class TrajectoryReplayer:
         # Display the generated trajectory in RViz
         display_trajectory = DisplayTrajectory()
         display_trajectory.trajectory_start = self.robot.get_current_state()
-        display_trajectory.trajectory.append(plan)
+        display_trajectory.trajectory = [plan]
         self.display_trajectory_pub.publish(display_trajectory)
 
         if fraction < self.config.required_fraction:
