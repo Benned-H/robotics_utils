@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import rospy
 from geometry_msgs.msg import Point, Pose, PoseStamped, Transform, TransformStamped, Vector3
 from geometry_msgs.msg import Quaternion as QuaternionMsg
+from sensor_msgs.msg import JointState
 
-from robotics_utils.kinematics import DEFAULT_FRAME
+from robotics_utils.kinematics import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.point3d import Point3D
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.rotations import Quaternion
@@ -120,3 +122,12 @@ def pose_msg_to_tf_msg(pose_msg: Pose) -> Transform:
 def tf_msg_to_pose_msg(tf_msg: Transform) -> Pose:
     """Convert a geometry_msgs/Transform message into a geometry_msgs/Pose message."""
     return Pose(vector3_msg_to_point_msg(tf_msg.translation), tf_msg.rotation)
+
+
+def config_to_joint_state_msg(config: Configuration) -> JointState:
+    """Convert the given configuration into a sensor_msgs/JointState message."""
+    msg = JointState()
+    msg.header.stamp = rospy.Time.now()
+    msg.name = list(config.keys())
+    msg.position = list(config.values())
+    return msg
