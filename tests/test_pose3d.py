@@ -37,7 +37,7 @@ def test_pose3d_to_yaml_and_back(pose: Pose3D) -> None:
     """Verify that any Pose3D is unchanged after converting to and from YAML data."""
     # Arrange/Act - Given a 3D pose, convert to and from a dictionary for export to YAML
     pose_dict = pose.to_yaml_dict()
-    result_pose = Pose3D.from_yaml_dict(pose_dict)
+    result_pose = Pose3D.from_yaml_data(pose_dict)
 
     # Assert - Expect that the resulting Pose3D equals the original
     assert pose.approx_equal(result_pose)

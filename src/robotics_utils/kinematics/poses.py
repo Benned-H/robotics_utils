@@ -159,18 +159,22 @@ class Pose3D:
         return matrix
 
     @classmethod
-    def from_yaml_dict(cls, pose_dict: dict[str, Any]) -> Pose3D:
+    def from_yaml_data(cls, pose_data: dict | list, default_frame: str = DEFAULT_FRAME) -> Pose3D:
         """Construct a Pose3D instance from data imported from YAML.
 
-        :param pose_dict: Dictionary of YAML data representing a 3D pose
+        :param pose_data: Dictionary or list of YAML data representing a 3D pose
+        :param default_frame: Default frame used for the pose, if the YAML doesn't provide one
         :return: Constructed Pose3D instance
         :raises TypeError: If the given YAML data has an unsupported type
         """
-        if isinstance(pose_dict, dict):
-            ref_frame = pose_dict["frame"]
-            pose_list = pose_dict["xyz_rpy"]
+        if isinstance(pose_data, dict):
+            pose_list = pose_data["xyz_rpy"]
+            ref_frame = pose_data["frame"]
+        elif isinstance(pose_data, list):
+            pose_list = pose_data
+            ref_frame = default_frame
         else:
-            raise TypeError(f"Cannot load Pose3D from YAML data of type {type(pose_dict)}")
+            raise TypeError(f"Cannot load Pose3D from YAML data of type {type(pose_data)}")
 
         return Pose3D.from_list(pose_list, ref_frame)
 
