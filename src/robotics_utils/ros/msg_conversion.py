@@ -6,6 +6,8 @@ import rospy
 from geometry_msgs.msg import Point, Pose, PoseStamped, Transform, TransformStamped, Vector3
 from geometry_msgs.msg import Quaternion as QuaternionMsg
 from sensor_msgs.msg import JointState
+from shape_msgs.msg import Mesh, MeshTriangle
+from trimesh import Trimesh
 
 from robotics_utils.kinematics import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.point3d import Point3D
@@ -130,4 +132,14 @@ def config_to_joint_state_msg(config: Configuration) -> JointState:
     msg.header.stamp = rospy.Time.now()
     msg.name = list(config.keys())
     msg.position = list(config.values())
+    msg.effort = [0] * len(config)
+    msg.velocity = [0] * len(config)
     return msg
+
+
+def trimesh_to_msg(mesh: Trimesh) -> Mesh:
+    """Convert a trimesh.Trimesh into a shape_msgs/Mesh message."""
+    mesh_msg = Mesh()
+    mesh_msg.triangles = [MeshTriangle(list(tri)) for tri in mesh.faces]
+    mesh_msg.vertices = [Point(v[0], v[1], v[2]) for v in mesh.vertices]
+    return mesh_msg
