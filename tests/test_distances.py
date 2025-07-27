@@ -18,4 +18,4 @@ def test_euclidean_distance_2d_m(pose_a: Pose2D, pose_b: Pose2D) -> None:
     # Assert - Euclidean distances should be non-negative, and zero if the poses are equal in (x,y)
     assert distance_2d_m >= 0.0
     if pose_a.x == pose_b.x and pose_a.y == pose_b.y:
-        assert distance_2d_m == pytest.approx(0.0)
+        assert distance_2d_m == 0.0
