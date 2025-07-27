@@ -8,7 +8,7 @@ from typing import Any
 import yaml
 
 from robotics_utils.kinematics import DEFAULT_FRAME
-from robotics_utils.kinematics.collision_models import MeshData, RatioSimplifier
+from robotics_utils.kinematics.collision_models import MeshData, MeshSimplifier
 from robotics_utils.kinematics.poses import Pose3D
 
 
@@ -49,43 +49,29 @@ def load_yaml_data(yaml_path: Path, required_keys: set[str] | None = None) -> An
     return yaml_data
 
 
-def load_object_poses(yaml_path: Path) -> dict[str, Pose3D]:
-    """Load known object poses from the given YAML file.
+def load_named_poses(yaml_path: Path, collection_name: str) -> dict[str, Pose3D]:
+    """Load a collection of named poses from the given YAML files.
 
-    :param yaml_path: Path to a YAML file containing object pose data
-    :return: Dictionary mapping object names to their imported 3D poses
+    :param yaml_path: Path to a YAML file containing pose data
+    :param collection_name: Name of the collection of poses to be imported (e.g., "object_poses")
+    :return: Dictionary mapping pose-frame names to their imported 3D poses
     """
-    yaml_data = load_yaml_data(yaml_path, required_keys={"object_poses"})
+    yaml_data = load_yaml_data(yaml_path, required_keys={collection_name})
     default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
-    object_poses_data: dict[str, Any] = yaml_data["object_poses"]
+    poses_data: dict[str, Any] = yaml_data[collection_name]
 
     return {
-        obj_name: Pose3D.from_yaml_data(pose_data, default_frame)
-        for obj_name, pose_data in object_poses_data.items()
+        pose_name: Pose3D.from_yaml_data(pose_data, default_frame)
+        for pose_name, pose_data in poses_data.items()
     }
 
 
-def load_robot_base_poses(yaml_path: Path) -> dict[str, Pose3D]:
-    """Load robot base poses from the given YAML file.
-
-    :param yaml_path: Path to a YAML file containing robot base pose data
-    :return: Dictionary mapping robot names to their imported base poses
-    """
-    yaml_data = load_yaml_data(yaml_path, required_keys={"robot_base_poses"})
-    default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
-    base_poses_data = yaml_data["robot_base_poses"]
-
-    return {
-        robot_name: Pose3D.from_yaml_data(pose_data, default_frame)
-        for robot_name, pose_data in base_poses_data.items()
-    }
-
-
-def load_named_mesh(mesh_key: str, yaml_path: Path) -> MeshData:
+def load_named_mesh(mesh_key: str, yaml_path: Path, simplifier: MeshSimplifier) -> MeshData:
     """Load the specified mesh from the given YAML file.
 
     :param mesh_key: YAML key used to access the imported mesh
     :param yaml_path: Path to a YAML file specifying mesh data
+    :param simplifier: Used to simplify the imported mesh geometry
     :return: Constructed MeshData instance
     """
     yaml_data = load_yaml_data(yaml_path, required_keys={"meshes"})
@@ -93,4 +79,4 @@ def load_named_mesh(mesh_key: str, yaml_path: Path) -> MeshData:
     if mesh_data is None:
         raise KeyError(f"Could not find mesh '{mesh_key}' in YAML file {yaml_path}")
 
-    return MeshData.from_yaml_data(mesh_data, simplifier=RatioSimplifier())
+    return MeshData.from_yaml_data(mesh_data, simplifier)

@@ -1,14 +1,16 @@
-"""Define classes to represent collision models supporting multiple primitives and meshes."""
+"""Define classes to represent collision models supporting multiple primitive shapes and meshes."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol, Tuple
+from typing import Any, Protocol
 
 import numpy as np
 import trimesh
-from trimesh.transformations import euler_matrix
+
+from robotics_utils.kinematics.point3d import Point3D
+from robotics_utils.kinematics.rotations import EulerRPY
 
 
 class MeshTransform(Protocol):
@@ -23,41 +25,33 @@ class MeshTransform(Protocol):
 class Translate(MeshTransform):
     """Translate a mesh by some (x,y,z) vector."""
 
-    x: float
-    y: float
-    z: float
+    xyz: Point3D
 
     def apply(self, mesh: trimesh.Trimesh) -> None:
-        """Apply the translation to the given mesh in-place."""
-        mesh.apply_translation(np.array([self.x, self.y, self.z]))
+        """Translate the given mesh in-place."""
+        mesh.apply_translation(self.xyz.to_array())
 
     @classmethod
     def from_list(cls, values: list[float]) -> Translate:
         """Construct a Translate instance from a list of values."""
-        if len(values) != 3:
-            raise ValueError(f"Translate expects 3 values, got {len(values)}")
-        return Translate(x=values[0], y=values[1], z=values[2])
+        return Translate(xyz=Point3D.from_sequence(values))
 
 
 @dataclass(frozen=True)
 class Rotate(MeshTransform):
-    """Rotate a mesh based on Euler angles in radians."""
+    """Rotate a mesh based on Euler angles specified in radians."""
 
-    roll_rad: float  # Rotation about the x-axis
-    pitch_rad: float  # Rotation about the y-axis
-    yaw_rad: float  # Rotation about the z-axis
+    rpy: EulerRPY  # A 3D rotation represented using fixed-frame Euler angles
 
     def apply(self, mesh: trimesh.Trimesh) -> None:
-        """Apply the rotation to the given mesh in-place."""
-        matrix = euler_matrix(self.roll_rad, self.pitch_rad, self.yaw_rad, axes="sxyz")
+        """Rotate the given mesh in-place."""
+        matrix = self.rpy.to_homogeneous_matrix()
         mesh.apply_transform(matrix)
 
     @classmethod
     def from_list(cls, values: list[float]) -> Rotate:
         """Construct a Rotate instance from a list of values."""
-        if len(values) != 3:
-            raise ValueError(f"Rotate expects 3 values, got {len(values)}")
-        return Rotate(roll_rad=values[0], pitch_rad=values[1], yaw_rad=values[2])
+        return Rotate(rpy=EulerRPY.from_list(values))
 
 
 @dataclass(frozen=True)
@@ -72,7 +66,7 @@ class Scale(MeshTransform):
 
     @classmethod
     def from_value(cls, value: float | list[float]) -> Scale:
-        """Construct a Scale instance from a single value or list."""
+        """Construct a Scale instance from a single value or list of values."""
         if isinstance(value, list):
             if len(value) != 3:
                 raise ValueError(f"Non-uniform scale expects 3 values, got {len(value)}")
@@ -82,7 +76,7 @@ class Scale(MeshTransform):
 
 @dataclass(frozen=True)
 class CenterMass(MeshTransform):
-    """Center a mesh at the origin based on its center of mass (centroid)."""
+    """Center a mesh at the origin based on its center of mass (i.e., centroid)."""
 
     def apply(self, mesh: trimesh.Trimesh) -> None:
         """Center the mass of the given mesh in-place."""
@@ -94,7 +88,7 @@ class CenterBounds(MeshTransform):
     """Center a mesh at the origin based on its bounding box."""
 
     def apply(self, mesh: trimesh.Trimesh) -> None:
-        """Center the given mesh in-place."""
+        """Center the bounding box of the given mesh in-place."""
         bounds_center = (mesh.bounds[0] + mesh.bounds[1]) / 2.0
         mesh.apply_translation(-bounds_center)
 
@@ -106,7 +100,7 @@ class BottomAtZeroZ(MeshTransform):
     def apply(self, mesh: trimesh.Trimesh) -> None:
         """Bottom-normalize the given mesh in-place."""
         _, _, min_z = mesh.bounds[0]
-        mesh.apply_translation(np.array([0, 0, -min_z]))
+        mesh.apply_translation([0, 0, -min_z])
 
 
 @dataclass(frozen=True)
@@ -119,7 +113,7 @@ class OrientToAxes(MeshTransform):
 
 
 def parse_mesh_transforms(transform_specs: list[dict[str, Any] | str]) -> list[MeshTransform]:
-    """Parse mesh transform specifications from YAML."""
+    """Parse mesh transform specifications from YAML data."""
     transforms: list[MeshTransform] = []
 
     for spec in transform_specs:
@@ -149,48 +143,64 @@ def parse_mesh_transforms(transform_specs: list[dict[str, Any] | str]) -> list[M
     return transforms
 
 
-DimsXYZ = Tuple[float, float, float]
+@dataclass(frozen=True)
+class AxisAlignedBoundingBox:
+    """An axis-aligned bounding box (AABB) comprised of minimum and maximum (x,y,z) coordinates."""
+
+    min_xyz: Point3D
+    max_xyz: Point3D
 
 
 @dataclass(frozen=True)
 class Box:
-    """Box primitive shape with (x,y,z) dimensions."""
+    """Box primitive shape with (x,y,z) dimensions (in meters)."""
 
-    x: float
-    y: float
-    z: float
+    x_m: float
+    y_m: float
+    z_m: float
 
     @property
-    def bounds(self) -> DimsXYZ:
-        """Get the bounding box dimensions of the box."""
-        return (self.x, self.y, self.z)
+    def aabb(self) -> AxisAlignedBoundingBox:
+        """Get the axis-aligned bounding box (AABB) of the box."""
+        half_x_m = self.x_m / 2.0
+        half_y_m = self.y_m / 2.0
+        half_z_m = self.z_m / 2.0
+        return AxisAlignedBoundingBox(
+            min_xyz=Point3D(-half_x_m, -half_y_m, -half_z_m),
+            max_xyz=Point3D(half_x_m, half_y_m, half_z_m),
+        )
 
 
 @dataclass(frozen=True)
 class Sphere:
-    """Sphere primitive shape with a radius."""
+    """Sphere primitive shape with a radius (in meters)."""
 
-    radius: float
+    radius_m: float
 
     @property
-    def bounds(self) -> DimsXYZ:
-        """Get the bounding box dimensions of the sphere."""
-        d = 2.0 * self.radius
-        return (d, d, d)
+    def aabb(self) -> AxisAlignedBoundingBox:
+        """Get the axis-aligned bounding box (AABB) of the sphere."""
+        return AxisAlignedBoundingBox(
+            min_xyz=Point3D(-self.radius_m, -self.radius_m, -self.radius_m),
+            max_xyz=Point3D(self.radius_m, self.radius_m, self.radius_m),
+        )
 
 
 @dataclass(frozen=True)
 class Cylinder:
-    """Cylinder primitive shape with a height and radius."""
+    """Cylinder primitive shape with a height and radius (in meters)."""
 
-    height: float
-    radius: float
+    height_m: float
+    radius_m: float
 
     @property
-    def bounds(self) -> DimsXYZ:
-        """Get the bounding box dimensions of the cylinder."""
-        d = 2.0 * self.radius
-        return (d, d, self.height)
+    def aabb(self) -> AxisAlignedBoundingBox:
+        """Get the axis-aligned bounding box (AABB) of the cylinder."""
+        half_height_m = self.height_m / 2.0
+        return AxisAlignedBoundingBox(
+            min_xyz=Point3D(-self.radius_m, -self.radius_m, -half_height_m),
+            max_xyz=Point3D(self.radius_m, self.radius_m, half_height_m),
+        )
 
 
 PrimitiveShape = Box | Sphere | Cylinder
@@ -248,6 +258,15 @@ class MeshData:
 
         return MeshData(mesh, source_path, transforms_applied=transforms)
 
+    @property
+    def aabb(self) -> AxisAlignedBoundingBox:
+        """Get the axis-aligned bounding box (AABB) of the mesh."""
+        min_bounds, max_bounds = self.mesh.bounds
+        return AxisAlignedBoundingBox(
+            min_xyz=Point3D.from_sequence(min_bounds),
+            max_xyz=Point3D.from_sequence(max_bounds),
+        )
+
 
 @dataclass
 class CollisionModel:
@@ -257,31 +276,28 @@ class CollisionModel:
     primitives: list[PrimitiveShape] = field(default_factory=list)
 
     @property
-    def bounds(self) -> DimsXYZ:
-        """Get the combined bounding box of all elements of the model."""
-        if not self.meshes and not self.primitives:
-            return (0.0, 0.0, 0.0)
+    def aabb(self) -> AxisAlignedBoundingBox:
+        """Get the combined axis-aligned bounding box (AABB) of all elements in the model."""
+        combined_min = np.array([0.0, 0.0, 0.0])  # Initialize an empty combined bounding box
+        combined_max = np.array([0.0, 0.0, 0.0])
 
-        all_bounds: list[DimsXYZ] = []
+        for mesh in self.meshes:
+            combined_min = np.minimum(combined_min, mesh.aabb.min_xyz.to_array())
+            combined_max = np.maximum(combined_max, mesh.aabb.max_xyz.to_array())
 
-        for mesh_data in self.meshes:
-            b = mesh_data.mesh.bounds
-            dims = b[1] - b[0]
-            all_bounds.append(tuple(dims))
+        for p in self.primitives:
+            combined_min = np.minimum(combined_min, p.aabb.min_xyz.to_array())
+            combined_max = np.maximum(combined_max, p.aabb.max_xyz.to_array())
 
-        all_bounds.extend(primitive.bounds for primitive in self.primitives)
-
-        return (
-            max(b[0] for b in all_bounds),
-            max(b[1] for b in all_bounds),
-            max(b[2] for b in all_bounds),
+        return AxisAlignedBoundingBox(
+            min_xyz=Point3D.from_array(combined_min),
+            max_xyz=Point3D.from_array(combined_max),
         )
 
     @classmethod
     def from_yaml_data(cls, data: dict[str, Any], simplifier: MeshSimplifier) -> CollisionModel:
         """Create a collision model from data loaded from YAML."""
-        meshes_data = data.get("meshes", [])
-        meshes = [MeshData.from_yaml_data(mesh_data, simplifier) for mesh_data in meshes_data]
+        meshes = [MeshData.from_yaml_data(m_data, simplifier) for m_data in data.get("meshes", [])]
 
         primitives = [
             create_primitive_shape(shape_type=prim_spec["type"], params=prim_spec["params"])
@@ -297,12 +313,12 @@ class CollisionModel:
 def create_primitive_shape(shape_type: str, params: dict[str, float]) -> PrimitiveShape:
     """Create a primitive shape from its type and parameters."""
     if shape_type == "box":
-        return Box(x=params["x"], y=params["y"], z=params["z"])
+        return Box(x_m=params["x"], y_m=params["y"], z_m=params["z"])
 
     if shape_type == "sphere":
-        return Sphere(radius=params["radius"])
+        return Sphere(radius_m=params["radius"])
 
     if shape_type == "cylinder":
-        return Cylinder(height=params["height"], radius=params["radius"])
+        return Cylinder(height_m=params["height"], radius_m=params["radius"])
 
     raise ValueError(f"Unknown primitive shape type: {shape_type}")

@@ -1,16 +1,14 @@
-"""Represent the geometric state of the environment as a kinematic tree."""
+"""Represent the geometric state of an environment as a kinematic tree."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
-from robotics_utils.filesystem.yaml_utils import load_object_poses, load_robot_base_poses
+from robotics_utils.filesystem.yaml_utils import load_named_poses
 from robotics_utils.kinematics import Configuration
+from robotics_utils.kinematics.collision_models import CollisionModel
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
-
-CollisionModel = Any  # TODO
 
 
 class KinematicTree:
@@ -18,10 +16,10 @@ class KinematicTree:
 
     def __init__(self) -> None:
         """Initialize the kinematic tree's member variables as empty."""
-        self.frames: dict[str, Pose3D] = {}  # Maps each frame name to its relative pose
-        self.children: dict[str, set[str]] = {}  # Map each frame name to its children frames
+        self.frames: dict[str, Pose3D] = {}  # Map each frame name to its relative pose
+        self.children: dict[str, set[str]] = {}  # Map each frame name to its child frames
 
-        # Map frame names to their (optional) attached collision geometry
+        # Map each frame name to its (optional) attached collision geometry
         self.collision_models: dict[str, CollisionModel] = {}
 
         # Record which frames correspond to objects or robot base poses
@@ -29,7 +27,7 @@ class KinematicTree:
         self.robot_names: set[str] = set()  # Base pose frame names: f"{robot_name}_base_pose"
 
         # Store robot configurations to represent actuated joints in the kinematic tree
-        self.robot_configurations: dict[str, Configuration] = {}
+        self.robot_configurations: dict[str, Configuration] = {}  # Map robot names to configs
 
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
@@ -42,12 +40,12 @@ class KinematicTree:
         """
         tree = KinematicTree()
 
-        for obj_name, obj_pose in load_object_poses(yaml_path).items():
+        for obj_name, obj_pose in load_named_poses(yaml_path, "object_poses").items():
             tree.set_object_pose(obj_name, obj_pose)
 
-        for robot_name, robot_base_pose in load_robot_base_poses(yaml_path).items():
-            tree.set_robot_base_pose(robot_name, robot_base_pose)
-            tree.robot_configurations[robot_name] = {}  # Default: No robot configurations
+        for robot_name, base_pose in load_named_poses(yaml_path, "robot_base_poses").items():
+            tree.set_robot_base_pose(robot_name, base_pose)
+            tree.robot_configurations[robot_name] = {}  # Default: No robot configurations in YAML
 
         tree.waypoints = Waypoints.from_yaml(yaml_path)
 
@@ -67,7 +65,7 @@ class KinematicTree:
         """Update the named frame with the given relative pose.
 
         :param frame_name: Name of the reference frame added or updated
-        :param pose: Relative pose of the frame
+        :param pose: New relative pose of the frame
         """
         prev_parent_frame = self.get_parent_frame(frame_name)
         if prev_parent_frame is not None:  # Remove the frame from its previous parent's children
@@ -81,13 +79,13 @@ class KinematicTree:
         """Retrieve the parent frame of the given child frame.
 
         :param child_frame: Frame whose parent frame is retrieved
-        :return: Name of the relative frame of the child frame (None if parent frame is unknown)
+        :return: Name of the reference frame of the child frame (None if parent frame is unknown)
         """
         child_pose = self.frames.get(child_frame)
         return None if child_pose is None else child_pose.ref_frame
 
     def set_object_pose(self, obj_name: str, new_pose: Pose3D) -> None:
-        """Set the pose of the named object to the given pose.
+        """Set the pose of the named object.
 
         :param obj_name: Name of the object assigned the given pose
         :param new_pose: New 3D pose of the object
@@ -108,7 +106,7 @@ class KinematicTree:
         return self.frames[obj_name]
 
     def set_robot_base_pose(self, robot_name: str, new_pose: Pose3D) -> None:
-        """Set the base pose of the named robot to the given pose.
+        """Set the base pose of the named robot.
 
         :param robot_name: Name of the robot assigned the given base pose
         :param new_pose: New base pose of the robot
@@ -132,12 +130,10 @@ class KinematicTree:
         """Set the collision geometry attached to the named frame.
 
         :param frame_name: Name of the frame to which the collision model is attached
-        :param collision_model: Rigid-body collision geometry (geometric primitive or mesh)
+        :param collision_model: Rigid-body collision geometry (primitive shape(s) and/or mesh(es))
         :raises KeyError: If an invalid frame name is given
         """
         if frame_name not in self.frames:
             raise KeyError(f"Cannot set collision model for unknown frame: '{frame_name}'.")
 
         self.collision_models[frame_name] = collision_model
-
-    # TODO: Deleted convert_poses_to_yaml, which seemed poorly motivated (why to a string?)

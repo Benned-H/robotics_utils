@@ -40,7 +40,7 @@ class Waypoints(Dict[str, Pose2D]):
     def to_yaml_data(self, default_frame: str | None) -> dict[str, Any]:
         """Convert the waypoints into a dictionary suitable for export to YAML.
 
-        :param default_frame: Default frame assumed in the parent YAML file (or ignored if None)
+        :param default_frame: Default frame assumed in the parent YAML file (ignored if None)
         :return: Dictionary mapping waypoint names to their Pose2D data
         """
-        return {waypoint: pose.to_yaml_data(default_frame) for waypoint, pose in self.items()}
+        return {name: pose.to_yaml_data(default_frame) for name, pose in self.items()}

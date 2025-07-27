@@ -18,7 +18,7 @@ class ServiceCaller(Generic[RequestT, ResponseT]):
     """Utility class to simplify ROS service calls.
 
     Provides a generic interface for calling a ROS service that waits for
-    the service to be available and calls the service with a request.
+    the service to be available and can call the service given a request.
     """
 
     def __init__(self, service_name: str, service_type: type, timeout_s: float = 30.0):
@@ -37,7 +37,7 @@ class ServiceCaller(Generic[RequestT, ResponseT]):
         """Call the ROS service with the provided request message.
 
         :param request: Service request message
-        :return: Response from the service, or None if the call fails
+        :return: Response message from the service, or None if the call fails
         """
         try:
             response: ResponseT = self._service_proxy(request)
@@ -53,7 +53,7 @@ class ServiceCaller(Generic[RequestT, ResponseT]):
         """Allow the service to be called using the () operator.
 
         :param request: Service request message
-        :return: Response from the service, or None if the call fails
+        :return: Response message from the service, or None if the call fails
         """
         return self.call_service(request)
 
@@ -82,12 +82,12 @@ class WaitForServiceCall:
     """A class that loops until its ROS service has been called."""
 
     def __init__(self, topic_name: str, loop_hz: float = 10.0) -> None:
-        """Initialize the service and then spin at the given frequency (Hz)."""
+        """Initialize the service and then loop at the given frequency (Hz)."""
         self.keep_looping = True
         self.service = rospy.Service(topic_name, Trigger, self.handle_trigger)
         rospy.loginfo(f"Now waiting for the service '{topic_name}' to be called...")
 
-        rate_hz = rospy.Rate(loop_hz)  # Loop at the given frequency (Hz)
+        rate_hz = rospy.Rate(loop_hz)
         while self.keep_looping:
             rate_hz.sleep()
 

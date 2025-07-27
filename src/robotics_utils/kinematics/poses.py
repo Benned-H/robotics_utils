@@ -29,6 +29,9 @@ class Pose2D:
         :param ref_frame: Reference frame of the constructed pose (defaults to `DEFAULT_FRAME`)
         :return: Constructed Pose2D instance
         """
+        if len(pose_list) != 3:
+            raise ValueError(f"Pose2D expected 3 values, got {len(pose_list)}")
+
         x, y, yaw_rad = pose_list
         return Pose2D(x, y, yaw_rad, ref_frame)
 
@@ -39,8 +42,8 @@ class Pose2D:
     def to_yaml_data(self, default_frame: str | None) -> dict[str, Any] | list[float]:
         """Convert the Pose2D into a form suitable for export to YAML.
 
-        :param default_frame: Default frame assumed in the parent YAML file (or ignored if None)
-        :return: Dictionary specifying the pose's data and frame, or a list if the frame is default
+        :param default_frame: Default frame assumed in the parent YAML file (ignored if None)
+        :return: Dictionary with the pose's data and frame, or a list if its frame is the default
         """
         if default_frame is not None and self.ref_frame == default_frame:
             return self.to_list()

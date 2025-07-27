@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
+from numpy.typing import NDArray
 
 
 @dataclass
@@ -28,9 +30,16 @@ class Point3D:
 
         return cls(arr[0], arr[1], arr[2])
 
-    def to_array(self) -> np.ndarray:
+    def to_array(self) -> NDArray[np.float64]:
         """Convert the 3D point to a NumPy array."""
         return np.array([self.x, self.y, self.z])
+
+    @classmethod
+    def from_sequence(cls, values: Sequence[float]) -> Point3D:
+        """Construct a Point3D instance from a sequence (e.g., list or tuple) of values."""
+        if len(values) != 3:
+            raise ValueError(f"Point3D expects 3 values, got {len(values)}")
+        return Point3D(values[0], values[1], values[2])
 
     def to_tuple(self) -> tuple[float, float, float]:
         """Convert the Point3D into a tuple of (x, y, z) coordinates."""

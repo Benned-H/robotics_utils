@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from numpy.typing import NDArray
 from transforms3d.euler import euler2mat, euler2quat, mat2euler, quat2euler
 from transforms3d.quaternions import mat2quat, quat2mat
+from trimesh.transformations import euler_matrix
 
 
 @dataclass
@@ -23,6 +25,13 @@ class EulerRPY:
         return EulerRPY(0, 0, 0)
 
     @classmethod
+    def from_list(cls, values: list[float]) -> EulerRPY:
+        """Construct Euler angles from a list of values (in radians)."""
+        if len(values) != 3:
+            raise ValueError(f"EulerRPY expects 3 values, got {len(values)}")
+        return EulerRPY(values[0], values[1], values[2])
+
+    @classmethod
     def from_rotation_matrix(cls, r_matrix: np.ndarray) -> EulerRPY:
         """Construct Euler angles from a 3x3 rotation matrix."""
         if r_matrix.shape != (3, 3):
@@ -30,9 +39,13 @@ class EulerRPY:
         roll, pitch, yaw = mat2euler(r_matrix, axes="sxyz")
         return EulerRPY(roll, pitch, yaw)
 
-    def to_rotation_matrix(self) -> np.ndarray:
+    def to_rotation_matrix(self) -> NDArray[np.float64]:
         """Convert the Euler RPY angles into an equivalent rotation matrix."""
         return euler2mat(self.roll_rad, self.pitch_rad, self.yaw_rad, axes="sxyz")
+
+    def to_homogeneous_matrix(self) -> NDArray[np.float64]:
+        """Convert the Euler RPY angles into an equivalent homogeneous transform matrix."""
+        return euler_matrix(self.roll_rad, self.pitch_rad, self.yaw_rad, axes="sxyz")
 
     def to_quaternion(self) -> Quaternion:
         """Convert the Euler angles into an equivalent unit quaternion."""
@@ -81,7 +94,7 @@ class Quaternion:
 
         return cls(float(arr[0]), float(arr[1]), float(arr[2]), float(arr[3]))
 
-    def to_array(self) -> np.ndarray:
+    def to_array(self) -> NDArray[np.float64]:
         """Convert the quaternion to a NumPy array of the form [x,y,z,w]."""
         return np.array([self.x, self.y, self.z, self.w])
 
@@ -98,7 +111,7 @@ class Quaternion:
         w, x, y, z = mat2quat(r_matrix)  # Note: transforms3d quaternions have w first
         return Quaternion(x=float(x), y=float(y), z=float(z), w=float(w))
 
-    def to_rotation_matrix(self) -> np.ndarray:
+    def to_rotation_matrix(self) -> NDArray[np.float64]:
         """Convert the quaternion to a 3x3 rotation matrix."""
         return quat2mat(q=[self.w, self.x, self.y, self.z])
 

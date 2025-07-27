@@ -9,12 +9,17 @@ import rospy
 ParamT = TypeVar("ParamT")
 
 
-def get_ros_param(name: str, param_type: type[ParamT]) -> ParamT:
+def get_ros_param(name: str, param_t: type[ParamT], default_value: ParamT | None = None) -> ParamT:
     """Retrieve the parameter with the given name and type from the ROS parameter server.
 
     :param name: Name of the retrieved ROS parameter
-    :param param_type: Type of the retrieved parameter
+    :param param_t: Type of the retrieved parameter
+    :param default_value: Default value used if the ROS parameter doesn't exist (defaults to None)
     :return: Value retrieved from the ROS parameter server
     """
-    param_value = rospy.get_param(name)
-    return param_type(param_value)
+    if default_value is None:
+        param_value = rospy.get_param(name)
+    else:
+        param_value = rospy.get_param(name, default=default_value)
+
+    return param_t(param_value)
