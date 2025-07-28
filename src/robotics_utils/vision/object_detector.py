@@ -1,15 +1,66 @@
 """Define a class providing open-vocabulary object detection using OWL-ViT."""
 
+from __future__ import annotations
+
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 import cv2
-import numpy as np
 import torch
 from PIL import Image
 from transformers import OwlViTForObjectDetection, OwlViTImageProcessorFast, OwlViTProcessor
 
 from robotics_utils.vision.bounding_box import BoundingBox
+from robotics_utils.vision.rgb_image import RGBImage
 from robotics_utils.vision.vision_utils import RGB, determine_pytorch_device
+
+
+class TextQueries:
+    """A set of text queries for an object detection model."""
+
+    def __init__(self) -> None:
+        """Initialize an empty list (acting as a set) of text queries."""
+        self._queries: list[str] = []
+
+    def __bool__(self) -> bool:
+        """Return a Boolean indicating if the set of text queries is empty (empty = False)."""
+        return bool(self._queries)
+
+    def __iter__(self) -> Iterator[str]:
+        """Return an iterator over the set of text queries."""
+        return iter(self._queries)
+
+    def __str__(self) -> str:
+        """Return a readable string representation of the text queries."""
+        return "\t" + "\n\t".join(self._queries)
+
+    def add(self, query: str) -> None:
+        """Add the given text query, or multiple comma-separated queries, to the set."""
+        new_queries = [q.strip() for q in query.split(",")]
+        for q in new_queries:
+            if q and q not in self._queries:
+                self._queries.append(q)
+        self._queries = sorted(self._queries)
+
+    def remove(self, query: str) -> bool:
+        """Remove the given text query from the set.
+
+        :param query: Text query to be removed
+        :return: Boolean value indicating if the given query was removed
+        """
+        try:
+            self._queries.remove(query.strip())
+        except ValueError as _:
+            return False
+        return True
+
+    def clear(self) -> None:
+        """Clear the set of text queries."""
+        self._queries.clear()
+
+    def to_list(self) -> list[str]:
+        """Return a list of the stored text queries."""
+        return self._queries
 
 
 @dataclass(frozen=True)
@@ -20,7 +71,7 @@ class ObjectDetection:
     score: float
     bounding_box: BoundingBox
 
-    def draw(self, image: np.ndarray, color: RGB = (255, 255, 0), thickness: int = 3) -> None:
+    def draw(self, image: RGBImage, color: RGB = (255, 255, 0), thickness: int = 3) -> None:
         """Visualize the object detection on the given image.
 
         :param image: Image on which the object detection is drawn (modified in-place)
@@ -30,8 +81,8 @@ class ObjectDetection:
         self.bounding_box.draw(image, color, thickness)
 
         label = f"{self.query}: {self.score:.2f}"
-        text_xy = (self.bounding_box.top_left_x - 50, self.bounding_box.top_left_y - 10)
-        cv2.putText(image, label, text_xy, cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        text_xy = (self.bounding_box.top_left.x - 50, self.bounding_box.top_left.y - 10)
+        cv2.putText(image.data, label, text_xy, cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
 
 class ObjectDetector:
@@ -45,21 +96,21 @@ class ObjectDetector:
         self.processor = OwlViTProcessor.from_pretrained(model_name)
         self.fast_image_processor = OwlViTImageProcessorFast()
 
-    def detect(self, image: np.ndarray, text_queries: list[str]) -> list[ObjectDetection]:
+    def detect(self, image: RGBImage, queries: list[str] | TextQueries) -> list[ObjectDetection]:
         """Detect objects matching text queries in the given image.
 
         :param image: RGB image to detect objects within
-        :param text_queries: Text queries describing the object(s) to be detected
+        :param queries: Text queries describing the object(s) to be detected
         :return: List of all successful object detections for the queries
         """
-        if image.dtype != np.uint8:
-            image = (image * 255).astype(np.uint8)
+        if isinstance(queries, TextQueries):
+            queries = queries.to_list()
 
-        pil_image = Image.fromarray(image)
+        pil_image = Image.fromarray(image.data)
 
         # Process all text queries at once
         inputs = self.processor(
-            text=text_queries,
+            text=queries,
             images=pil_image,
             return_tensors="pt",  # Return PyTorch tensors
         ).to(self.device)
@@ -72,14 +123,14 @@ class ObjectDetector:
             threshold=0.1,
         )[0]  # Index 0 because we only provided one image
         scores = outputs["scores"].tolist()
-        labels = outputs["labels"].tolist()  # Integer class labels (indices into `text_queries`)
+        labels = outputs["labels"].tolist()  # Integer class labels (indices into `queries`)
         boxes = outputs["boxes"].tolist()
 
         return [
             ObjectDetection(
-                text_queries[query_idx],
+                queries[query_idx],
                 score,
-                BoundingBox.from_ratios(box_data, image.shape),
+                BoundingBox.from_ratios(box_data, image.data.shape),
             )
             for score, query_idx, box_data in zip(scores, labels, boxes, strict=True)
         ]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import traceback
+from copy import deepcopy
 from pathlib import Path
 
 import click
@@ -13,8 +14,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from robotics_utils.vision.object_detector import ObjectDetector
-from robotics_utils.vision.vision_utils import load_image
+from robotics_utils.vision.object_detector import ObjectDetector, TextQueries
+from robotics_utils.vision.rgb_image import RGBImage
 
 
 @click.group()
@@ -35,7 +36,7 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
     detector: ObjectDetector = ctx.obj["detector"]
     console: Console = ctx.obj["console"]
 
-    image = load_image(image_path)
+    image = RGBImage.from_file(image_path)
 
     menu_table = Table(title="Menu Options", border_style="cyan", title_style="bold cyan")
     menu_table.add_column("Option", style="bold", width=8)
@@ -43,30 +44,38 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
 
     menu_items = [
         ("1", "Add a text query"),
-        ("2", "Call object detector"),
-        ("3", "Quit"),
+        ("2", "Remove a text query"),
+        ("3", "Call object detector"),
+        ("4", "Quit"),
     ]
 
     for option, description in menu_items:
         menu_table.add_row(option, description)
 
-    current_queries = []
+    current_queries = TextQueries()
 
     while True:
         console.print()
         console.print(menu_table)
 
-        choice = click.prompt("\nSelect option", type=click.IntRange(1, 3))
+        choice = click.prompt("\nSelect option", type=click.IntRange(1, 4))
 
         try:
             if choice == 1:
-                query = click.prompt("Enter text query")
-                current_queries.append(query)
-
-                queries_str = "\n\t".join(current_queries)
-                console.print(f"[green]✓[/green] Current pending queries:\n\t{queries_str}")
+                query: str = click.prompt("Enter text query (or multiple separated by commas)")
+                current_queries.add(query)
+                console.print(f"[green]✓[/green] Current pending queries:\n{current_queries}")
 
             elif choice == 2:
+                console.print(f"Current pending queries:\n{current_queries}")
+
+                remove_query: str = click.prompt("Enter text query to be removed")
+                if remove_query.strip() and current_queries.remove(remove_query):
+                    console.print(f"[green]Query '{remove_query.strip()}' was removed[/green]")
+                else:
+                    console.print(f"[red]Could not remove query '{remove_query.strip()}'[/red]")
+
+            elif choice == 3:
                 if not current_queries:
                     console.print("[red]Cannot call the object detector without a query![/red]")
                     continue
@@ -79,21 +88,23 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
                 for q in current_queries:
                     query_colors[q] = tuple(int(n) for n in rng.integers(0, 255, size=3))
 
-                vis_image = image.copy()
+                vis_image = deepcopy(image)
                 for detection in detections:
                     color = query_colors[detection.query]
                     detection.draw(vis_image, color)
 
-                # Convert back to BGR for OpenCV display
-                vis_image_bgr = cv2.cvtColor(vis_image, cv2.COLOR_RGB2BGR)
-                cv2.imshow("Detections (press any key to exit)", vis_image_bgr)
-                cv2.waitKey(0)
-                cv2.destroyAllWindows()
+                vis_image.visualize("Detections (press any key to exit)")
 
-                current_queries = []
+                for i, detection in enumerate(detections):
+                    cropped = detection.bounding_box.crop(image, scale_box=1.2)
+                    cropped.visualize(f"Detection {i}/{len(detections)}: '{detection.query}'")
+
+                if click.confirm("Clear the current text queries?"):
+                    current_queries.clear()
+
                 console.print("[green]✓[/green] Object detection completed")
 
-            elif choice == 3:
+            elif choice == 4:
                 goodbye_panel = Panel(
                     Text("👋 Goodbye!", style="bold green", justify="center"),
                     border_style="green",
