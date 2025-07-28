@@ -6,43 +6,9 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 
-from robotics_utils.vision.rgb_image import RGBImage
+from robotics_utils.vision.images import PixelXY, RGBImage
 from robotics_utils.vision.vision_utils import RGB
-
-
-class PixelXY:
-    """An (x,y) coordinate of a pixel in an image."""
-
-    def __init__(self, xy: tuple[int, int] | NDArray) -> None:
-        """Initialize the PixelXY using the given (x,y) coordinate values."""
-        if isinstance(xy, tuple):
-            xy = np.array(xy)
-
-        self.xy = xy.astype(int)
-
-    def __add__(self, other: PixelXY) -> PixelXY:
-        """Find the sum of this PixelXY and another."""
-        return PixelXY(self.xy + other.xy)
-
-    def __mul__(self, value: float) -> PixelXY:
-        """Find the product of this PixelXY and the given scalar."""
-        return PixelXY(self.xy * value)
-
-    @property
-    def x(self) -> int:
-        """Retrieve the x-coordinate of this pixel."""
-        return self.xy[0]
-
-    @property
-    def y(self) -> int:
-        """Retrieve the y-coordinate of this pixel."""
-        return self.xy[1]
-
-    def to_tuple(self) -> tuple[int, int]:
-        """Convert the PixelXY into an (x,y) tuple."""
-        return tuple(self.xy)
 
 
 @dataclass(frozen=True)
@@ -89,7 +55,7 @@ class BoundingBox:
         top_left = np.ceil(center_pixel.xy - half_size)
         bottom_right = np.floor(center_pixel.xy + half_size)
 
-        return BoundingBox(PixelXY(top_left), PixelXY(bottom_right))  # TODO: Test these dimensions
+        return BoundingBox(PixelXY(top_left), PixelXY(bottom_right))
 
     @property
     def width(self) -> int:
@@ -102,7 +68,7 @@ class BoundingBox:
         return self.bottom_right.y - self.top_left.y
 
     @property
-    def center_xy(self) -> PixelXY:
+    def center_pixel(self) -> PixelXY:
         """Compute the center pixel of the bounding box as an (x,y) coordinate."""
         return (self.top_left + self.bottom_right) * 0.5
 
@@ -115,26 +81,22 @@ class BoundingBox:
         """
         cv2.rectangle(
             image.data,
-            self.top_left.to_tuple(),
-            self.bottom_right.to_tuple(),
+            tuple(self.top_left.xy),
+            tuple(self.bottom_right.xy),
             color,
             thickness,
         )
-        cv2.circle(image.data, self.center_xy.to_tuple(), 1, color, thickness)
+        cv2.circle(image.data, tuple(self.center_pixel.xy), 1, color, thickness)
 
-    def crop(self, image: RGBImage, scale_box: float = 1.0) -> RGBImage:
+    def crop(self, image: RGBImage, scale_ratio: float = 1.0) -> RGBImage:
         """Return a crop of the given image based on this bounding box.
 
         :param image: RGB image from which a cropped image is created
-        :param scale_box: Ratio to scale the bounding box size (defaults to 1.0)
+        :param scale_ratio: Ratio to scale the bounding box size (defaults to 1.0)
         :return: New RGB image containing the cropped section of the given image
         """
-        scaled_height = int(self.height * scale_box)
-        scaled_width = int(self.width * scale_box)
-        scaled_box = BoundingBox.from_center(self.center_xy, scaled_height, scaled_width)
+        scaled_height = int(self.height * scale_ratio)
+        scaled_width = int(self.width * scale_ratio)
+        scaled_box = BoundingBox.from_center(self.center_pixel, scaled_height, scaled_width)
 
-        min_x, min_y = scaled_box.top_left.to_tuple()
-        max_x, max_y = scaled_box.bottom_right.to_tuple()
-
-        cropped_data = image.data[min_y:max_y, min_x:max_x, :]  # TODO: Ensure is within the image
-        return RGBImage(cropped_data)
+        return image.get_crop(scaled_box.top_left, scaled_box.bottom_right)

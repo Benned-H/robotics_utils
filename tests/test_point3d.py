@@ -4,7 +4,7 @@ from hypothesis import given
 
 from robotics_utils.kinematics.point3d import Point3D
 
-from .hypothesis_strategies import positions
+from .kinematics_strategies import positions
 
 
 @given(positions())

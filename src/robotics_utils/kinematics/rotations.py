@@ -48,10 +48,6 @@ class EulerRPY:
         w, x, y, z = euler2quat(self.roll_rad, self.pitch_rad, self.yaw_rad, axes="sxyz")
         return Quaternion(x=x, y=y, z=z, w=w)
 
-    def to_tuple(self) -> tuple[float, float, float]:
-        """Convert the Euler angles into a tuple of (roll, pitch, yaw) angles (in radians)."""
-        return (self.roll_rad, self.pitch_rad, self.yaw_rad)
-
 
 @dataclass
 class Quaternion:

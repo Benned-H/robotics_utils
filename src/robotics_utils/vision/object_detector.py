@@ -11,7 +11,7 @@ from PIL import Image
 from transformers import OwlViTForObjectDetection, OwlViTImageProcessorFast, OwlViTProcessor
 
 from robotics_utils.vision.bounding_box import BoundingBox
-from robotics_utils.vision.rgb_image import RGBImage
+from robotics_utils.vision.images import RGBImage
 from robotics_utils.vision.vision_utils import RGB, determine_pytorch_device
 
 

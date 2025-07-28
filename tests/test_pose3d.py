@@ -5,7 +5,7 @@ from hypothesis import given
 
 from robotics_utils.kinematics.pose3d import Pose3D
 
-from .hypothesis_strategies import poses
+from .kinematics_strategies import poses
 
 
 @given(poses())

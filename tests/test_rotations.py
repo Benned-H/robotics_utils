@@ -6,7 +6,7 @@ from hypothesis import given
 
 from robotics_utils.kinematics.rotations import Quaternion, normalize_angle
 
-from .hypothesis_strategies import angles_rad, quaternions
+from .kinematics_strategies import angles_rad, quaternions
 
 
 @given(angles_rad())

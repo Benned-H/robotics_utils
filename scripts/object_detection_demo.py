@@ -14,8 +14,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from robotics_utils.vision.images import RGBImage
 from robotics_utils.vision.object_detector import ObjectDetector, TextQueries
-from robotics_utils.vision.rgb_image import RGBImage
 
 
 @click.group()
