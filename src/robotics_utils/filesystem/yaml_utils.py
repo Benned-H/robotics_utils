@@ -50,7 +50,7 @@ def load_yaml_data(yaml_path: Path, required_keys: set[str] | None = None) -> An
 
 
 def load_named_poses(yaml_path: Path, collection_name: str) -> dict[str, Pose3D]:
-    """Load a collection of named poses from the given YAML files.
+    """Load a collection of named poses from the given YAML file.
 
     :param yaml_path: Path to a YAML file containing pose data
     :param collection_name: Name of the collection of poses to be imported (e.g., "object_poses")
