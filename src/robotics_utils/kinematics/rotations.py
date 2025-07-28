@@ -40,7 +40,7 @@ class EulerRPY:
     def from_homogeneous_matrix(cls, matrix: NDArray[np.float64]) -> EulerRPY:
         """Construct Euler angles from a 4x4 homogeneous transformation matrix."""
         if matrix.shape != (4, 4):
-            raise ValueError(f"EulerRPY expected a 4x4 homogeneous matrix, got {matrix.shape}")
+            raise ValueError(f"EulerRPY expects a 4x4 homogeneous matrix, got {matrix.shape}")
         roll, pitch, yaw = euler_from_matrix(matrix, axes="sxyz")
         return EulerRPY(roll, pitch, yaw)
 

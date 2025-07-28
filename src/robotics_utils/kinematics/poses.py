@@ -30,7 +30,7 @@ class Pose2D:
         :return: Constructed Pose2D instance
         """
         if len(pose_list) != 3:
-            raise ValueError(f"Pose2D expected 3 values, got {len(pose_list)}")
+            raise ValueError(f"Pose2D expects 3 values, got {len(pose_list)}")
 
         x, y, yaw_rad = pose_list
         return Pose2D(x, y, yaw_rad, ref_frame)
