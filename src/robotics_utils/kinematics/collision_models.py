@@ -151,8 +151,21 @@ class AxisAlignedBoundingBox:
     max_xyz: Point3D
 
 
+class PrimitiveShape(Protocol):
+    """Protocol for primitive shapes."""
+
+    @property
+    def aabb(self) -> AxisAlignedBoundingBox:
+        """Get the axis-aligned bounding box (AABB) of the primitive shape."""
+        ...
+
+    def to_list(self) -> list[float]:
+        """Convert the primitive shape into a list of its dimensions."""
+        ...
+
+
 @dataclass(frozen=True)
-class Box:
+class Box(PrimitiveShape):
     """Box primitive shape with (x,y,z) dimensions (in meters)."""
 
     x_m: float
@@ -170,9 +183,13 @@ class Box:
             max_xyz=Point3D(half_x_m, half_y_m, half_z_m),
         )
 
+    def to_list(self) -> list[float]:
+        """Convert the box into a list of its (x,y,z) dimensions."""
+        return [self.x_m, self.y_m, self.z_m]
+
 
 @dataclass(frozen=True)
-class Sphere:
+class Sphere(PrimitiveShape):
     """Sphere primitive shape with a radius (in meters)."""
 
     radius_m: float
@@ -185,9 +202,13 @@ class Sphere:
             max_xyz=Point3D(self.radius_m, self.radius_m, self.radius_m),
         )
 
+    def to_list(self) -> list[float]:
+        """Convert the sphere into a list containing its radius."""
+        return [self.radius_m]
+
 
 @dataclass(frozen=True)
-class Cylinder:
+class Cylinder(PrimitiveShape):
     """Cylinder primitive shape with a height and radius (in meters)."""
 
     height_m: float
@@ -202,8 +223,9 @@ class Cylinder:
             max_xyz=Point3D(self.radius_m, self.radius_m, half_height_m),
         )
 
-
-PrimitiveShape = Box | Sphere | Cylinder
+    def to_list(self) -> list[float]:
+        """Convert the cylinder into a list of its dimensions."""
+        return [self.height_m, self.radius_m]
 
 
 class MeshSimplifier(Protocol):
