@@ -8,7 +8,7 @@ from typing import Any
 import yaml
 
 from robotics_utils.kinematics import DEFAULT_FRAME
-from robotics_utils.kinematics.collision_models import MeshData, MeshSimplifier
+from robotics_utils.kinematics.collision_models import CollisionModel, MeshData, MeshSimplifier
 from robotics_utils.kinematics.poses import Pose3D
 
 
@@ -80,3 +80,19 @@ def load_named_mesh(mesh_key: str, yaml_path: Path, simplifier: MeshSimplifier) 
         raise KeyError(f"Could not find mesh '{mesh_key}' in YAML file {yaml_path}")
 
     return MeshData.from_yaml_data(mesh_data, simplifier)
+
+
+def load_collision_model(name: str, yaml_path: Path, simplifier: MeshSimplifier) -> CollisionModel:
+    """Load the specified collision model from the given YAML file.
+
+    :param name: Name of the collision model to import
+    :param yaml_path: Path to a YAML file specifying collision model data
+    :param simplifier: Used to simplify any imported mesh geometry
+    :return: Constructed CollisionModel instance
+    """
+    yaml_data = load_yaml_data(yaml_path, required_keys={"collision_models"})
+    model_data = yaml_data["collision_models"].get(name)
+    if model_data is None:
+        raise KeyError(f"Could not find collision model '{name}' in YAML file {yaml_path}")
+
+    return CollisionModel.from_yaml_data(model_data, simplifier)

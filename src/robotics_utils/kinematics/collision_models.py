@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import astuple, dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -150,6 +150,11 @@ class AxisAlignedBoundingBox:
     min_xyz: Point3D
     max_xyz: Point3D
 
+    def to_mesh(self) -> trimesh.Trimesh:
+        """Create a mesh visualizing the axis-aligned bounding box."""
+        bounds = (astuple(self.min_xyz), astuple(self.max_xyz))
+        return trimesh.creation.box(bounds=bounds)
+
 
 class PrimitiveShape(Protocol):
     """Protocol for primitive shapes."""
@@ -161,6 +166,10 @@ class PrimitiveShape(Protocol):
 
     def to_list(self) -> list[float]:
         """Convert the primitive shape into a list of its dimensions."""
+        ...
+
+    def to_mesh(self) -> trimesh.Trimesh:
+        """Convert the primitive shape into a mesh."""
         ...
 
 
@@ -187,6 +196,10 @@ class Box(PrimitiveShape):
         """Convert the box into a list of its (x,y,z) dimensions."""
         return [self.x_m, self.y_m, self.z_m]
 
+    def to_mesh(self) -> trimesh.Trimesh:
+        """Convert the box into a mesh."""
+        return trimesh.creation.box(extents=astuple(self))
+
 
 @dataclass(frozen=True)
 class Sphere(PrimitiveShape):
@@ -205,6 +218,10 @@ class Sphere(PrimitiveShape):
     def to_list(self) -> list[float]:
         """Convert the sphere into a list containing its radius."""
         return [self.radius_m]
+
+    def to_mesh(self) -> trimesh.Trimesh:
+        """Convert the sphere into a mesh."""
+        return trimesh.creation.icosphere(radius=self.radius_m, subdivisions=3)
 
 
 @dataclass(frozen=True)
@@ -226,6 +243,10 @@ class Cylinder(PrimitiveShape):
     def to_list(self) -> list[float]:
         """Convert the cylinder into a list of its dimensions."""
         return [self.height_m, self.radius_m]
+
+    def to_mesh(self) -> trimesh.Trimesh:
+        """Convert the cylinder into a mesh."""
+        return trimesh.creation.cylinder(radius=self.radius_m, height=self.height_m, sections=32)
 
 
 class MeshSimplifier(Protocol):
@@ -330,6 +351,32 @@ class CollisionModel:
             raise ValueError("Collision model must have at least one mesh or geometric primitive")
 
         return CollisionModel(meshes=meshes, primitives=primitives)
+
+    def visualize(
+        self,
+        show_bounding_box: bool = True,
+        resolution: tuple[int, int] = (1920, 1080),
+    ) -> None:
+        """Visualize the collision model using the given configuration."""
+        scene = trimesh.Scene()
+
+        for i, mesh_data in enumerate(self.meshes):
+            mesh = mesh_data.mesh.copy()
+            mesh.visual = (0.7, 0.7, 0.7, 0.8)
+            scene.add_geometry(mesh, node_name=f"mesh_{i}")
+
+        for i, primitive in enumerate(self.primitives):
+            primitive_mesh = primitive.to_mesh()
+            primitive_mesh.visual = (0.2, 0.6, 1.0, 0.5)
+            scene.add_geometry(primitive_mesh, node_name=f"primitive_{i}")
+
+        if show_bounding_box:
+            bbox_mesh = self.aabb.to_mesh()
+            bbox_mesh.visual = (1.0, 0.5, 0.0, 1.0)  # TODO: High alpha here? Or not alpha?
+            scene.add_geometry(bbox_mesh, node_name="bounding_box")
+
+        scene.set_camera(resolution=resolution)
+        scene.show()
 
 
 def create_primitive_shape(shape_type: str, params: dict[str, float]) -> PrimitiveShape:

@@ -26,6 +26,8 @@ class KinematicTree:
         self.object_names: set[str] = set()  # Object frame names: f"{object_name}"
         self.robot_names: set[str] = set()  # Base pose frame names: f"{robot_name}_base_pose"
 
+        self.object_types: dict[str, set[str]] = {}  # Map each object's name to its type(s)
+
         # Store robot configurations to represent actuated joints in the kinematic tree
         self.robot_configurations: dict[str, Configuration] = {}  # Map robot names to configs
 
@@ -137,3 +139,25 @@ class KinematicTree:
             raise KeyError(f"Cannot set collision model for unknown frame: '{frame_name}'.")
 
         self.collision_models[frame_name] = collision_model
+
+    def get_collision_model(self, frame_name: str) -> CollisionModel | None:
+        """Retrieve the collision geometry attached to the named frame (None if no geometry)."""
+        return self.collision_models.get(frame_name)
+
+    def add_object_type(self, obj_name: str, obj_type: str) -> None:
+        """Add an object type for the named object.
+
+        :param obj_name: Name of an object in the kinematic state
+        :param obj_type: Object type added to the object's types
+        :raises KeyError: If an invalid object name is given
+        """
+        if obj_name not in self.object_names:
+            raise KeyError(f"Cannot add object type for unknown object: '{obj_name}'.")
+        self.object_types[obj_name] = self.object_types.get(obj_name, set())  # Initialize type set
+        self.object_types[obj_name].add(obj_type)
+
+    def get_object_types(self, obj_name: str) -> set[str]:
+        """Retrieve the object types of the named object."""
+        if obj_name not in self.object_types:
+            raise KeyError(f"Cannot get types of unknown object: '{obj_name}'.")
+        return self.object_types[obj_name]
