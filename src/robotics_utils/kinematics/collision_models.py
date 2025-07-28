@@ -262,7 +262,7 @@ class RatioSimplifier(MeshSimplifier):
     """Simplify a mesh to a ratio of its original face count."""
 
     ratio: float = 0.1  # Proportion of mesh faces kept in the simplified mesh
-    min_faces: int = 100  # Minimum number of faces in the simplified mesh
+    min_faces: int = 1000  # Minimum number of faces in the simplified mesh
 
     def simplify(self, mesh: trimesh.Trimesh) -> trimesh.Trimesh:
         """Simplify a mesh by reducing its face count to a target ratio of its original count."""
@@ -271,6 +271,14 @@ class RatioSimplifier(MeshSimplifier):
             return mesh
 
         return mesh.simplify_quadric_decimation(face_count=target_count)
+
+
+class NullSimplifier(MeshSimplifier):
+    """Do not simplify the given mesh at all."""
+
+    def simplify(self, mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        """Do nothing and return the given mesh."""
+        return mesh
 
 
 @dataclass(frozen=True)
@@ -352,28 +360,23 @@ class CollisionModel:
 
         return CollisionModel(meshes=meshes, primitives=primitives)
 
-    def visualize(
-        self,
-        show_bounding_box: bool = True,
-        resolution: tuple[int, int] = (1920, 1080),
-    ) -> None:
+    def visualize(self, resolution: tuple[int, int] = (1920, 1080)) -> None:
         """Visualize the collision model using the given configuration."""
         scene = trimesh.Scene()
 
         for i, mesh_data in enumerate(self.meshes):
             mesh = mesh_data.mesh.copy()
-            mesh.visual = (0.7, 0.7, 0.7, 0.8)
+            mesh.visual.face_colors = (0.7, 0.7, 0.7, 0.3)
             scene.add_geometry(mesh, node_name=f"mesh_{i}")
 
         for i, primitive in enumerate(self.primitives):
             primitive_mesh = primitive.to_mesh()
-            primitive_mesh.visual = (0.2, 0.6, 1.0, 0.5)
+            primitive_mesh.visual.face_colors = (0.2, 0.6, 1.0, 0.5)
             scene.add_geometry(primitive_mesh, node_name=f"primitive_{i}")
 
-        if show_bounding_box:
-            bbox_mesh = self.aabb.to_mesh()
-            bbox_mesh.visual = (1.0, 0.5, 0.0, 1.0)  # TODO: High alpha here? Or not alpha?
-            scene.add_geometry(bbox_mesh, node_name="bounding_box")
+        bbox_mesh = self.aabb.to_mesh()
+        bbox_mesh.visual.face_colors = (1.0, 0.5, 0.0, 0.1)
+        scene.add_geometry(bbox_mesh, node_name="bounding_box")
 
         scene.set_camera(resolution=resolution)
         scene.show()
