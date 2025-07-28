@@ -10,9 +10,13 @@ from robotics_utils.kinematics.collision_models import RatioSimplifier
 
 @click.command()
 @click.argument("yaml_path", type=click.Path(exists=True, path_type=Path))
-@click.argument("model_name", help="Name of the collision model to import from YAML")
+@click.argument("model_name")
 def visualize(yaml_path: Path, model_name: str) -> None:
-    """Visualize the named collision model imported from the given YAML file."""
+    """Visualize the named collision model imported from the given YAML file.
+
+    :param yaml_path: YAML file from which the collision model is imported
+    :param model_name: Name of the collision model to be imported
+    """
     simplifier = RatioSimplifier()
     collision_model = load_collision_model(model_name, yaml_path, simplifier)
     collision_model.visualize()
