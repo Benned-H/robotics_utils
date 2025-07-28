@@ -34,6 +34,10 @@ class Point3D:
         """Convert the 3D point to a NumPy array."""
         return np.array([self.x, self.y, self.z])
 
+    def to_homogeneous_coordinate(self) -> NDArray[np.float64]:
+        """Convert the 3D point into a homogeneous coordinate."""
+        return np.array([self.x, self.y, self.z, 1.0])
+
     @classmethod
     def from_sequence(cls, values: Sequence[float]) -> Point3D:
         """Construct a Point3D instance from a sequence (e.g., list or tuple) of values."""

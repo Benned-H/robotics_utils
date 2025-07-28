@@ -9,7 +9,7 @@ description = "General-purpose robotics utilities"
 requires-python = ">=3.8"
 
 # Core dependencies - Always installed
-dependencies = ["click", "rich", "transforms3d", "numpy", "trimesh"]
+dependencies = ["click", "rich", "numpy", "trimesh"]
 
 [project.optional-dependencies]
 vision = ["torch", "torchvision", "transformers", "pillow", "opencv-python"]

@@ -151,14 +151,13 @@ class Pose3D:
             raise ValueError(f"Expected a 4x4 matrix but received shape {matrix.shape}")
 
         position = Point3D(float(matrix[0, 3]), float(matrix[1, 3]), float(matrix[2, 3]))
-        orientation = Quaternion.from_rotation_matrix(matrix[:3, :3])
+        orientation = Quaternion.from_homogeneous_matrix(matrix)
         return Pose3D(position, orientation, ref_frame)
 
     def to_homogeneous_matrix(self) -> np.ndarray:
         """Convert the Pose3D into a 4x4 homogeneous transformation matrix."""
-        matrix = np.eye(4)
+        matrix = self.orientation.to_homogeneous_matrix()
         matrix[:3, 3] = self.position.to_array()
-        matrix[:3, :3] = self.orientation.to_rotation_matrix()
         return matrix
 
     @classmethod
