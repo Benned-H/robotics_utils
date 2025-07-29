@@ -82,6 +82,21 @@ def load_named_mesh(mesh_key: str, yaml_path: Path, simplifier: MeshSimplifier) 
     return MeshData.from_yaml_data(mesh_data, simplifier)
 
 
+def load_collision_models(yaml_path: Path, simplifier: MeshSimplifier) -> dict[str, CollisionModel]:
+    """Load a collection of collision models from the given YAML file.
+
+    :param yaml_path: Path to a YAML file containing collision model data
+    :param simplifier: Used to simplify imported mesh geometries
+    :return: Dictionary mapping frame names to collision models
+    """
+    yaml_data = load_yaml_data(yaml_path, required_keys={"collision_models"})
+    models_data: dict[str, Any] = yaml_data["collision_models"]
+
+    return {
+        name: CollisionModel.from_yaml_data(data, simplifier) for name, data in models_data.items()
+    }
+
+
 def load_collision_model(name: str, yaml_path: Path, simplifier: MeshSimplifier) -> CollisionModel:
     """Load the specified collision model from the given YAML file.
 
@@ -96,3 +111,15 @@ def load_collision_model(name: str, yaml_path: Path, simplifier: MeshSimplifier)
         raise KeyError(f"Could not find collision model '{name}' in YAML file {yaml_path}")
 
     return CollisionModel.from_yaml_data(model_data, simplifier)
+
+
+def load_object_types(yaml_path: Path) -> dict[str, set[str]]:
+    """Load a map of object types from the given YAML file.
+
+    :param yaml_path: Path to a YAML file specifying object types
+    :return: Dictionary mapping object names to sets of types
+    """
+    yaml_data = load_yaml_data(yaml_path, required_keys={"object_types"})
+    types_data: dict[str, Any] = yaml_data["object_types"]
+
+    return {obj_name: set(types) for obj_name, types in types_data.items()}

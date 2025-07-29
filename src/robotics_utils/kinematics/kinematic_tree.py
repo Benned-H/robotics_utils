@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from robotics_utils.filesystem.yaml_utils import load_named_poses
+from robotics_utils.filesystem.yaml_utils import (
+    load_collision_models,
+    load_named_poses,
+    load_object_types,
+)
 from robotics_utils.kinematics import Configuration
-from robotics_utils.kinematics.collision_models import CollisionModel
+from robotics_utils.kinematics.collision_models import CollisionModel, MeshSimplifier
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
 
@@ -34,10 +38,11 @@ class KinematicTree:
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
     @classmethod
-    def from_yaml(cls, yaml_path: Path) -> KinematicTree:
+    def from_yaml(cls, yaml_path: Path, simplifier: MeshSimplifier) -> KinematicTree:
         """Construct a KinematicTree instance using data from the given YAML file.
 
         :param yaml_path: YAML file containing data representing the kinematic state
+        :param simplifier: Used to simplify any imported collision meshes
         :return: Constructed KinematicTree instance
         """
         tree = KinematicTree()
@@ -50,6 +55,8 @@ class KinematicTree:
             tree.robot_configurations[robot_name] = {}  # Default: No robot configurations in YAML
 
         tree.waypoints = Waypoints.from_yaml(yaml_path)
+        tree.collision_models = load_collision_models(yaml_path, simplifier)
+        tree.object_types = load_object_types(yaml_path)
 
         return tree
 
@@ -74,7 +81,10 @@ class KinematicTree:
             self.children[prev_parent_frame].remove(frame_name)
 
         self.frames[frame_name] = pose
-        self.children[frame_name] = self.children.get(frame_name, set())  # Initialize children
+
+        # Initialize the children sets for this frame and (if necessary) its parent frame
+        self.children[frame_name] = self.children.get(frame_name, set())
+        self.children[pose.ref_frame] = self.children.get(pose.ref_frame, set())
         self.children[pose.ref_frame].add(frame_name)  # Add this frame to its parent's children
 
     def get_parent_frame(self, child_frame: str) -> str | None:

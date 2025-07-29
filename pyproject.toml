@@ -12,7 +12,7 @@ requires-python = ">=3.8"
 dependencies = [
     "click",
     "rich",
-    "numpy",
+    "numpy==1.21",
     "trimesh",
     "pyyaml",
     "fast-simplification",
@@ -24,7 +24,7 @@ dependencies = [
 [project.optional-dependencies]
 vision = ["torch", "torchvision", "transformers", "opencv-python"]
 
-all = ["robotics-utils[vision]"] # Complete installation with everything
+all = ["robotics_utils[vision]"] # Complete installation with everything
 
 [tool.uv]
 dev-dependencies = ["ruff", "pytest", "hypothesis", "pytest-cov"]
