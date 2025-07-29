@@ -12,11 +12,11 @@ requires-python = ">=3.8"
 dependencies = [
     "click",
     "rich",
-    "numpy==1.21",
+    "numpy",
     "trimesh",
     "pyyaml",
     "fast-simplification",
-    "pyglet<2",
+    "pyglet",
     "pillow",
     "scipy",
 ]

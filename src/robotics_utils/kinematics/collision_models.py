@@ -299,7 +299,9 @@ class MeshData:
         if not source_path.exists():
             raise FileNotFoundError(f"Mesh file not found: {source_path}")
 
+        print(f"About to load mesh from path {source_path}...")
         mesh = trimesh.load_mesh(source_path)
+        print("Loaded the mesh!")
 
         transforms = parse_mesh_transforms(yaml_data.get("transforms", []))
         for transform in transforms:
@@ -348,38 +350,20 @@ class CollisionModel:
     @classmethod
     def from_yaml_data(cls, data: dict[str, Any], simplifier: MeshSimplifier) -> CollisionModel:
         """Create a collision model from data loaded from YAML."""
+        print("Into CollisionModel.from_yaml_data...")
         meshes = [MeshData.from_yaml_data(m_data, simplifier) for m_data in data.get("meshes", [])]
+        print("Finished with meshes...")
 
         primitives = [
             create_primitive_shape(shape_type=prim_spec["type"], params=prim_spec["params"])
             for prim_spec in data.get("primitives", [])
         ]
+        rint("Finished with primitives...")
 
         if not meshes and not primitives:
             raise ValueError("Collision model must have at least one mesh or geometric primitive")
 
         return CollisionModel(meshes=meshes, primitives=primitives)
-
-    def visualize(self, resolution: tuple[int, int] = (1920, 1080)) -> None:
-        """Visualize the collision model using the given configuration."""
-        scene = trimesh.Scene()
-
-        for i, mesh_data in enumerate(self.meshes):
-            mesh = mesh_data.mesh.copy()
-            mesh.visual.face_colors = (0.7, 0.7, 0.7, 0.3)
-            scene.add_geometry(mesh, node_name=f"mesh_{i}")
-
-        for i, primitive in enumerate(self.primitives):
-            primitive_mesh = primitive.to_mesh()
-            primitive_mesh.visual.face_colors = (0.2, 0.6, 1.0, 0.5)
-            scene.add_geometry(primitive_mesh, node_name=f"primitive_{i}")
-
-        bbox_mesh = self.aabb.to_mesh()
-        bbox_mesh.visual.face_colors = (1.0, 0.5, 0.0, 0.1)
-        scene.add_geometry(bbox_mesh, node_name="bounding_box")
-
-        scene.set_camera(resolution=resolution)
-        scene.show()
 
 
 def create_primitive_shape(shape_type: str, params: dict[str, float]) -> PrimitiveShape:

@@ -110,6 +110,7 @@ def load_collision_model(name: str, yaml_path: Path, simplifier: MeshSimplifier)
     if model_data is None:
         raise KeyError(f"Could not find collision model '{name}' in YAML file {yaml_path}")
 
+    print("Exiting load_collision_model...")
     return CollisionModel.from_yaml_data(model_data, simplifier)
 
 

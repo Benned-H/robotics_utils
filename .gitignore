@@ -1,6 +1,5 @@
-# Ignore images and example files at the root of the repository
+# Ignore image files at the root of the repository
 images/
-examples/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
