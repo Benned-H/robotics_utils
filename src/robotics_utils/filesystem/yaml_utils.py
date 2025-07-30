@@ -66,12 +66,12 @@ def load_named_poses(yaml_path: Path, collection_name: str) -> dict[str, Pose3D]
     }
 
 
-def load_named_mesh(mesh_key: str, yaml_path: Path, simplifier: MeshSimplifier) -> MeshData:
+def load_named_mesh(mesh_key: str, yaml_path: Path, simplifier: MeshSimplifier | None) -> MeshData:
     """Load the specified mesh from the given YAML file.
 
     :param mesh_key: YAML key used to access the imported mesh
     :param yaml_path: Path to a YAML file specifying mesh data
-    :param simplifier: Used to simplify the imported mesh geometry
+    :param simplifier: Used to simplify the imported mesh geometry (optional)
     :return: Constructed MeshData instance
     """
     yaml_data = load_yaml_data(yaml_path, required_keys={"meshes"})
@@ -82,11 +82,14 @@ def load_named_mesh(mesh_key: str, yaml_path: Path, simplifier: MeshSimplifier) 
     return MeshData.from_yaml_data(mesh_data, simplifier)
 
 
-def load_collision_models(yaml_path: Path, simplifier: MeshSimplifier) -> dict[str, CollisionModel]:
+def load_collision_models(
+    yaml_path: Path,
+    simplifier: MeshSimplifier | None,
+) -> dict[str, CollisionModel]:
     """Load a collection of collision models from the given YAML file.
 
     :param yaml_path: Path to a YAML file containing collision model data
-    :param simplifier: Used to simplify imported mesh geometries
+    :param simplifier: Used to simplify imported mesh geometries (optional)
     :return: Dictionary mapping frame names to collision models
     """
     yaml_data = load_yaml_data(yaml_path, required_keys={"collision_models"})
@@ -97,20 +100,22 @@ def load_collision_models(yaml_path: Path, simplifier: MeshSimplifier) -> dict[s
     }
 
 
-def load_collision_model(name: str, yaml_path: Path, simplifier: MeshSimplifier) -> CollisionModel:
+def load_collision_model(
+    name: str,
+    yaml_path: Path,
+    simplifier: MeshSimplifier | None,
+) -> CollisionModel:
     """Load the specified collision model from the given YAML file.
 
     :param name: Name of the collision model to import
     :param yaml_path: Path to a YAML file specifying collision model data
-    :param simplifier: Used to simplify any imported mesh geometry
+    :param simplifier: Used to simplify any imported mesh geometry (optional)
     :return: Constructed CollisionModel instance
     """
     yaml_data = load_yaml_data(yaml_path, required_keys={"collision_models"})
     model_data = yaml_data["collision_models"].get(name)
     if model_data is None:
         raise KeyError(f"Could not find collision model '{name}' in YAML file {yaml_path}")
-
-    print("Exiting load_collision_model...")
     return CollisionModel.from_yaml_data(model_data, simplifier)
 
 

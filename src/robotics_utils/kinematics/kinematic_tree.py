@@ -38,11 +38,11 @@ class KinematicTree:
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
     @classmethod
-    def from_yaml(cls, yaml_path: Path, simplifier: MeshSimplifier) -> KinematicTree:
+    def from_yaml(cls, yaml_path: Path, simplifier: MeshSimplifier | None) -> KinematicTree:
         """Construct a KinematicTree instance using data from the given YAML file.
 
         :param yaml_path: YAML file containing data representing the kinematic state
-        :param simplifier: Used to simplify any imported collision meshes
+        :param simplifier: Used to simplify any imported collision meshes (optional)
         :return: Constructed KinematicTree instance
         """
         tree = KinematicTree()

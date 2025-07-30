@@ -258,6 +258,21 @@ class MeshSimplifier(Protocol):
 
 
 @dataclass(frozen=True)
+class MaxFaceCount(MeshSimplifier):
+    """Simplify a mesh to have fewer than some maximum number of faces."""
+
+    max_faces: int = 50000  # Maximum number of faces in the simplified mesh
+
+    def simplify(self, mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        """Simplify a mesh by reducing its face count to a target ratio of its original count."""
+        target_count = max(int(self.ratio * len(mesh.faces)), self.min_faces)
+        if len(mesh.faces) <= target_count:
+            return mesh
+
+        return mesh.simplify_quadric_decimation(face_count=target_count)
+
+
+@dataclass(frozen=True)
 class RatioSimplifier(MeshSimplifier):
     """Simplify a mesh to a ratio of its original face count."""
 
@@ -273,14 +288,6 @@ class RatioSimplifier(MeshSimplifier):
         return mesh.simplify_quadric_decimation(face_count=target_count)
 
 
-class NullSimplifier(MeshSimplifier):
-    """Do not simplify the given mesh at all."""
-
-    def simplify(self, mesh: trimesh.Trimesh) -> trimesh.Trimesh:
-        """Do nothing and return the given mesh."""
-        return mesh
-
-
 @dataclass(frozen=True)
 class MeshData:
     """A processed mesh with metadata."""
@@ -290,7 +297,11 @@ class MeshData:
     transforms_applied: list[MeshTransform]
 
     @classmethod
-    def from_yaml_data(cls, yaml_data: dict[str, Any], simplifier: MeshSimplifier) -> MeshData:
+    def from_yaml_data(
+        cls,
+        yaml_data: dict[str, Any],
+        simplifier: MeshSimplifier | None,
+    ) -> MeshData:
         """Load a MeshData instance from the given data imported from YAML."""
         if "filepath" not in yaml_data:
             raise KeyError(f"No mesh filepath was provided in the YAML data: {yaml_data}")
@@ -299,15 +310,14 @@ class MeshData:
         if not source_path.exists():
             raise FileNotFoundError(f"Mesh file not found: {source_path}")
 
-        print(f"About to load mesh from path {source_path}...")
         mesh = trimesh.load_mesh(source_path)
-        print("Loaded the mesh!")
 
         transforms = parse_mesh_transforms(yaml_data.get("transforms", []))
         for transform in transforms:
             transform.apply(mesh)
 
-        mesh = simplifier.simplify(mesh)
+        if simplifier is not None:
+            mesh = simplifier.simplify(mesh)
 
         return MeshData(mesh, source_path, transforms_applied=transforms)
 
@@ -348,17 +358,18 @@ class CollisionModel:
         )
 
     @classmethod
-    def from_yaml_data(cls, data: dict[str, Any], simplifier: MeshSimplifier) -> CollisionModel:
+    def from_yaml_data(
+        cls,
+        data: dict[str, Any],
+        simplifier: MeshSimplifier | None,
+    ) -> CollisionModel:
         """Create a collision model from data loaded from YAML."""
-        print("Into CollisionModel.from_yaml_data...")
         meshes = [MeshData.from_yaml_data(m_data, simplifier) for m_data in data.get("meshes", [])]
-        print("Finished with meshes...")
 
         primitives = [
             create_primitive_shape(shape_type=prim_spec["type"], params=prim_spec["params"])
             for prim_spec in data.get("primitives", [])
         ]
-        rint("Finished with primitives...")
 
         if not meshes and not primitives:
             raise ValueError("Collision model must have at least one mesh or geometric primitive")

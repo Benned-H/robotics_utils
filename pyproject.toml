@@ -13,15 +13,26 @@ dependencies = [
     "click",
     "rich",
     "numpy",
-    "trimesh",
     "pyyaml",
-    "fast-simplification",
-    "pyglet",
-    "pillow",
-    "scipy",
+    # "fast-simplification",
+    # "pillow",
+    # "scipy",
 ]
 
 [project.optional-dependencies]
+
+# Optional dependencies for mesh importing and processing
+mesh = [
+    "trimesh",
+    "pyvista",
+    "fast-simplification",
+    "tqdm",
+    "cadquery",
+    "nlopt",
+]
+#, "pyglet<2"]
+#  "nlopt",
+
 vision = ["torch", "torchvision", "transformers", "opencv-python"]
 
 all = ["robotics_utils[vision]"] # Complete installation with everything
