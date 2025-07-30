@@ -1,0 +1,9 @@
+# An example collision model including a mesh file
+
+collision_models:
+  open_drawer:
+    meshes:
+      - filepath: examples/meshes/open_drawer/open_drawer.obj
+        transforms:
+          - center_bounds
+          - bottom_at_zero_z

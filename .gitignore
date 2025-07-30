@@ -1,4 +1,4 @@
-# Ignore images at the root of the repository
+# Ignore image files at the root of the repository
 images/
 
 # Byte-compiled / optimized / DLL files

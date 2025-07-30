@@ -5,17 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from transforms3d.euler import euler2mat, euler2quat, mat2euler, quat2euler
-from transforms3d.quaternions import mat2quat, quat2mat
-
-
-def normalize_angle(angle_rad: float) -> float:
-    """Normalize the given angle (in radians) into the range [-pi, pi]."""
-    while angle_rad < -np.pi:
-        angle_rad += 2 * np.pi
-    while angle_rad > np.pi:
-        angle_rad -= 2 * np.pi
-    return angle_rad
+from numpy.typing import NDArray
+from trimesh.transformations import (
+    euler_from_matrix,
+    euler_from_quaternion,
+    euler_matrix,
+    quaternion_from_euler,
+    quaternion_from_matrix,
+    quaternion_matrix,
+)
 
 
 @dataclass
@@ -32,20 +30,27 @@ class EulerRPY:
         return EulerRPY(0, 0, 0)
 
     @classmethod
-    def from_rotation_matrix(cls, r_matrix: np.ndarray) -> EulerRPY:
-        """Construct Euler angles from a 3x3 rotation matrix."""
-        if r_matrix.shape != (3, 3):
-            raise ValueError(f"Expected a 3x3 rotation matrix; received {r_matrix.shape}")
-        roll, pitch, yaw = mat2euler(r_matrix, axes="sxyz")
+    def from_list(cls, values: list[float]) -> EulerRPY:
+        """Construct Euler angles from a list of values (in radians)."""
+        if len(values) != 3:
+            raise ValueError(f"EulerRPY expects 3 values, got {len(values)}")
+        return EulerRPY(values[0], values[1], values[2])
+
+    @classmethod
+    def from_homogeneous_matrix(cls, matrix: NDArray[np.float64]) -> EulerRPY:
+        """Construct Euler angles from a 4x4 homogeneous transformation matrix."""
+        if matrix.shape != (4, 4):
+            raise ValueError(f"EulerRPY expects a 4x4 homogeneous matrix, got {matrix.shape}")
+        roll, pitch, yaw = euler_from_matrix(matrix, axes="sxyz")
         return EulerRPY(roll, pitch, yaw)
 
-    def to_rotation_matrix(self) -> np.ndarray:
-        """Convert the Euler RPY angles into an equivalent rotation matrix."""
-        return euler2mat(self.roll_rad, self.pitch_rad, self.yaw_rad, axes="sxyz")
+    def to_homogeneous_matrix(self) -> NDArray[np.float64]:
+        """Convert the Euler RPY angles into an equivalent homogeneous transformation matrix."""
+        return euler_matrix(self.roll_rad, self.pitch_rad, self.yaw_rad, axes="sxyz")
 
     def to_quaternion(self) -> Quaternion:
         """Convert the Euler angles into an equivalent unit quaternion."""
-        w, x, y, z = euler2quat(self.roll_rad, self.pitch_rad, self.yaw_rad, axes="sxyz")
+        w, x, y, z = quaternion_from_euler(self.roll_rad, self.pitch_rad, self.yaw_rad, axes="sxyz")
         return Quaternion(x=x, y=y, z=z, w=w)
 
     def to_tuple(self) -> tuple[float, float, float]:
@@ -86,30 +91,30 @@ class Quaternion:
     def from_array(cls, arr: np.ndarray) -> Quaternion:
         """Construct a quaternion from a NumPy array of the form [x,y,z,w]."""
         if arr.shape != (4,):
-            raise ValueError(f"Expected a four-element vector but received shape {arr.shape}")
+            raise ValueError(f"Quaternion expects a 4-vector, got {arr.shape}")
 
         return cls(float(arr[0]), float(arr[1]), float(arr[2]), float(arr[3]))
 
-    def to_array(self) -> np.ndarray:
+    def to_array(self) -> NDArray[np.float64]:
         """Convert the quaternion to a NumPy array of the form [x,y,z,w]."""
         return np.array([self.x, self.y, self.z, self.w])
 
     def to_euler_rpy(self) -> EulerRPY:
         """Convert the quaternion into equivalent Euler roll, pitch, and yaw angles."""
-        roll, pitch, yaw = quat2euler(quaternion=[self.w, self.x, self.y, self.z], axes="sxyz")
-        return EulerRPY(roll, pitch, yaw)
+        r, p, y = euler_from_quaternion(quaternion=[self.w, self.x, self.y, self.z], axes="sxyz")
+        return EulerRPY(r, p, y)
 
     @classmethod
-    def from_rotation_matrix(cls, r_matrix: np.ndarray) -> Quaternion:
-        """Construct a quaternion from a 3x3 rotation matrix."""
-        if r_matrix.shape != (3, 3):
-            raise ValueError(f"Expected a 3x3 rotation matrix; received {r_matrix.shape}")
-        w, x, y, z = mat2quat(r_matrix)  # Note: transforms3d quaternions have w first
+    def from_homogeneous_matrix(cls, matrix: NDArray[np.float64]) -> Quaternion:
+        """Construct a quaternion from a 4x4 homogeneous transformation matrix."""
+        if matrix.shape != (4, 4):
+            raise ValueError(f"Quaternion expects a 4x4 homogeneous matrix, got {matrix.shape}")
+        w, x, y, z = quaternion_from_matrix(matrix)  # Note: trimesh puts w (q's real value) first
         return Quaternion(x=float(x), y=float(y), z=float(z), w=float(w))
 
-    def to_rotation_matrix(self) -> np.ndarray:
-        """Convert the quaternion to a 3x3 rotation matrix."""
-        return quat2mat(q=[self.w, self.x, self.y, self.z])
+    def to_homogeneous_matrix(self) -> NDArray[np.float64]:
+        """Convert the quaternion to a 4x4 homogeneous transformation matrix."""
+        return quaternion_matrix(quaternion=[self.w, self.x, self.y, self.z])
 
     def approx_equal(self, other: Quaternion, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Quaternion is approximately equal to this one.

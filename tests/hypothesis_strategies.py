@@ -5,8 +5,8 @@ from typing import Callable
 import hypothesis.strategies as st
 
 from robotics_utils.kinematics.point3d import Point3D
-from robotics_utils.kinematics.pose3d import Pose3D
-from robotics_utils.kinematics.rotations import Quaternion
+from robotics_utils.kinematics.poses import Pose2D, Pose3D
+from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
 
 
 @st.composite
@@ -34,9 +34,28 @@ def quaternions(draw: Callable) -> Quaternion:
 
 
 @st.composite
-def poses(draw: Callable) -> Pose3D:
+def poses_3d(draw: Callable) -> Pose3D:
     """Generate random relative poses in 3D space."""
     position = draw(positions())
     orientation = draw(quaternions())
     ref_frame = draw(st.text())
     return Pose3D(position, orientation, ref_frame)
+
+
+@st.composite
+def poses_2d(draw: Callable) -> Pose2D:
+    """Generate random relative poses on the 2D plane."""
+    x = draw(st.floats(min_value=-10e8, max_value=10e8, allow_infinity=False, allow_nan=False))
+    y = draw(st.floats(min_value=-10e8, max_value=10e8, allow_infinity=False, allow_nan=False))
+    yaw_rad = draw(angles_rad())
+    ref_frame = draw(st.text())
+    return Pose2D(x, y, yaw_rad, ref_frame)
+
+
+@st.composite
+def euler_rpys(draw: Callable) -> EulerRPY:
+    """Generate random 3D rotations represented as Euler RPY angles."""
+    roll_rad = draw(angles_rad())
+    pitch_rad = draw(angles_rad())
+    yaw_rad = draw(angles_rad())
+    return EulerRPY(roll_rad, pitch_rad, yaw_rad)

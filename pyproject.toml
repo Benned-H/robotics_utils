@@ -9,12 +9,23 @@ description = "General-purpose robotics utilities"
 requires-python = ">=3.8"
 
 # Core dependencies - Always installed
-dependencies = ["click", "rich", "transforms3d", "numpy"]
+dependencies = [
+    "click",
+    "rich",
+    "numpy",
+    "trimesh",
+    "pyyaml",
+    "fast-simplification",
+    "pyglet",
+    "pillow",
+    "scipy",
+    "defusedxml",
+]
 
 [project.optional-dependencies]
-vision = ["torch", "torchvision", "transformers", "pillow", "opencv-python"]
+vision = ["torch", "torchvision", "transformers", "opencv-python"]
 
-all = ["robotics-utils[vision]"] # Complete installation with everything
+all = ["robotics_utils[vision]"] # Complete installation with everything
 
 [tool.uv]
 dev-dependencies = ["ruff", "pytest", "hypothesis", "pytest-cov"]
