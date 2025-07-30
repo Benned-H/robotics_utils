@@ -68,6 +68,7 @@ class Pose3D:
     orientation: Quaternion
     ref_frame: str = DEFAULT_FRAME
 
+    # TODO: Overload this function for other types!
     def __matmul__(self, other: Pose3D) -> Pose3D:
         """Multiply the homogeneous transformation matrix of this pose with another pose.
 

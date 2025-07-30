@@ -10,7 +10,8 @@ from robotics_utils.filesystem.yaml_utils import (
     load_object_types,
 )
 from robotics_utils.kinematics import Configuration
-from robotics_utils.kinematics.collision_models import CollisionModel, MeshSimplifier
+from robotics_utils.kinematics.collision_models import CollisionModel
+from robotics_utils.kinematics.collisions.meshes import MeshSimplifier
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
 
@@ -38,11 +39,11 @@ class KinematicTree:
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
     @classmethod
-    def from_yaml(cls, yaml_path: Path, simplifier: MeshSimplifier) -> KinematicTree:
+    def from_yaml(cls, yaml_path: Path, mesh_simplifier: MeshSimplifier | None) -> KinematicTree:
         """Construct a KinematicTree instance using data from the given YAML file.
 
         :param yaml_path: YAML file containing data representing the kinematic state
-        :param simplifier: Used to simplify any imported collision meshes
+        :param mesh_simplifier: Used to simplify any imported collision meshes (optional)
         :return: Constructed KinematicTree instance
         """
         tree = KinematicTree()
@@ -55,7 +56,7 @@ class KinematicTree:
             tree.robot_configurations[robot_name] = {}  # Default: No robot configurations in YAML
 
         tree.waypoints = Waypoints.from_yaml(yaml_path)
-        tree.collision_models = load_collision_models(yaml_path, simplifier)
+        tree.collision_models = load_collision_models(yaml_path, mesh_simplifier)
         tree.object_types = load_object_types(yaml_path)
 
         return tree

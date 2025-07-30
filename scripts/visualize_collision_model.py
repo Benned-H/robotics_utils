@@ -6,7 +6,6 @@ import click
 from rich.console import Console
 
 from robotics_utils.filesystem.yaml_utils import load_collision_model
-from robotics_utils.kinematics.collision_models import NullSimplifier
 from robotics_utils.visualization.viz_utils import visualize_collision_model
 
 
@@ -21,7 +20,7 @@ def visualize(yaml_path: Path, model_name: str) -> None:
     """
     console = Console()
     console.print(f"[yellow]Loading collision model {model_name} from {yaml_path}[/yellow]...")
-    collision_model = load_collision_model(model_name, yaml_path, simplifier=NullSimplifier())
+    collision_model = load_collision_model(model_name, yaml_path, simplifier=None)
     console.print(
         f"[green]Successfully loaded collision model with {len(collision_model.meshes)} "
         f"meshes and {len(collision_model.primitives)} primitive shapes.[/green]",

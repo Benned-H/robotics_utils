@@ -19,6 +19,7 @@ dependencies = [
     "pyglet",
     "pillow",
     "scipy",
+    "defusedxml",
 ]
 
 [project.optional-dependencies]
