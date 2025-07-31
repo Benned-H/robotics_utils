@@ -11,13 +11,20 @@ requires-python = ">=3.8"
 # Core dependencies - Always installed
 dependencies = ["click", "rich", "transforms3d", "numpy"]
 
+# Optional dependencies support optional user features
+# Reference: https://pydevtools.com/handbook/explanation/what-are-optional-dependencies-and-dependency-groups/
 [project.optional-dependencies]
+
+# Optional dependencies to support computer vision applications
 vision = ["torch", "torchvision", "transformers", "pillow", "opencv-python"]
 
-all = ["robotics-utils[vision]"] # Complete installation with everything
+all = ["robotics-utils[vision]"] # Install everything
 
-[tool.uv]
-dev-dependencies = ["ruff", "pytest", "hypothesis", "pytest-cov"]
+
+# Dependency groups manage development-time dependencies
+# Reference: https://pydevtools.com/handbook/explanation/what-are-optional-dependencies-and-dependency-groups/
+[dependency-groups]
+dev = ["ruff", "pytest", "hypothesis", "pytest-cov"]
 
 
 [tool.hatch.build.targets.wheel]
