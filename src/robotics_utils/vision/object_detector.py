@@ -58,10 +58,6 @@ class TextQueries:
         """Clear the set of text queries."""
         self._queries.clear()
 
-    def to_list(self) -> list[str]:
-        """Return a list of the stored text queries."""
-        return self._queries
-
 
 @dataclass(frozen=True)
 class ObjectDetection:
@@ -104,7 +100,7 @@ class ObjectDetector:
         :return: List of all successful object detections for the queries
         """
         if isinstance(queries, TextQueries):
-            queries = queries.to_list()
+            queries = list(queries)
 
         pil_image = Image.fromarray(image.data)
 

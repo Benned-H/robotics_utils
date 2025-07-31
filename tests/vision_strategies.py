@@ -10,7 +10,7 @@ from robotics_utils.vision.images import PixelXY, RGBImage
 
 
 @st.composite
-def pixels_xy(draw: st.DrawFn) -> tuple[PixelXY, PixelXY]:
+def pixels_xy(draw: st.DrawFn) -> PixelXY:
     """Generate random (x,y) pixel coordinates."""
     x = draw(st.integers(min_value=-100000, max_value=100000))
     y = draw(st.integers(min_value=-100000, max_value=100000))

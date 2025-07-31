@@ -43,7 +43,7 @@ class BoundingBox:
 
     @classmethod
     def from_center(cls, center_pixel: PixelXY, height: int, width: int) -> BoundingBox:
-        """Construct a bounding box from a center (x,y) pixel, a width, and a height.
+        """Construct a bounding box from a center (x,y) pixel, a height, and a width.
 
         :param center_pixel: Center pixel of the bounding box as an (x,y) image coordinate
         :param height: Height of the bounding box (in pixels)

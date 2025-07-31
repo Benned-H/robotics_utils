@@ -95,11 +95,17 @@ class PixelXY:
         if isinstance(xy, tuple):
             xy = np.array(xy)
 
-        self.xy = xy.astype(np.int_)
+        self.xy = xy.astype(int)
 
     def __add__(self, other: PixelXY) -> PixelXY:
         """Find the sum of this PixelXY and another."""
         return PixelXY(self.xy + other.xy)
+
+    def __eq__(self, other: object) -> bool:
+        """Evaluate whether this PixelXY is equal to another."""
+        if isinstance(other, PixelXY):
+            return np.array_equal(self.xy, other.xy)  # Element-wise equality
+        return False
 
     def __iter__(self) -> Iterator[int]:
         """Provide an iterator over the (x,y) coordinates."""
@@ -118,7 +124,3 @@ class PixelXY:
     def y(self) -> int:
         """Retrieve the y-coordinate of this pixel."""
         return self.xy[1]
-
-    def all_close(self, other: PixelXY) -> bool:
-        """Evaluate whether this pixel is approximately equal to another pixel."""
-        return np.allclose(self.xy, other.xy)

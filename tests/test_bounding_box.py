@@ -40,6 +40,14 @@ def test_bounding_box_from_center(center_pixel: PixelXY, height: int, width: int
     result_bb = BoundingBox.from_center(center_pixel, height, width)
 
     # Assert - Expect that the bounding box has a correct center pixel, height, and width
-    assert result_bb.center_pixel.all_close(center_pixel)
+    diff_x = center_pixel.x - result_bb.center_pixel.x
+    diff_y = center_pixel.y - result_bb.center_pixel.y
+    if diff_x or diff_y:
+        print(f"Center pixel: {center_pixel}")
+        print(f"Result center pixel: {result_bb.center_pixel}")
+        print(f"Difference in x: {center_pixel.x - result_bb.center_pixel.x}")
+        print(f"Difference in y: {center_pixel.y - result_bb.center_pixel.y}")
+
+    assert result_bb.center_pixel == center_pixel
     assert result_bb.height == height
     assert result_bb.width == width
