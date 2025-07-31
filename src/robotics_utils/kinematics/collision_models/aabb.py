@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import itertools
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
 import numpy as np
@@ -35,3 +36,29 @@ class AxisAlignedBoundingBox:
             min_xyz=Point3D.from_array(combined_min),
             max_xyz=Point3D.from_array(combined_max),
         )
+
+    @property
+    def vertices(self) -> Iterator[Point3D]:
+        """Provide an iterator over the eight vertices of the axis-aligned bounding box."""
+        min_x, min_y, min_z = self.min_xyz
+        max_x, max_y, max_z = self.max_xyz
+        all_xyzs = itertools.product((min_x, max_x), (min_y, max_y), (min_z, max_z))
+        return (Point3D.from_sequence(xyz) for xyz in all_xyzs)
+
+    def contains(self, entity: Point3D | AxisAlignedBoundingBox) -> bool:
+        """Evaluate whether the bounding box contains the given entity."""
+        if isinstance(entity, Point3D):
+            return self._contains_point3d(entity)
+        if isinstance(entity, AxisAlignedBoundingBox):
+            return self._contains_aabb(entity)
+        raise NotImplementedError(f"Unsupported type: {type(entity)}")
+
+    def _contains_point3d(self, p: Point3D) -> bool:
+        """Evaluate whether the bounding box contains the given 3D point."""
+        min_x, min_y, min_z = self.min_xyz
+        max_x, max_y, max_z = self.max_xyz
+        return min_x <= p.x <= max_x and min_y <= p.y <= max_y and min_z <= p.z <= max_z
+
+    def _contains_aabb(self, aabb: AxisAlignedBoundingBox) -> bool:
+        """Evaluate whether this bounding box contains another."""
+        return all(self.contains(v) for v in aabb.vertices)

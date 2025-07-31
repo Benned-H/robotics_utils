@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from robotics_utils.kinematics.collision_models import (
-    AxisAlignedBoundingBox,
-    Mesh,
+from robotics_utils.kinematics.collision_models.aabb import AxisAlignedBoundingBox
+from robotics_utils.kinematics.collision_models.meshes import Mesh
+from robotics_utils.kinematics.collision_models.primitive_shapes import (
     PrimitiveShape,
     create_primitive_shape,
 )

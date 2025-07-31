@@ -7,7 +7,7 @@ from typing import Protocol
 
 import numpy as np
 
-from robotics_utils.kinematics.collision_models import AxisAlignedBoundingBox
+from robotics_utils.kinematics.collision_models.aabb import AxisAlignedBoundingBox
 from robotics_utils.kinematics.point3d import Point3D
 
 
