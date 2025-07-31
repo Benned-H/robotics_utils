@@ -6,7 +6,7 @@ from hypothesis import given
 from robotics_utils.kinematics.poses import Pose2D
 from robotics_utils.math.distances import angle_difference_rad, euclidean_distance_2d_m
 
-from .hypothesis_strategies import angles_rad, poses_2d
+from .kinematics_strategies import angles_rad, poses_2d
 
 
 @given(poses_2d(), poses_2d())

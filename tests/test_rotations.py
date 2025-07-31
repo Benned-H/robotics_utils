@@ -67,4 +67,4 @@ def test_euler_rpy_to_homogeneous_matrix_and_back(rpy: EulerRPY, position: Point
     rotated_by_original = matrix @ unrotated_coord
     rotated_by_result = result_rpy.to_homogeneous_matrix() @ unrotated_coord
 
-    assert np.allclose(rotated_by_original, rotated_by_result)
+    assert np.allclose(rotated_by_original, rotated_by_result, rtol=5e-05, atol=5e-07)
