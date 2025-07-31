@@ -12,11 +12,11 @@ from .collision_model_strategies import aabbs
 
 @given(aabbs())
 def test_aabb_vertices(aabb: AxisAlignedBoundingBox) -> None:
-    """Verify that the vertices of any AABB are distinct and along the box edges."""
+    """Verify that any AABB has eight vertices, each at an intersection of box edges."""
     # Arrange/Act - Compute the list of vertices of the given AABB
     vertices_list = list(aabb.vertices)
 
-    # Assert - Verify that there are eight vertices, they're distinct, and along the box edges
+    # Assert - Verify that there are eight vertices, they're ~distinct, and along the box edges
     expected_total = 8
     assert len(vertices_list) == expected_total
 
