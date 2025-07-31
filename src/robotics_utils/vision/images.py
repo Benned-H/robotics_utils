@@ -61,17 +61,17 @@ class RGBImage:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    def to_valid_x(self, pixel_x: int) -> int:
-        """Push the given x-coordinate of a pixel into the image."""
+    def clip_x(self, pixel_x: int) -> int:
+        """Clip a pixel x-coordinate into the image."""
         return np.clip(pixel_x, a_min=0, a_max=self.width - 1)
 
-    def to_valid_y(self, pixel_y: int) -> int:
-        """Push the given y-coordinate of a pixel into the image."""
+    def clip_y(self, pixel_y: int) -> int:
+        """Clip a pixel y-coordinate into the image."""
         return np.clip(pixel_y, a_min=0, a_max=self.height - 1)
 
-    def to_valid_pixel(self, pixel_xy: PixelXY) -> PixelXY:
+    def clip_pixel(self, pixel_xy: PixelXY) -> PixelXY:
         """Clip the given (x,y) coordinate of a pixel into the image."""
-        return PixelXY((self.to_valid_x(pixel_xy.x), self.to_valid_y(pixel_xy.y)))
+        return PixelXY((self.clip_x(pixel_xy.x), self.clip_y(pixel_xy.y)))
 
     def get_crop(self, top_left: PixelXY, bottom_right: PixelXY) -> RGBImage:
         """Retrieve the specified crop of the RGB image.
@@ -80,11 +80,8 @@ class RGBImage:
         :param bottom_right: (x,y) coordinates of the bottom-right pixel in the cropped image
         :return: New RGBImage containing the cropped portion of the image
         """
-        clipped_top_left = self.to_valid_pixel(top_left)
-        clipped_bottom_right = self.to_valid_pixel(bottom_right)
-
-        min_x, min_y = clipped_top_left
-        max_x, max_y = clipped_bottom_right
+        min_x, min_y = self.clip_pixel(top_left)
+        max_x, max_y = self.clip_pixel(bottom_right)
 
         cropped_data = self.data[min_y : max_y + 1, min_x : max_x + 1, :]
         return RGBImage(cropped_data.copy())
@@ -108,10 +105,6 @@ class PixelXY:
         """Provide an iterator over the (x,y) coordinates."""
         yield from self.xy
 
-    def __mul__(self, value: float) -> PixelXY:
-        """Find the product of this PixelXY and the given scalar."""
-        return PixelXY(self.xy * value)
-
     def __str__(self) -> str:
         """Return a readable string representation of the pixel."""
         return f"({self.x}, {self.y})"
@@ -125,3 +118,7 @@ class PixelXY:
     def y(self) -> int:
         """Retrieve the y-coordinate of this pixel."""
         return self.xy[1]
+
+    def all_close(self, other: PixelXY) -> bool:
+        """Evaluate whether this pixel is approximately equal to another pixel."""
+        return np.allclose(self.xy, other.xy)

@@ -15,8 +15,8 @@ from robotics_utils.vision.vision_utils import RGB
 class BoundingBox:
     """A rectangular bounding box in an image."""
 
-    top_left: PixelXY
-    bottom_right: PixelXY
+    top_left: PixelXY  # Top-left pixel inside the bounding box
+    bottom_right: PixelXY  # Bottom-right pixel inside the bounding box
 
     @classmethod
     def from_ratios(cls, ratios: list[float], image_shape: tuple[int, int, int]) -> BoundingBox:
@@ -50,27 +50,30 @@ class BoundingBox:
         :param width: Width of the bounding box (in pixels)
         :return: Constructed BoundingBox instance
         """
-        half_size = 0.5 * np.array([width, height])
+        pixels_up = np.floor((height - 1) / 2)  # Even height => Center biases high
+        pixels_down = np.ceil((height - 1) / 2)
+        pixels_left = np.floor((width - 1) / 2)  # Even width => Center biases left
+        pixels_right = np.ceil((width - 1) / 2)
 
-        top_left = np.ceil(center_pixel.xy - half_size)
-        bottom_right = np.floor(center_pixel.xy + half_size)
+        top_left = center_pixel.xy - np.array([pixels_left, pixels_up])
+        bottom_right = center_pixel.xy + np.array([pixels_right, pixels_down])
 
         return BoundingBox(PixelXY(top_left), PixelXY(bottom_right))
 
     @property
     def width(self) -> int:
         """Compute the width (in pixels) of the bounding box."""
-        return self.bottom_right.x - self.top_left.x
+        return int(self.bottom_right.x - self.top_left.x) + 1
 
     @property
     def height(self) -> int:
         """Compute the height (in pixels) of the bounding box."""
-        return self.bottom_right.y - self.top_left.y
+        return int(self.bottom_right.y - self.top_left.y) + 1
 
     @property
     def center_pixel(self) -> PixelXY:
         """Compute the center pixel of the bounding box as an (x,y) coordinate."""
-        return (self.top_left + self.bottom_right) * 0.5
+        return PixelXY(np.floor((self.bottom_right.xy + self.top_left.xy) / 2))
 
     def draw(self, image: RGBImage, color: RGB, thickness: int = 3) -> None:
         """Draw the bounding box as a rectangle on the given image.

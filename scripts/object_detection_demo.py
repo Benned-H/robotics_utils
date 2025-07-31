@@ -95,9 +95,10 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
 
                 vis_image.visualize("Detections (press any key to exit)")
 
-                for i, detection in enumerate(detections):
-                    cropped = detection.bounding_box.crop(image, scale_box=1.2)
-                    cropped.visualize(f"Detection {i}/{len(detections)}: '{detection.query}'")
+                if click.confirm("Display cropped images for each detection?"):
+                    for i, detection in enumerate(detections):
+                        cropped = detection.bounding_box.crop(image, scale_ratio=1.2)
+                        cropped.visualize(f"Detection {i}/{len(detections)}: '{detection.query}'")
 
                 if click.confirm("Clear the current text queries?"):
                     current_queries.clear()
