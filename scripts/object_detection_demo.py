@@ -69,11 +69,11 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
             elif choice == 2:
                 console.print(f"Current pending queries:\n{current_queries}")
 
-                remove_query: str = click.prompt("Enter text query to be removed")
-                if remove_query.strip() and current_queries.remove(remove_query):
-                    console.print(f"[green]Query '{remove_query.strip()}' was removed[/green]")
+                remove_query: str = click.prompt("Enter text query to be removed").strip()
+                if remove_query and current_queries.remove(remove_query):
+                    console.print(f"[green]Query '{remove_query}' was removed[/green]")
                 else:
-                    console.print(f"[red]Could not remove query '{remove_query.strip()}'[/red]")
+                    console.print(f"[red]Could not remove query '{remove_query}'[/red]")
 
             elif choice == 3:
                 if not current_queries:
