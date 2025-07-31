@@ -13,58 +13,50 @@ from robotics_utils.kinematics.point3d import Point3D
 from robotics_utils.kinematics.rotations import EulerRPY
 
 
-class Mesh(trimesh.Trimesh):
-    """A mesh used as geometry for collision-checking."""
+def load_trimesh_from_file(mesh_path: Path) -> trimesh.Trimesh:
+    """Load a mesh from the given file.
 
-    def __init__(self, source_path: Path, *args: tuple, **kwargs: dict[str, Any]) -> None:
-        """Initialize the mesh with the filepath it was loaded from."""
-        super().__init__(*args, **kwargs)
-        self.source_path = source_path
+    :param mesh_path: Filepath containing mesh data
+    :return: Loaded trimesh.Trimesh instance
+    """
+    if not mesh_path.exists():
+        raise FileNotFoundError(f"Cannot load mesh from nonexistent file: {mesh_path}")
 
-    @classmethod
-    def from_file(cls, mesh_path: Path) -> Mesh:
-        """Load a mesh from the given file.
+    return trimesh.load_mesh(mesh_path)
 
-        :param mesh_path: Filepath containing mesh data
-        :return: Loaded Mesh instance
-        """
-        if not mesh_path.exists():
-            raise FileNotFoundError(f"Cannot load mesh from nonexistent file: {mesh_path}")
 
-        return Mesh(mesh_path, trimesh.load_mesh(mesh_path))  # TODO: Does this work?
+def load_trimesh_from_yaml_data(data: dict[str, Any], yaml_path: Path) -> trimesh.Trimesh:
+    """Construct a trimesh.Trimesh instance from data imported from the specified YAML file."""
+    if "filepath" not in data:
+        raise KeyError(f"No mesh filepath was provided in the YAML data: {data}")
 
-    @classmethod
-    def from_yaml_data(cls, yaml_data: dict[str, Any]) -> Mesh:
-        """Construct a Mesh instance from data imported from YAML."""
-        if "filepath" not in yaml_data:
-            raise KeyError(f"No mesh filepath was provided in the YAML data: {yaml_data}")
+    relative_path = Path(data["filepath"])  # Path relative to the parent of the YAML file
+    mesh_path = yaml_path.parent / relative_path
+    if not mesh_path.exists():
+        raise FileNotFoundError(f"Mesh file not found: {mesh_path}")
 
-        source_path = Path(yaml_data["filepath"])
-        if not source_path.exists():
-            raise FileNotFoundError(f"Mesh file not found: {source_path}")
+    mesh = load_trimesh_from_file(mesh_path)
 
-        mesh = Mesh.from_file(source_path)
+    transforms = parse_mesh_transforms(data.get("transforms", []))
+    for transform in transforms:
+        transform.apply(mesh)
 
-        transforms = parse_mesh_transforms(yaml_data.get("transforms", []))
-        for transform in transforms:
-            transform.apply(mesh)
+    return mesh
 
-        return mesh
 
-    @property
-    def aabb(self) -> AxisAlignedBoundingBox:
-        """Get the axis-aligned bounding box (AABB) of the mesh."""
-        min_bounds, max_bounds = self.bounds
-        return AxisAlignedBoundingBox(
-            min_xyz=Point3D.from_sequence(min_bounds),
-            max_xyz=Point3D.from_sequence(max_bounds),
-        )
+def compute_aabb(mesh: trimesh.Trimesh) -> AxisAlignedBoundingBox:
+    """Compute the axis-aligned bounding box (AABB) of the mesh."""
+    min_bounds, max_bounds = mesh.bounds
+    return AxisAlignedBoundingBox(
+        min_xyz=Point3D.from_sequence(min_bounds),
+        max_xyz=Point3D.from_sequence(max_bounds),
+    )
 
 
 class MeshTransform(Protocol):
     """Protocol for transform operations on meshes."""
 
-    def apply(self, mesh: Mesh) -> None:
+    def apply(self, mesh: trimesh.Trimesh) -> None:
         """Apply the transform to the given mesh in-place."""
 
 
@@ -74,7 +66,7 @@ class Translate(MeshTransform):
 
     xyz: Point3D
 
-    def apply(self, mesh: Mesh) -> None:
+    def apply(self, mesh: trimesh.Trimesh) -> None:
         """Translate the given mesh in-place."""
         mesh.apply_translation(self.xyz.to_array())
 
@@ -90,7 +82,7 @@ class Rotate(MeshTransform):
 
     rpy: EulerRPY  # 3D rotation represented using fixed-frame Euler angles
 
-    def apply(self, mesh: Mesh) -> None:
+    def apply(self, mesh: trimesh.Trimesh) -> None:
         """Rotate the given mesh in-place."""
         matrix = self.rpy.to_homogeneous_matrix()
         mesh.apply_transform(matrix)
@@ -107,7 +99,7 @@ class Scale(MeshTransform):
 
     factor: float | tuple[float, float, float]
 
-    def apply(self, mesh: Mesh) -> None:
+    def apply(self, mesh: trimesh.Trimesh) -> None:
         """Scale the given mesh in-place."""
         mesh.apply_scale(self.factor)
 
@@ -126,7 +118,7 @@ class Scale(MeshTransform):
 class CenterMass(MeshTransform):
     """Center a mesh at the origin based on its center of mass (i.e., centroid)."""
 
-    def apply(self, mesh: Mesh) -> None:
+    def apply(self, mesh: trimesh.Trimesh) -> None:
         """Center the mass of the given mesh in-place."""
         mesh.apply_translation(-mesh.centroid)
 
@@ -135,7 +127,7 @@ class CenterMass(MeshTransform):
 class CenterBounds(MeshTransform):
     """Center a mesh at the origin based on its bounding box."""
 
-    def apply(self, mesh: Mesh) -> None:
+    def apply(self, mesh: trimesh.Trimesh) -> None:
         """Center the bounding box of the given mesh in-place."""
         bounds_center = (mesh.bounds[0] + mesh.bounds[1]) / 2.0
         mesh.apply_translation(-bounds_center)
@@ -145,7 +137,7 @@ class CenterBounds(MeshTransform):
 class BottomAtZeroZ(MeshTransform):
     """Place the bottom of a mesh at z = 0."""
 
-    def apply(self, mesh: Mesh) -> None:
+    def apply(self, mesh: trimesh.Trimesh) -> None:
         """Bottom-normalize the given mesh in-place."""
         _, _, min_z = mesh.bounds[0]
         mesh.apply_translation([0, 0, -min_z])

@@ -5,10 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import trimesh
 import yaml
 
 from robotics_utils.kinematics import DEFAULT_FRAME
-from robotics_utils.kinematics.collision_models import Mesh
+from robotics_utils.kinematics.collision_models.meshes import load_trimesh_from_yaml_data
 from robotics_utils.kinematics.poses import Pose3D
 
 
@@ -66,16 +67,16 @@ def load_named_poses(yaml_path: Path, collection_name: str) -> dict[str, Pose3D]
     }
 
 
-def load_named_mesh(mesh_key: str, yaml_path: Path) -> Mesh:
+def load_named_mesh(mesh_key: str, yaml_path: Path) -> trimesh.Trimesh:
     """Load the specified mesh from the given YAML file.
 
     :param mesh_key: YAML key used to access the imported mesh
     :param yaml_path: Path to a YAML file specifying mesh data
-    :return: Constructed Mesh instance
+    :return: Constructed trimesh.Trimesh instance
     """
     yaml_data = load_yaml_data(yaml_path, required_keys={"meshes"})
     mesh_data = yaml_data["meshes"].get(mesh_key)
     if mesh_data is None:
         raise KeyError(f"Could not find mesh named '{mesh_key}' in YAML file {yaml_path}")
 
-    return Mesh.from_yaml_data(mesh_data)
+    return load_trimesh_from_yaml_data(mesh_data, yaml_path)

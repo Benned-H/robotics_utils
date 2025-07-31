@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-from robotics_utils.filesystem.yaml_utils import load_named_poses
-from robotics_utils.kinematics import Configuration
+from robotics_utils.filesystem.yaml_utils import load_named_poses, load_yaml_data
+from robotics_utils.kinematics import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.collision_models import CollisionModel
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
@@ -14,20 +15,25 @@ from robotics_utils.kinematics.waypoints import Waypoints
 class KinematicTree:
     """A tree of coordinate frames specifying relative poses between entities."""
 
-    def __init__(self) -> None:
-        """Initialize the kinematic tree's member variables as empty."""
-        self.frames: dict[str, Pose3D] = {}  # Map each frame name to its relative pose
-        self.children: dict[str, set[str]] = {}  # Map each frame name to its child frames
+    def __init__(self, root_frame: str) -> None:
+        """Initialize the kinematic tree's member variables based on its root frame."""
+        self.root_frame = root_frame
 
-        # Map each frame name to its (optional) attached collision geometry
+        self.frames: dict[str, Pose3D] = {}
+        """Maps to name of each frame to its relative pose."""
+
+        self.children: dict[str, set[str]] = {root_frame: set()}
+        """Maps the name of each frame to the set of its child frames."""
+
         self.collision_models: dict[str, CollisionModel] = {}
+        """Maps the name of each frame to its (optional) attached collision geometry."""
 
         # Record which frames correspond to objects or robot base poses
         self.object_names: set[str] = set()  # Object frame names: f"{object_name}"
         self.robot_names: set[str] = set()  # Base pose frame names: f"{robot_name}_base_pose"
 
-        # Store robot configurations to represent actuated joints in the kinematic tree
-        self.robot_configurations: dict[str, Configuration] = {}  # Map robot names to configs
+        self.robot_configurations: dict[str, Configuration] = {}
+        """Maps the name of each robot to its current joint configuration."""
 
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
@@ -38,7 +44,10 @@ class KinematicTree:
         :param yaml_path: YAML file containing data representing the kinematic state
         :return: Constructed KinematicTree instance
         """
-        tree = KinematicTree()
+        full_yaml_data: dict[str, Any] = load_yaml_data(yaml_path)
+        default_frame = full_yaml_data.get("default_frame", DEFAULT_FRAME)
+
+        tree = KinematicTree(root_frame=default_frame)
 
         for obj_name, obj_pose in load_named_poses(yaml_path, "object_poses").items():
             tree.set_object_pose(obj_name, obj_pose)
@@ -46,6 +55,14 @@ class KinematicTree:
         for robot_name, base_pose in load_named_poses(yaml_path, "robot_base_poses").items():
             tree.set_robot_base_pose(robot_name, base_pose)
             tree.robot_configurations[robot_name] = {}  # Default: No robot configurations in YAML
+
+        collision_models_data: dict[str, Any] = full_yaml_data.get("collision_models", {})
+
+        for frame_name, model_data in collision_models_data.items():
+            tree.set_collision_model(
+                frame_name,
+                CollisionModel.from_yaml_data(model_data, yaml_path),
+            )
 
         tree.waypoints = Waypoints.from_yaml(yaml_path)
 

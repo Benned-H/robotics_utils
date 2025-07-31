@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
+import trimesh
+
 from robotics_utils.kinematics.collision_models.aabb import AxisAlignedBoundingBox
-from robotics_utils.kinematics.collision_models.meshes import Mesh
+from robotics_utils.kinematics.collision_models.meshes import (
+    compute_aabb,
+    load_trimesh_from_yaml_data,
+)
 from robotics_utils.kinematics.collision_models.primitive_shapes import (
     PrimitiveShape,
     create_primitive_shape,
@@ -17,24 +23,23 @@ from robotics_utils.kinematics.collision_models.primitive_shapes import (
 class CollisionModel:
     """A collision model supporting multiple meshes and geometric primitives."""
 
-    meshes: list[Mesh] = field(default_factory=list)
+    meshes: list[trimesh.Trimesh] = field(default_factory=list)
     primitives: list[PrimitiveShape] = field(default_factory=list)
 
     @property
     def aabb(self) -> AxisAlignedBoundingBox:
         """Get the combined axis-aligned bounding box (AABB) of all elements in the model."""
-        return AxisAlignedBoundingBox.union(
-            entity.aabb for entity in (self.meshes + self.primitives)
-        )
+        combined_mesh_aabb = AxisAlignedBoundingBox.union(compute_aabb(m) for m in self.meshes)
+        combined_primitive_aabb = AxisAlignedBoundingBox.union(p.aabb for p in self.primitives)
+        return AxisAlignedBoundingBox.union((combined_mesh_aabb, combined_primitive_aabb))
 
     @classmethod
-    def from_yaml_data(cls, data: dict[str, Any]) -> CollisionModel:
-        """Create a collision model from data loaded from YAML."""
-        meshes = [Mesh.from_yaml_data(mesh_data) for mesh_data in data.get("meshes", [])]
+    def from_yaml_data(cls, data: dict[str, Any], yaml_path: Path) -> CollisionModel:
+        """Create a collision model from data loaded from the specified YAML file."""
+        meshes = [load_trimesh_from_yaml_data(md, yaml_path) for md in data.get("meshes", [])]
 
         primitives = [
-            create_primitive_shape(shape_type=shape_data["type"], params=shape_data["params"])
-            for shape_data in data.get("primitives", [])
+            create_primitive_shape(shape_data) for shape_data in data.get("primitives", [])
         ]
 
         if not meshes and not primitives:

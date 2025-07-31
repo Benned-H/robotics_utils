@@ -3,19 +3,18 @@
 from __future__ import annotations
 
 import rospy
+import trimesh
 from geometry_msgs.msg import Point, Pose, PoseStamped, Transform, TransformStamped, Vector3
 from geometry_msgs.msg import Quaternion as QuaternionMsg
 from moveit_msgs.msg import CollisionObject
 from sensor_msgs.msg import JointState
-from shape_msgs.msg import Mesh as MeshMsg
-from shape_msgs.msg import MeshTriangle, SolidPrimitive
+from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
 
 from robotics_utils.kinematics import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.collision_models import (
     Box,
     CollisionModel,
     Cylinder,
-    Mesh,
     PrimitiveShape,
     Sphere,
 )
@@ -146,9 +145,9 @@ def config_to_joint_state_msg(config: Configuration) -> JointState:
     return msg
 
 
-def mesh_to_msg(mesh: Mesh) -> MeshMsg:
+def trimesh_to_msg(mesh: trimesh.Trimesh) -> Mesh:
     """Convert a mesh into a shape_msgs/Mesh message."""
-    mesh_msg = MeshMsg()
+    mesh_msg = Mesh()
     mesh_msg.triangles = [MeshTriangle(list(tri)) for tri in mesh.faces]
     mesh_msg.vertices = [Point(v[0], v[1], v[2]) for v in mesh.vertices]
     return mesh_msg
@@ -189,7 +188,7 @@ def make_collision_object_msg(
     msg.type.key = object_type  # Ignore 'db' field of message
 
     for mesh in collision_model.meshes:
-        msg.meshes.append(mesh_to_msg(mesh))
+        msg.meshes.append(trimesh_to_msg(mesh))
         msg.mesh_poses.append(Pose())
 
     for shape in collision_model.primitives:

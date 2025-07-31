@@ -86,15 +86,19 @@ class Cylinder(PrimitiveShape):
         return [self.height_m, self.radius_m]
 
 
-def create_primitive_shape(shape_type: str, params: dict[str, float]) -> PrimitiveShape:
+def create_primitive_shape(data: dict[str, str | float]) -> PrimitiveShape:
     """Create a primitive shape from its type and parameters."""
+    shape_type = data.get("type")
+    if shape_type is None:
+        raise KeyError(f"Cannot construct PrimitiveShape without 'type' key: {data}")
+
     if shape_type == "box":
-        return Box(x_m=params["x"], y_m=params["y"], z_m=params["z"])
+        return Box(x_m=data["x"], y_m=data["y"], z_m=data["z"])
 
     if shape_type == "sphere":
-        return Sphere(radius_m=params["radius"])
+        return Sphere(radius_m=data["radius"])
 
     if shape_type == "cylinder":
-        return Cylinder(height_m=params["height"], radius_m=params["radius"])
+        return Cylinder(height_m=data["height"], radius_m=data["radius"])
 
     raise ValueError(f"Unknown primitive shape type: {shape_type}")
