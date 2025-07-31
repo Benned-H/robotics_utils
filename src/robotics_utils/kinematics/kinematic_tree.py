@@ -38,10 +38,11 @@ class KinematicTree:
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
     @classmethod
-    def from_yaml(cls, yaml_path: Path) -> KinematicTree:
+    def from_yaml(cls, yaml_path: Path, simplifier: MeshSimplifier) -> KinematicTree:
         """Construct a KinematicTree instance using data from the given YAML file.
 
         :param yaml_path: YAML file containing data representing the kinematic state
+        :param simplifier: Used to simplify any imported collision meshes
         :return: Constructed KinematicTree instance
         """
         full_yaml_data: dict[str, Any] = load_yaml_data(yaml_path)
@@ -65,6 +66,8 @@ class KinematicTree:
             )
 
         tree.waypoints = Waypoints.from_yaml(yaml_path)
+        tree.collision_models = load_collision_models(yaml_path, simplifier)
+        tree.object_types = load_object_types(yaml_path)
 
         return tree
 
@@ -172,3 +175,21 @@ class KinematicTree:
             raise KeyError(f"Cannot get collision model for unknown frame: '{frame_name}'.")
 
         return self.collision_models.get(frame_name)
+
+    def add_object_type(self, obj_name: str, obj_type: str) -> None:
+        """Add an object type for the named object.
+
+        :param obj_name: Name of an object in the kinematic state
+        :param obj_type: Object type added to the object's types
+        :raises KeyError: If an invalid object name is given
+        """
+        if obj_name not in self.object_names:
+            raise KeyError(f"Cannot add object type for unknown object: '{obj_name}'.")
+        self.object_types[obj_name] = self.object_types.get(obj_name, set())  # Initialize type set
+        self.object_types[obj_name].add(obj_type)
+
+    def get_object_types(self, obj_name: str) -> set[str]:
+        """Retrieve the object types of the named object."""
+        if obj_name not in self.object_types:
+            raise KeyError(f"Cannot get types of unknown object: '{obj_name}'.")
+        return self.object_types[obj_name]
