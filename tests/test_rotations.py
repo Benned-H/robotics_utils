@@ -8,7 +8,7 @@ from robotics_utils.kinematics.point3d import Point3D
 from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
 from robotics_utils.math.angles import normalize_angle
 
-from .hypothesis_strategies import angles_rad, euler_rpys, positions, quaternions
+from .kinematics_strategies import angles_rad, euler_rpys, positions, quaternions
 
 
 @given(angles_rad())

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass
 from typing import Any
 
 import numpy as np
@@ -124,7 +124,7 @@ class Pose3D:
 
         :return: Pair of tuples (x, y, z) and (roll, pitch, yaw) with angles in radians
         """
-        return (self.position.to_tuple(), self.orientation.to_euler_rpy().to_tuple())
+        return (astuple(self.position), astuple(self.orientation.to_euler_rpy()))
 
     @classmethod
     def from_list(cls, xyz_rpy: list[float], ref_frame: str = DEFAULT_FRAME) -> Pose3D:

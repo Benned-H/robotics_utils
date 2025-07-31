@@ -1,6 +1,4 @@
-"""Define strategies for generating data for property-based testing."""
-
-from typing import Callable
+"""Define strategies for generating kinematics data for property-based testing."""
 
 import hypothesis.strategies as st
 
@@ -10,13 +8,13 @@ from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
 
 
 @st.composite
-def angles_rad(draw: Callable) -> float:
+def angles_rad(draw: st.DrawFn) -> float:
     """Generate random angles (in radians)."""
     return draw(st.floats(min_value=-10e4, max_value=10e4, allow_infinity=False, allow_nan=False))
 
 
 @st.composite
-def positions(draw: Callable) -> Point3D:
+def positions(draw: st.DrawFn) -> Point3D:
     """Generate random (x,y,z) points."""
     x = draw(st.floats(min_value=-10e8, max_value=10e8, allow_infinity=False, allow_nan=False))
     y = draw(st.floats(min_value=-10e8, max_value=10e8, allow_infinity=False, allow_nan=False))
@@ -25,7 +23,7 @@ def positions(draw: Callable) -> Point3D:
 
 
 @st.composite
-def quaternions(draw: Callable) -> Quaternion:
+def quaternions(draw: st.DrawFn) -> Quaternion:
     """Generate random unit quaternions."""
     x = draw(st.floats(min_value=-10e6, max_value=10e6, allow_infinity=False, allow_nan=False))
     y = draw(st.floats(min_value=-10e6, max_value=10e6, allow_infinity=False, allow_nan=False))
@@ -34,7 +32,7 @@ def quaternions(draw: Callable) -> Quaternion:
 
 
 @st.composite
-def poses_3d(draw: Callable) -> Pose3D:
+def poses_3d(draw: st.DrawFn) -> Pose3D:
     """Generate random relative poses in 3D space."""
     position = draw(positions())
     orientation = draw(quaternions())
@@ -43,7 +41,7 @@ def poses_3d(draw: Callable) -> Pose3D:
 
 
 @st.composite
-def poses_2d(draw: Callable) -> Pose2D:
+def poses_2d(draw: st.DrawFn) -> Pose2D:
     """Generate random relative poses on the 2D plane."""
     x = draw(st.floats(min_value=-10e8, max_value=10e8, allow_infinity=False, allow_nan=False))
     y = draw(st.floats(min_value=-10e8, max_value=10e8, allow_infinity=False, allow_nan=False))
@@ -53,7 +51,7 @@ def poses_2d(draw: Callable) -> Pose2D:
 
 
 @st.composite
-def euler_rpys(draw: Callable) -> EulerRPY:
+def euler_rpys(draw: st.DrawFn) -> EulerRPY:
     """Generate random 3D rotations represented as Euler RPY angles."""
     roll_rad = draw(angles_rad())
     pitch_rad = draw(angles_rad())

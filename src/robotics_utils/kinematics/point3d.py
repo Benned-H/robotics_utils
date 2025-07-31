@@ -47,7 +47,7 @@ class Point3D:
 
     def to_tuple(self) -> tuple[float, float, float]:
         """Convert the Point3D into a tuple of (x, y, z) coordinates."""
-        return (self.x, self.y, self.z)
+        return (self.x, self.y, self.z)  # TODO: Provide __iter__ instead of to_tuple and to_array
 
     def approx_equal(self, other: Point3D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Point3D is approximately equal to this one."""
