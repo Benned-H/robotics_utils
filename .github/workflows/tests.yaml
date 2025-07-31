@@ -27,7 +27,7 @@ jobs:
         run: uv sync --extra vision
 
       - name: Run Tests and Collect Coverage
-        run: uv run pytest --junit-xml=.pytest/junit.xml --cov=src --cov-report=xml --durations=3
+        run: uv run pytest --junit-xml=.pytest/junit.xml --cov=src --cov-report=xml:.pytest/cov.xml --durations=3
 
       - name: Upload Test Results
         uses: EnricoMi/publish-unit-test-result-action/linux@v2
@@ -38,7 +38,7 @@ jobs:
       - name: Code Coverage Summary Report
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
-          filename: coverage/*/coverage.cobertura.xml
+          filename: .pytest/cov.xml
           badge: true
           format: markdown
           output: both # Output to console and to file
