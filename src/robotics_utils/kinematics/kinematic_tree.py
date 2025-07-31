@@ -89,8 +89,15 @@ class KinematicTree:
             self.children[prev_parent_frame].remove(frame_name)
 
         self.frames[frame_name] = pose
-        self.children[frame_name] = self.children.get(frame_name, set())  # Initialize children
+
+        # Ensure that this frame and its parent frame have children sets initialized
+        self.children[frame_name] = self.children.get(frame_name, set())
+        self.children[pose.ref_frame] = self.children.get(pose.ref_frame, set())
         self.children[pose.ref_frame].add(frame_name)  # Add this frame to its parent's children
+
+    def valid_frame(self, frame_name: str) -> bool:
+        """Evaluate whether the given frame name is valid within the kinematic tree."""
+        return frame_name in self.frames or frame_name == self.root_frame
 
     def get_parent_frame(self, child_frame: str) -> str | None:
         """Retrieve the parent frame of the given child frame.
@@ -150,7 +157,18 @@ class KinematicTree:
         :param collision_model: Rigid-body collision geometry (primitive shape(s) and/or mesh(es))
         :raises KeyError: If an invalid frame name is given
         """
-        if frame_name not in self.frames:
+        if not self.valid_frame(frame_name):
             raise KeyError(f"Cannot set collision model for unknown frame: '{frame_name}'.")
 
         self.collision_models[frame_name] = collision_model
+
+    def get_collision_model(self, frame_name: str) -> CollisionModel | None:
+        """Retrieve the collision model attached to the named frame.
+
+        :param frame_name: Name of the frame of the returned collision geometry
+        :return: Collision model for the frame, or None if the frame has no attached geometry
+        """
+        if not self.valid_frame(frame_name):
+            raise KeyError(f"Cannot get collision model for unknown frame: '{frame_name}'.")
+
+        return self.collision_models.get(frame_name)

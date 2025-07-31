@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from robotics_utils.kinematics.collision_models import Cylinder
@@ -20,36 +19,40 @@ def environment_yaml() -> Path:
 
 def test_kinematic_tree_from_yaml(environment_yaml: Path) -> None:
     """Verify that a KinematicTree can be loaded from an example YAML file."""
-    # Arrange/Act - Load a KinematicTree from the YAML filepath provided via test fixture
-    loaded_tree = KinematicTree.from_yaml(environment_yaml)
+    tree = KinematicTree.from_yaml(environment_yaml)
 
     # Assert - Expect that the tree matches what's specified in the YAML file
-    assert loaded_tree.root_frame == "map"
-    assert len(loaded_tree.robot_base_poses) == 1
-    assert len(loaded_tree.object_poses) == 2
-    assert len(loaded_tree.waypoints) == 1
+    assert tree.root_frame == "custom_default"
+    assert len(tree.robot_base_poses) == 1
+    assert len(tree.object_poses) == 2
+    assert len(tree.waypoints) == 2
 
-    spot_base_pose = loaded_tree.get_robot_base_pose("spot")
-    assert spot_base_pose.approx_equal(Pose3D.identity("map"))
+    spot_base_pose = tree.get_robot_base_pose("spot")
+    assert spot_base_pose.approx_equal(Pose3D.identity("custom_default"))
 
-    table1_pose = loaded_tree.get_object_pose("table1")
-    assert table1_pose.approx_equal(Pose3D.from_xyz_rpy(x=3, ref_frame="map"))
+    table1_pose = tree.get_object_pose("table1")
+    assert table1_pose.approx_equal(Pose3D.from_xyz_rpy(x=3, ref_frame="custom_default"))
 
-    bottle1_pose = loaded_tree.get_object_pose("bottle1")
+    bottle1_pose = tree.get_object_pose("bottle1")
     assert bottle1_pose.approx_equal(Pose3D.from_xyz_rpy(z=1, ref_frame="table1"))
 
-    past_table_waypoint = loaded_tree.waypoints.get("past_table")
+    origin_pose = tree.waypoints.get("origin").to_3d()
+    assert origin_pose.approx_equal(Pose3D.identity("custom_default"))
 
-    assert past_table_waypoint.to_3d().approx_equal(
-        Pose3D.from_xyz_rpy(x=3.5, yaw_rad=3.14159, ref_frame="map"),
+    past_table_pose = tree.waypoints.get("past_table").to_3d()
+    assert past_table_pose.approx_equal(
+        Pose3D.from_xyz_rpy(x=3.5, yaw_rad=3.14, ref_frame="custom_default"),
     )
 
-    table_model = loaded_tree.collision_models["table1"]
+    table_model = tree.get_collision_model("table1")
     assert len(table_model.meshes) == 1
     assert not table_model.primitives
 
-    bottle_model = loaded_tree.collision_models["bottle1"]
+    bottle_model = tree.get_collision_model("bottle1")
     assert len(bottle_model.primitives) == 2
     assert not bottle_model.meshes
     for primitive in bottle_model.primitives:
         assert isinstance(primitive, Cylinder)
+
+    # Because the root frame has no attached geometry, its collision model should be None
+    assert tree.get_collision_model(tree.root_frame) is None
