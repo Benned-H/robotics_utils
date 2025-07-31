@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-from robotics_utils.filesystem.yaml_utils import (
-    load_collision_models,
-    load_named_poses,
-    load_object_types,
-)
-from robotics_utils.kinematics import Configuration
-from robotics_utils.kinematics.collision_models import CollisionModel, MeshSimplifier
+from robotics_utils.filesystem.yaml_utils import load_named_poses, load_yaml_data
+from robotics_utils.kinematics import DEFAULT_FRAME, Configuration
+from robotics_utils.kinematics.collision_models import CollisionModel
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
 
@@ -18,22 +15,25 @@ from robotics_utils.kinematics.waypoints import Waypoints
 class KinematicTree:
     """A tree of coordinate frames specifying relative poses between entities."""
 
-    def __init__(self) -> None:
-        """Initialize the kinematic tree's member variables as empty."""
-        self.frames: dict[str, Pose3D] = {}  # Map each frame name to its relative pose
-        self.children: dict[str, set[str]] = {}  # Map each frame name to its child frames
+    def __init__(self, root_frame: str) -> None:
+        """Initialize the kinematic tree's member variables based on its root frame."""
+        self.root_frame = root_frame
 
-        # Map each frame name to its (optional) attached collision geometry
+        self.frames: dict[str, Pose3D] = {}
+        """Maps the name of each frame to its relative pose."""
+
+        self.children: dict[str, set[str]] = {root_frame: set()}
+        """Maps the name of each frame to its set of child frames."""
+
         self.collision_models: dict[str, CollisionModel] = {}
+        """Maps the name of each frame to its (optional) attached collision geometry."""
 
         # Record which frames correspond to objects or robot base poses
         self.object_names: set[str] = set()  # Object frame names: f"{object_name}"
         self.robot_names: set[str] = set()  # Base pose frame names: f"{robot_name}_base_pose"
 
-        self.object_types: dict[str, set[str]] = {}  # Map each object's name to its type(s)
-
-        # Store robot configurations to represent actuated joints in the kinematic tree
-        self.robot_configurations: dict[str, Configuration] = {}  # Map robot names to configs
+        self.robot_configurations: dict[str, Configuration] = {}
+        """Maps the name of each robot to its current joint configuration."""
 
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
@@ -45,7 +45,10 @@ class KinematicTree:
         :param simplifier: Used to simplify any imported collision meshes
         :return: Constructed KinematicTree instance
         """
-        tree = KinematicTree()
+        full_yaml_data: dict[str, Any] = load_yaml_data(yaml_path)
+        default_frame = full_yaml_data.get("default_frame", DEFAULT_FRAME)
+
+        tree = KinematicTree(root_frame=default_frame)
 
         for obj_name, obj_pose in load_named_poses(yaml_path, "object_poses").items():
             tree.set_object_pose(obj_name, obj_pose)
@@ -53,6 +56,14 @@ class KinematicTree:
         for robot_name, base_pose in load_named_poses(yaml_path, "robot_base_poses").items():
             tree.set_robot_base_pose(robot_name, base_pose)
             tree.robot_configurations[robot_name] = {}  # Default: No robot configurations in YAML
+
+        collision_models_data: dict[str, Any] = full_yaml_data.get("collision_models", {})
+
+        for frame_name, model_data in collision_models_data.items():
+            tree.set_collision_model(
+                frame_name,
+                CollisionModel.from_yaml_data(model_data, yaml_path),
+            )
 
         tree.waypoints = Waypoints.from_yaml(yaml_path)
         tree.collision_models = load_collision_models(yaml_path, simplifier)
@@ -82,10 +93,14 @@ class KinematicTree:
 
         self.frames[frame_name] = pose
 
-        # Initialize the children sets for this frame and (if necessary) its parent frame
+        # Ensure that this frame and its parent frame have children sets initialized
         self.children[frame_name] = self.children.get(frame_name, set())
         self.children[pose.ref_frame] = self.children.get(pose.ref_frame, set())
         self.children[pose.ref_frame].add(frame_name)  # Add this frame to its parent's children
+
+    def valid_frame(self, frame_name: str) -> bool:
+        """Evaluate whether the given frame name is valid within the kinematic tree."""
+        return frame_name in self.frames or frame_name == self.root_frame
 
     def get_parent_frame(self, child_frame: str) -> str | None:
         """Retrieve the parent frame of the given child frame.
@@ -145,13 +160,20 @@ class KinematicTree:
         :param collision_model: Rigid-body collision geometry (primitive shape(s) and/or mesh(es))
         :raises KeyError: If an invalid frame name is given
         """
-        if frame_name not in self.frames:
+        if not self.valid_frame(frame_name):
             raise KeyError(f"Cannot set collision model for unknown frame: '{frame_name}'.")
 
         self.collision_models[frame_name] = collision_model
 
     def get_collision_model(self, frame_name: str) -> CollisionModel | None:
-        """Retrieve the collision geometry attached to the named frame (None if no geometry)."""
+        """Retrieve the collision model attached to the named frame.
+
+        :param frame_name: Name of the frame of the returned collision geometry
+        :return: Collision model for the frame, or None if the frame has no attached geometry
+        """
+        if not self.valid_frame(frame_name):
+            raise KeyError(f"Cannot get collision model for unknown frame: '{frame_name}'.")
+
         return self.collision_models.get(frame_name)
 
     def add_object_type(self, obj_name: str, obj_type: str) -> None:

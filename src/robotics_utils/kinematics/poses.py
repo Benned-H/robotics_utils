@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -21,23 +22,22 @@ class Pose2D:
     yaw_rad: float
     ref_frame: str = DEFAULT_FRAME  # Reference frame of the pose
 
-    @classmethod
-    def from_list(cls, pose_list: list[float], ref_frame: str = DEFAULT_FRAME) -> Pose2D:
-        """Construct a Pose2D instance from a list.
+    def __iter__(self) -> Iterator[float]:
+        """Provide an iterator over the (x,y,yaw) values of the 2D pose."""
+        yield from [self.x, self.y, self.yaw_rad]
 
-        :param pose_list: List of the pose data in the form [x, y, yaw]
+    @classmethod
+    def from_sequence(cls, pose_seq: Sequence[float], ref_frame: str = DEFAULT_FRAME) -> Pose2D:
+        """Construct a Pose2D from a sequence of values.
+
+        :param pose_seq: Sequence of [x, y, yaw] values
         :param ref_frame: Reference frame of the constructed pose (defaults to `DEFAULT_FRAME`)
         :return: Constructed Pose2D instance
         """
-        if len(pose_list) != 3:
-            raise ValueError(f"Pose2D expects 3 values, got {len(pose_list)}")
+        if len(pose_seq) != 3:
+            raise ValueError(f"Pose2D expects 3 values, got {len(pose_seq)}")
 
-        x, y, yaw_rad = pose_list
-        return Pose2D(x, y, yaw_rad, ref_frame)
-
-    def to_list(self) -> list[float]:
-        """Convert the Pose2D into a list of x, y, and yaw (radians) values."""
-        return [self.x, self.y, self.yaw_rad]
+        return Pose2D(pose_seq[0], pose_seq[1], pose_seq[2], ref_frame)
 
     def to_yaml_data(self, default_frame: str | None) -> dict[str, Any] | list[float]:
         """Convert the Pose2D into a form suitable for export to YAML.
@@ -46,9 +46,9 @@ class Pose2D:
         :return: Dictionary with the pose's data and frame, or a list if its frame is the default
         """
         if default_frame is not None and self.ref_frame == default_frame:
-            return self.to_list()
+            return list(self)
 
-        return {"x_y_yaw": self.to_list(), "frame": self.ref_frame}
+        return {"x_y_yaw": list(self), "frame": self.ref_frame}
 
     def to_3d(self) -> Pose3D:
         """Convert the 2D pose into an equivalent Pose3D."""
@@ -124,7 +124,7 @@ class Pose3D:
 
         :return: Pair of tuples (x, y, z) and (roll, pitch, yaw) with angles in radians
         """
-        return (self.position.to_tuple(), self.orientation.to_euler_rpy().to_tuple())
+        return (tuple(self.position), tuple(self.orientation.to_euler_rpy()))
 
     @classmethod
     def from_list(cls, xyz_rpy: list[float], ref_frame: str = DEFAULT_FRAME) -> Pose3D:

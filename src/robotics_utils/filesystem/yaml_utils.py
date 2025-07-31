@@ -5,10 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import trimesh
 import yaml
 
 from robotics_utils.kinematics import DEFAULT_FRAME
-from robotics_utils.kinematics.collision_models import CollisionModel, MeshData, MeshSimplifier
+from robotics_utils.kinematics.collision_models.meshes import load_trimesh_from_yaml_data
 from robotics_utils.kinematics.poses import Pose3D
 
 
@@ -66,61 +67,16 @@ def load_named_poses(yaml_path: Path, collection_name: str) -> dict[str, Pose3D]
     }
 
 
-def load_named_mesh(mesh_key: str, yaml_path: Path, simplifier: MeshSimplifier) -> MeshData:
+def load_named_mesh(mesh_key: str, yaml_path: Path) -> trimesh.Trimesh:
     """Load the specified mesh from the given YAML file.
 
     :param mesh_key: YAML key used to access the imported mesh
     :param yaml_path: Path to a YAML file specifying mesh data
-    :param simplifier: Used to simplify the imported mesh geometry
-    :return: Constructed MeshData instance
+    :return: Constructed trimesh.Trimesh instance
     """
     yaml_data = load_yaml_data(yaml_path, required_keys={"meshes"})
     mesh_data = yaml_data["meshes"].get(mesh_key)
     if mesh_data is None:
-        raise KeyError(f"Could not find mesh '{mesh_key}' in YAML file {yaml_path}")
+        raise KeyError(f"Could not find mesh named '{mesh_key}' in YAML file {yaml_path}")
 
-    return MeshData.from_yaml_data(mesh_data, simplifier)
-
-
-def load_collision_models(yaml_path: Path, simplifier: MeshSimplifier) -> dict[str, CollisionModel]:
-    """Load a collection of collision models from the given YAML file.
-
-    :param yaml_path: Path to a YAML file containing collision model data
-    :param simplifier: Used to simplify imported mesh geometries
-    :return: Dictionary mapping frame names to collision models
-    """
-    yaml_data = load_yaml_data(yaml_path, required_keys={"collision_models"})
-    models_data: dict[str, Any] = yaml_data["collision_models"]
-
-    return {
-        name: CollisionModel.from_yaml_data(data, simplifier) for name, data in models_data.items()
-    }
-
-
-def load_collision_model(name: str, yaml_path: Path, simplifier: MeshSimplifier) -> CollisionModel:
-    """Load the specified collision model from the given YAML file.
-
-    :param name: Name of the collision model to import
-    :param yaml_path: Path to a YAML file specifying collision model data
-    :param simplifier: Used to simplify any imported mesh geometry
-    :return: Constructed CollisionModel instance
-    """
-    yaml_data = load_yaml_data(yaml_path, required_keys={"collision_models"})
-    model_data = yaml_data["collision_models"].get(name)
-    if model_data is None:
-        raise KeyError(f"Could not find collision model '{name}' in YAML file {yaml_path}")
-
-    print("Exiting load_collision_model...")
-    return CollisionModel.from_yaml_data(model_data, simplifier)
-
-
-def load_object_types(yaml_path: Path) -> dict[str, set[str]]:
-    """Load a map of object types from the given YAML file.
-
-    :param yaml_path: Path to a YAML file specifying object types
-    :return: Dictionary mapping object names to sets of types
-    """
-    yaml_data = load_yaml_data(yaml_path, required_keys={"object_types"})
-    types_data: dict[str, Any] = yaml_data["object_types"]
-
-    return {obj_name: set(types) for obj_name, types in types_data.items()}
+    return load_trimesh_from_yaml_data(mesh_data, yaml_path)

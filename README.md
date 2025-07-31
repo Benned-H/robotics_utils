@@ -7,7 +7,7 @@ Catch-all repository for general-purpose robotics utilities.
 _Open-Vocab. Object Detection_ - Launch the open-vocabulary object detection demo by running:
 
 ```bash
-uv pip install robotics_utils[vision]
+uv venv && uv sync && uv pip install robotics-utils[vision]
 uv run scripts/object_detection_demo.py interactive IMAGE_PATH
 ```
 

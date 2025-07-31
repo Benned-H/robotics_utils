@@ -9,25 +9,22 @@ description = "General-purpose robotics utilities"
 requires-python = ">=3.8"
 
 # Core dependencies - Always installed
-dependencies = [
-    "click",
-    "rich",
-    "numpy",
-    "trimesh",
-    "pyyaml",
-    "fast-simplification",
-    "pyglet",
-    "pillow",
-    "scipy",
-]
+dependencies = ["click", "rich", "numpy", "trimesh"]
 
+# Optional dependencies support optional user features
+# Reference: https://pydevtools.com/handbook/explanation/what-are-optional-dependencies-and-dependency-groups/
 [project.optional-dependencies]
-vision = ["torch", "torchvision", "transformers", "opencv-python"]
 
-all = ["robotics_utils[vision]"] # Complete installation with everything
+# Optional dependencies to support computer vision applications
+vision = ["torch", "torchvision", "transformers", "pillow", "opencv-python"]
 
-[tool.uv]
-dev-dependencies = ["ruff", "pytest", "hypothesis", "pytest-cov"]
+all = ["robotics-utils[vision]"] # Install everything
+
+
+# Dependency groups manage development-time dependencies
+# Reference: https://pydevtools.com/handbook/explanation/what-are-optional-dependencies-and-dependency-groups/
+[dependency-groups]
+dev = ["ruff", "pytest", "hypothesis", "pytest-cov"]
 
 
 [tool.hatch.build.targets.wheel]

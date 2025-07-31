@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Iterator, Sequence
+from dataclasses import astuple, dataclass
 
 import numpy as np
 from numpy.typing import NDArray
@@ -16,6 +16,10 @@ class Point3D:
     x: float
     y: float
     z: float
+
+    def __iter__(self) -> Iterator[float]:
+        """Provide an iterator over the point's (x,y,z) coordinates."""
+        yield from astuple(self)
 
     @classmethod
     def identity(cls) -> Point3D:
@@ -43,11 +47,7 @@ class Point3D:
         """Construct a Point3D instance from a sequence (e.g., list or tuple) of values."""
         if len(values) != 3:
             raise ValueError(f"Point3D expects 3 values, got {len(values)}")
-        return Point3D(values[0], values[1], values[2])
-
-    def to_tuple(self) -> tuple[float, float, float]:
-        """Convert the Point3D into a tuple of (x, y, z) coordinates."""
-        return (self.x, self.y, self.z)
+        return Point3D(float(values[0]), float(values[1]), float(values[2]))
 
     def approx_equal(self, other: Point3D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Point3D is approximately equal to this one."""

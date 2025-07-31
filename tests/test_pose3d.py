@@ -5,7 +5,7 @@ from hypothesis import given
 
 from robotics_utils.kinematics.poses import Pose3D
 
-from .hypothesis_strategies import poses_3d
+from .kinematics_strategies import poses_3d
 
 
 @given(poses_3d())
@@ -74,7 +74,7 @@ def test_pose3d_inverse_multiplication(pose: Pose3D, pose_frame: str) -> None:
     identity_wrt_ref_frame = Pose3D.identity(pose.ref_frame)
 
     # Expect that left-multiplying results in the pose's frame as the reference frame
-    assert identity_wrt_pose_frame.approx_equal(left_product, atol=1e-05, rtol=5e-03)
+    assert identity_wrt_pose_frame.approx_equal(left_product, rtol=1e-04, atol=5e-05)
 
     # Expect that right-multiplying results in the same reference frame as the pose
-    assert identity_wrt_ref_frame.approx_equal(right_product, atol=1e-05, rtol=5e-03)
+    assert identity_wrt_ref_frame.approx_equal(right_product, rtol=1e-04, atol=5e-05)

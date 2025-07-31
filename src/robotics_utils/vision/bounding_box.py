@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
+from robotics_utils.vision.images import PixelXY, RGBImage
 from robotics_utils.vision.vision_utils import RGB
 
 
@@ -14,10 +15,8 @@ from robotics_utils.vision.vision_utils import RGB
 class BoundingBox:
     """A rectangular bounding box in an image."""
 
-    top_left_x: int
-    top_left_y: int
-    bottom_right_x: int
-    bottom_right_y: int
+    top_left: PixelXY  # Top-left pixel inside the bounding box
+    bottom_right: PixelXY  # Bottom-right pixel inside the bounding box
 
     @classmethod
     def from_ratios(cls, ratios: list[float], image_shape: tuple[int, int, int]) -> BoundingBox:
@@ -30,46 +29,77 @@ class BoundingBox:
         if len(ratios) != 4:
             raise ValueError(f"Cannot construct BoundingBox from a list of length {len(ratios)}.")
 
-        height, width, _ = image_shape
-        top_left_x = int(ratios[0] * width)
-        top_left_y = int(ratios[1] * height)
-        bottom_right_x = int(ratios[2] * width)
-        bottom_right_y = int(ratios[3] * height)
+        ratios_arr = np.array(ratios)
+        top_left_ratios = ratios_arr[:2]
+        bottom_right_ratios = ratios_arr[2:]
 
-        return BoundingBox(top_left_x, top_left_y, bottom_right_x, bottom_right_y)
+        height, width, _ = image_shape
+        xy_scale = np.array([width, height])
+
+        top_left = top_left_ratios * xy_scale  # Element-wise multiplication
+        bottom_right = bottom_right_ratios * xy_scale
+
+        return BoundingBox(PixelXY(top_left), PixelXY(bottom_right))
+
+    @classmethod
+    def from_center(cls, center_pixel: PixelXY, height: int, width: int) -> BoundingBox:
+        """Construct a bounding box from a center (x,y) pixel, a height, and a width.
+
+        :param center_pixel: Center pixel of the bounding box as an (x,y) image coordinate
+        :param height: Height of the bounding box (in pixels)
+        :param width: Width of the bounding box (in pixels)
+        :return: Constructed BoundingBox instance
+        """
+        pixels_up = np.floor((height - 1) / 2)  # Even height => Center biases high
+        pixels_down = np.ceil((height - 1) / 2)
+        pixels_left = np.floor((width - 1) / 2)  # Even width => Center biases left
+        pixels_right = np.ceil((width - 1) / 2)
+
+        top_left = center_pixel.xy - np.array([pixels_left, pixels_up])
+        bottom_right = center_pixel.xy + np.array([pixels_right, pixels_down])
+
+        return BoundingBox(PixelXY(top_left), PixelXY(bottom_right))
 
     @property
     def width(self) -> int:
         """Compute the width (in pixels) of the bounding box."""
-        return self.bottom_right_x - self.top_left_x
+        return int(self.bottom_right.x - self.top_left.x) + 1
 
     @property
     def height(self) -> int:
         """Compute the height (in pixels) of the bounding box."""
-        return self.bottom_right_y - self.top_left_y
+        return int(self.bottom_right.y - self.top_left.y) + 1
 
     @property
-    def top_left_xy(self) -> tuple[int, int]:
-        """Retrieve the (x,y) coordinates of the top-left corner of the bounding box."""
-        return (self.top_left_x, self.top_left_y)
-
-    @property
-    def bottom_right_xy(self) -> tuple[int, int]:
-        """Retrieve the (x,y) coordinates of the bottom-right corner of the bounding box."""
-        return (self.bottom_right_x, self.bottom_right_y)
-
-    def get_center_xy(self) -> tuple[int, int]:
+    def center_pixel(self) -> PixelXY:
         """Compute the center pixel of the bounding box as an (x,y) coordinate."""
-        center_x = int(self.top_left_x + 0.5 * self.width)
-        center_y = int(self.top_left_y + 0.5 * self.height)
-        return (center_x, center_y)
+        return PixelXY(np.floor((self.bottom_right.xy + self.top_left.xy) / 2))
 
-    def draw(self, image: np.ndarray, color: RGB = (255, 255, 0), thickness: int = 3) -> None:
+    def draw(self, image: RGBImage, color: RGB, thickness: int = 3) -> None:
         """Draw the bounding box as a rectangle on the given image.
 
         :param image: Image on which the bounding box is drawn (modified in-place)
         :param color: RGB color of the drawn bounding box
         :param thickness: Thickness (pixels) of the drawn bounding box
         """
-        cv2.rectangle(image, self.top_left_xy, self.bottom_right_xy, color, thickness)
-        cv2.circle(image, self.get_center_xy(), 1, color, thickness)
+        cv2.rectangle(
+            image.data,
+            tuple(self.top_left.xy),
+            tuple(self.bottom_right.xy),
+            color,
+            thickness,
+        )
+        cv2.circle(image.data, tuple(self.center_pixel.xy), 1, color, thickness)
+
+    def crop(self, image: RGBImage, scale_ratio: float = 1.0) -> RGBImage:
+        """Return a crop of the given image based on this bounding box.
+
+        :param image: RGB image from which a cropped image is created
+        :param scale_ratio: Ratio to scale the bounding box size (defaults to 1.0)
+        :return: New RGB image containing the cropped section of the given image
+        """
+        scaled_height = int(self.height * scale_ratio)
+        scaled_width = int(self.width * scale_ratio)
+        scaled_box = BoundingBox.from_center(self.center_pixel, scaled_height, scaled_width)
+
+        return image.get_crop(scaled_box.top_left, scaled_box.bottom_right)

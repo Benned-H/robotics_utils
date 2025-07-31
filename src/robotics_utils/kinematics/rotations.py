@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Iterator, Sequence
+from dataclasses import astuple, dataclass
 
 import numpy as np
 from numpy.typing import NDArray
@@ -24,14 +25,18 @@ class EulerRPY:
     pitch_rad: float
     yaw_rad: float
 
+    def __iter__(self) -> Iterator[float]:
+        """Provide an iterator over the roll, pitch, and yaw values."""
+        yield from astuple(self)
+
     @classmethod
     def identity(cls) -> EulerRPY:
         """Construct EulerRPY angles corresponding to the identity rotation."""
         return EulerRPY(0, 0, 0)
 
     @classmethod
-    def from_list(cls, values: list[float]) -> EulerRPY:
-        """Construct Euler angles from a list of values (in radians)."""
+    def from_sequence(cls, values: Sequence[float]) -> EulerRPY:
+        """Construct Euler angles from a sequence of angle values (in radians)."""
         if len(values) != 3:
             raise ValueError(f"EulerRPY expects 3 values, got {len(values)}")
         return EulerRPY(values[0], values[1], values[2])
@@ -52,10 +57,6 @@ class EulerRPY:
         """Convert the Euler angles into an equivalent unit quaternion."""
         w, x, y, z = quaternion_from_euler(self.roll_rad, self.pitch_rad, self.yaw_rad, axes="sxyz")
         return Quaternion(x=x, y=y, z=z, w=w)
-
-    def to_tuple(self) -> tuple[float, float, float]:
-        """Convert the Euler angles into a tuple of (roll, pitch, yaw) angles (in radians)."""
-        return (self.roll_rad, self.pitch_rad, self.yaw_rad)
 
 
 @dataclass
