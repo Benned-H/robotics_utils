@@ -3,12 +3,12 @@
 import hypothesis.strategies as st
 from hypothesis import given
 
-from robotics_utils.kinematics.pose3d import Pose3D
+from robotics_utils.kinematics.poses import Pose3D
 
-from .kinematics_strategies import poses
+from .kinematics_strategies import poses_3d
 
 
-@given(poses())
+@given(poses_3d())
 def test_pose3d_to_homogeneous_matrix_and_back(pose: Pose3D) -> None:
     """Verify that any Pose3D is unchanged after converting to and from a homogeneous matrix."""
     # Arrange/Act - Given a 3D pose, convert to and from a homogeneous transformation matrix
@@ -20,7 +20,7 @@ def test_pose3d_to_homogeneous_matrix_and_back(pose: Pose3D) -> None:
     assert pose.approx_equal(result_pose)
 
 
-@given(poses())
+@given(poses_3d())
 def test_pose3d_to_list_and_back(pose: Pose3D) -> None:
     """Verify that any Pose3D is unchanged after converting to and from an equivalent list."""
     # Arrange/Act - Given a 3D pose, convert to and from a list of [x, y, z, roll, pitch, yaw]
@@ -32,18 +32,18 @@ def test_pose3d_to_list_and_back(pose: Pose3D) -> None:
     assert pose.approx_equal(result_pose, atol=1e-07)
 
 
-@given(poses())
+@given(poses_3d())
 def test_pose3d_to_yaml_and_back(pose: Pose3D) -> None:
     """Verify that any Pose3D is unchanged after converting to and from YAML data."""
     # Arrange/Act - Given a 3D pose, convert to and from a dictionary for export to YAML
     pose_dict = pose.to_yaml_dict()
-    result_pose = Pose3D.from_yaml_dict(pose_dict)
+    result_pose = Pose3D.from_yaml_data(pose_dict)
 
     # Assert - Expect that the resulting Pose3D equals the original
     assert pose.approx_equal(result_pose)
 
 
-@given(poses())
+@given(poses_3d())
 def test_pose3d_identity_multiplication(pose: Pose3D) -> None:
     """Verify that any Pose3D is unchanged after multiplication by the identity pose."""
     # Arrange - Create a pose representing the identity transformation
@@ -61,7 +61,7 @@ def test_pose3d_identity_multiplication(pose: Pose3D) -> None:
     assert pose.approx_equal(right_result)
 
 
-@given(poses(), st.text())
+@given(poses_3d(), st.text())
 def test_pose3d_inverse_multiplication(pose: Pose3D, pose_frame: str) -> None:
     """Verify that multiplying any Pose3D by its inverse gives the identity transform."""
     # Arrange/Act - Given a 3D pose, find its inverse and the result of multiplying the two

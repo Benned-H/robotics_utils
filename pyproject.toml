@@ -9,7 +9,7 @@ description = "General-purpose robotics utilities"
 requires-python = ">=3.8"
 
 # Core dependencies - Always installed
-dependencies = ["click", "rich", "transforms3d", "numpy"]
+dependencies = ["click", "rich", "numpy", "trimesh"]
 
 # Optional dependencies support optional user features
 # Reference: https://pydevtools.com/handbook/explanation/what-are-optional-dependencies-and-dependency-groups/

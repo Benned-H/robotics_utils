@@ -8,6 +8,8 @@ from hypothesis.extra import numpy as numpy_st
 from robotics_utils.vision.bounding_box import BoundingBox
 from robotics_utils.vision.images import PixelXY, RGBImage
 
+from .common_strategies import integer_ranges
+
 
 @st.composite
 def pixels_xy(draw: st.DrawFn) -> PixelXY:
@@ -21,13 +23,11 @@ def pixels_xy(draw: st.DrawFn) -> PixelXY:
 @st.composite
 def bounding_boxes(draw: st.DrawFn) -> BoundingBox:
     """Generate random bounding boxes in pixel coordinates."""
-    x1 = draw(st.integers(min_value=-100000, max_value=100000))
-    x2 = draw(st.integers(min_value=-100000, max_value=100000))
-    y1 = draw(st.integers(min_value=-100000, max_value=100000))
-    y2 = draw(st.integers(min_value=-100000, max_value=100000))
+    min_x, max_x = draw(integer_ranges(min_value=-100000, max_value=100000))
+    min_y, max_y = draw(integer_ranges(min_value=-100000, max_value=100000))
 
-    top_left = PixelXY((min(x1, x2), min(y1, y2)))
-    bottom_right = PixelXY((max(x1, x2), max(y1, y2)))
+    top_left = PixelXY((min_x, min_y))
+    bottom_right = PixelXY((max_x, max_y))
 
     return BoundingBox(top_left, bottom_right)
 

@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+import rospy
+import trimesh
 from geometry_msgs.msg import Point, Pose, PoseStamped, Transform, TransformStamped, Vector3
 from geometry_msgs.msg import Quaternion as QuaternionMsg
+from moveit_msgs.msg import CollisionObject
+from sensor_msgs.msg import JointState
+from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
 
-from robotics_utils.kinematics import DEFAULT_FRAME
+from robotics_utils.kinematics import DEFAULT_FRAME, Configuration
+from robotics_utils.kinematics.collision_models import (
+    Box,
+    CollisionModel,
+    Cylinder,
+    PrimitiveShape,
+    Sphere,
+)
 from robotics_utils.kinematics.point3d import Point3D
-from robotics_utils.kinematics.pose3d import Pose3D
+from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.rotations import Quaternion
 
 
@@ -120,3 +132,68 @@ def pose_msg_to_tf_msg(pose_msg: Pose) -> Transform:
 def tf_msg_to_pose_msg(tf_msg: Transform) -> Pose:
     """Convert a geometry_msgs/Transform message into a geometry_msgs/Pose message."""
     return Pose(vector3_msg_to_point_msg(tf_msg.translation), tf_msg.rotation)
+
+
+def config_to_joint_state_msg(config: Configuration) -> JointState:
+    """Convert the given configuration into a sensor_msgs/JointState message."""
+    msg = JointState()
+    msg.header.stamp = rospy.Time.now()
+    msg.name = list(config.keys())
+    msg.position = list(config.values())
+    msg.effort = [0] * len(config)
+    msg.velocity = [0] * len(config)
+    return msg
+
+
+def trimesh_to_msg(mesh: trimesh.Trimesh) -> Mesh:
+    """Convert a trimesh.Trimesh into a shape_msgs/Mesh message."""
+    mesh_msg = Mesh()
+    mesh_msg.triangles = [MeshTriangle(list(tri)) for tri in mesh.faces]
+    mesh_msg.vertices = [Point(v[0], v[1], v[2]) for v in mesh.vertices]
+    return mesh_msg
+
+
+def primitive_shape_type_to_integer(shape: PrimitiveShape) -> int:
+    """Get the shape_msgs/SolidPrimitive integer type for the given type of primitive shape."""
+    if isinstance(shape, Box):
+        return 1
+    if isinstance(shape, Sphere):
+        return 2
+    if isinstance(shape, Cylinder):
+        return 3
+
+    raise ValueError(f"Unrecognized type of PrimitiveShape: {shape}")
+
+
+def primitive_shape_to_msg(shape: PrimitiveShape) -> SolidPrimitive:
+    """Convert a primitive geometric shape into a shape_msgs/SolidPrimitive message."""
+    msg = SolidPrimitive()
+    msg.type = primitive_shape_type_to_integer(shape)
+    msg.dimensions = shape.to_dimensions()
+    return msg
+
+
+def make_collision_object_msg(
+    object_name: str,
+    object_type: str,
+    object_pose: Pose3D,
+    collision_model: CollisionModel,
+) -> CollisionObject:
+    """Construct a moveit_msgs/CollisionObject message using the given data."""
+    msg = CollisionObject()
+    msg.header.frame_id = object_pose.ref_frame
+    msg.pose = pose_to_msg(object_pose)
+
+    msg.id = object_name
+    msg.type.key = object_type  # Ignore 'db' field of message
+
+    for mesh in collision_model.meshes:
+        msg.meshes.append(trimesh_to_msg(mesh))
+        msg.mesh_poses.append(Pose())
+
+    for shape in collision_model.primitives:
+        msg.primitives.append(primitive_shape_to_msg(shape))
+        msg.primitive_poses.append(Pose())  # TODO: Frames used to be shifted to bottom of objects
+
+    msg.operation = CollisionObject.ADD
+    return msg
