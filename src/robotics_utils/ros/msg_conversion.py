@@ -146,7 +146,7 @@ def config_to_joint_state_msg(config: Configuration) -> JointState:
 
 
 def trimesh_to_msg(mesh: trimesh.Trimesh) -> Mesh:
-    """Convert a mesh into a shape_msgs/Mesh message."""
+    """Convert a trimesh.Trimesh into a shape_msgs/Mesh message."""
     mesh_msg = Mesh()
     mesh_msg.triangles = [MeshTriangle(list(tri)) for tri in mesh.faces]
     mesh_msg.vertices = [Point(v[0], v[1], v[2]) for v in mesh.vertices]

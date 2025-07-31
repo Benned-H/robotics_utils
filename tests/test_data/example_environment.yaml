@@ -22,6 +22,6 @@ collision_models:
   bottle1:
     primitives:
       - { type: cylinder, height: 0.15, radius: 0.03 } # Tall, thin cylinder
-      - { type: cylinder, height: 0.9, radius: 0.05 } # Short, wide cylinder
+      - { type: cylinder, height: 0.09, radius: 0.05 } # Short, wide cylinder
 
 default_frame: map

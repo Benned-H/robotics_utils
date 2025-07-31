@@ -20,10 +20,10 @@ class KinematicTree:
         self.root_frame = root_frame
 
         self.frames: dict[str, Pose3D] = {}
-        """Maps to name of each frame to its relative pose."""
+        """Maps the name of each frame to its relative pose."""
 
         self.children: dict[str, set[str]] = {root_frame: set()}
-        """Maps the name of each frame to the set of its child frames."""
+        """Maps the name of each frame to its set of child frames."""
 
         self.collision_models: dict[str, CollisionModel] = {}
         """Maps the name of each frame to its (optional) attached collision geometry."""
