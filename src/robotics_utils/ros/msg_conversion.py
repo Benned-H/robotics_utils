@@ -7,14 +7,15 @@ from geometry_msgs.msg import Point, Pose, PoseStamped, Transform, TransformStam
 from geometry_msgs.msg import Quaternion as QuaternionMsg
 from moveit_msgs.msg import CollisionObject
 from sensor_msgs.msg import JointState
-from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
-from trimesh import Trimesh
+from shape_msgs.msg import Mesh as MeshMsg
+from shape_msgs.msg import MeshTriangle, SolidPrimitive
 
 from robotics_utils.kinematics import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.collision_models import (
     Box,
     CollisionModel,
     Cylinder,
+    Mesh,
     PrimitiveShape,
     Sphere,
 )
@@ -145,9 +146,9 @@ def config_to_joint_state_msg(config: Configuration) -> JointState:
     return msg
 
 
-def trimesh_to_msg(mesh: Trimesh) -> Mesh:
-    """Convert a trimesh.Trimesh into a shape_msgs/Mesh message."""
-    mesh_msg = Mesh()
+def mesh_to_msg(mesh: Mesh) -> MeshMsg:
+    """Convert a mesh into a shape_msgs/Mesh message."""
+    mesh_msg = MeshMsg()
     mesh_msg.triangles = [MeshTriangle(list(tri)) for tri in mesh.faces]
     mesh_msg.vertices = [Point(v[0], v[1], v[2]) for v in mesh.vertices]
     return mesh_msg
@@ -169,7 +170,7 @@ def primitive_shape_to_msg(shape: PrimitiveShape) -> SolidPrimitive:
     """Convert a primitive geometric shape into a shape_msgs/SolidPrimitive message."""
     msg = SolidPrimitive()
     msg.type = primitive_shape_type_to_integer(shape)
-    msg.dimensions = shape.to_list()
+    msg.dimensions = shape.to_dimensions()
     return msg
 
 
@@ -187,8 +188,8 @@ def make_collision_object_msg(
     msg.id = object_name
     msg.type.key = object_type  # Ignore 'db' field of message
 
-    for mesh_data in collision_model.meshes:
-        msg.meshes.append(trimesh_to_msg(mesh_data.mesh))
+    for mesh in collision_model.meshes:
+        msg.meshes.append(mesh_to_msg(mesh))
         msg.mesh_poses.append(Pose())
 
     for shape in collision_model.primitives:

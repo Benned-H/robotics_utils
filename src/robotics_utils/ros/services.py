@@ -78,7 +78,7 @@ def trigger_service(service_name: str) -> bool:
     return success
 
 
-class WaitForServiceCall:
+class WaitUntilServiceCalled:
     """A class that loops until its ROS service has been called."""
 
     def __init__(self, topic_name: str, loop_hz: float = 10.0) -> None:

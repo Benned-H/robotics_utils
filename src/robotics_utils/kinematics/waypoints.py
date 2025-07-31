@@ -29,11 +29,11 @@ class Waypoints(Dict[str, Pose2D]):
         waypoints = Waypoints()
         for name, waypoint_data in waypoints_data.items():
             if isinstance(waypoint_data, list):
-                waypoints[name] = Pose2D.from_list(waypoint_data, default_frame)
+                waypoints[name] = Pose2D.from_sequence(waypoint_data, default_frame)
             elif isinstance(waypoint_data, dict):
                 ref_frame: str = waypoint_data["frame"]
                 pose_list: list[float] = waypoint_data["x_y_yaw"]
-                waypoints[name] = Pose2D.from_list(pose_list, ref_frame)
+                waypoints[name] = Pose2D.from_sequence(pose_list, ref_frame)
 
         return waypoints
 
