@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from robotics_utils.filesystem.yaml_utils import load_named_poses, load_yaml_data
-from robotics_utils.kinematics import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.collision_models import CollisionModel
-from robotics_utils.kinematics.poses import Pose3D
+from robotics_utils.kinematics.configurations import Configuration
+from robotics_utils.kinematics.poses import DEFAULT_FRAME, Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
 
 
@@ -32,6 +32,9 @@ class KinematicTree:
         self.object_names: set[str] = set()  # Object frame names: f"{object_name}"
         self.robot_names: set[str] = set()  # Base pose frame names: f"{robot_name}_base_pose"
 
+        self.object_types: dict[str, set[str]] = {}
+        """Maps the name of each object to the set of that object's types."""
+
         self.robot_configurations: dict[str, Configuration] = {}
         """Maps the name of each robot to its current joint configuration."""
 
@@ -44,7 +47,7 @@ class KinematicTree:
         :param yaml_path: YAML file containing data representing the kinematic state
         :return: Constructed KinematicTree instance
         """
-        full_yaml_data: dict[str, Any] = load_yaml_data(yaml_path)
+        full_yaml_data: dict[str, Any] = load_yaml_data(yaml_path, required_keys={"object_types"})
         default_frame = full_yaml_data.get("default_frame", DEFAULT_FRAME)
 
         tree = KinematicTree(root_frame=default_frame)
@@ -65,6 +68,10 @@ class KinematicTree:
             )
 
         tree.waypoints = Waypoints.from_yaml(yaml_path)
+
+        obj_types_data: dict[str, list[str]] = full_yaml_data["object_types"]
+        for obj_name, obj_types in obj_types_data.items():
+            tree.set_object_types(obj_name, set(obj_types))
 
         return tree
 
@@ -116,6 +123,7 @@ class KinematicTree:
         """
         self._update_frame(obj_name, new_pose)
         self.object_names.add(obj_name)
+        self.object_types[obj_name] = self.object_types.get(obj_name, set())  # Initialize if DNE
 
     def get_object_pose(self, obj_name: str) -> Pose3D:
         """Retrieve the pose of the named object.
@@ -172,3 +180,19 @@ class KinematicTree:
             raise KeyError(f"Cannot get collision model for unknown frame: '{frame_name}'.")
 
         return self.collision_models.get(frame_name)
+
+    def set_object_types(self, obj_name: str, types: set[str]) -> None:
+        """Set the object types of the named object.
+
+        :param obj_name: Name of an object in the environment
+        :param types: Set of types that the object has
+        """
+        if obj_name not in self.object_types:
+            raise KeyError(f"Cannot set types for unknown object: '{obj_name}'.")
+        self.object_types[obj_name] = types
+
+    def get_object_types(self, obj_name: str) -> set[str]:
+        """Retrieve the set of types of an object."""
+        if obj_name not in self.object_types:
+            raise KeyError(f"Cannot retrieve types of unknown object: '{obj_name}'.")
+        return self.object_types[obj_name]

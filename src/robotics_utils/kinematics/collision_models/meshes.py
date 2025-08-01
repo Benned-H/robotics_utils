@@ -90,7 +90,7 @@ class Rotate(MeshTransform):
     @classmethod
     def from_list(cls, values: list[float]) -> Rotate:
         """Construct a Rotate instance from a list of values."""
-        return Rotate(rpy=EulerRPY.from_list(values))
+        return Rotate(rpy=EulerRPY.from_sequence(values))
 
 
 @dataclass(frozen=True)

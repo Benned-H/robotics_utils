@@ -26,4 +26,8 @@ collision_models:
       - { type: cylinder, height: 0.15, radius: 0.03 } # Tall, thin cylinder
       - { type: cylinder, height: 0.09, radius: 0.05 } # Short, wide cylinder
 
+object_types:
+  table1: [table]
+  bottle1: [bottle]
+
 default_frame: custom_default
