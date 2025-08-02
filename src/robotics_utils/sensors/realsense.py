@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from types import TracebackType
 
 import numpy as np
@@ -71,6 +73,17 @@ class RealSense:
             raise RuntimeError("Depth camera intrinsics are unavailable")
         return self._depth_intrinsics
 
+    def _validate_udev_rules(self) -> None:
+        """If on Linux, validate system permissions required to access RealSense devices.
+
+        :raises OSError: If the necessary permissions have not been set
+        """
+        if os.name == "posix" and not Path("/run/udev/data/+usb:vendor:8086").exists():
+            raise OSError(
+                "Hint: On Debian/Ubuntu you can enable non-root camera access by installing:\n"
+                "\tsudo apt install librealsense2-dkms librealsense2-utils",
+            )  # TODO: Call if solution pans out
+
     def get_rgbd(self, timeout_ms: int = 500) -> RGBDImage:
         """Wait for an RGB-D image from the RealSense pipeline.
 
@@ -102,11 +115,13 @@ class RealSense:
         ]
 
         for vs in video_streams:
-            stream_name = vs.stream_name().lower()
+            if not vs:
+                continue
+            stream_name = vs.stream_name()  # 'Color' or 'Depth'
             rs_i = vs.get_intrinsics()
             intrinsics = CameraIntrinsics(rs_i.fx, rs_i.fy, rs_i.ppx, rs_i.ppy)
 
-            if stream_name == "color":
+            if stream_name == "Color":
                 self._rgb_intrinsics = intrinsics
-            elif stream_name == "depth":
+            elif stream_name == "Depth":
                 self._depth_intrinsics = intrinsics

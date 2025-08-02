@@ -3,17 +3,15 @@
 from robotics_utils.sensors.cameras import D455_SPEC
 from robotics_utils.sensors.realsense import RealSense
 from robotics_utils.vision.pointcloud import Pointcloud, PointcloudVisualizer
-from robotics_utils.visualization.image_display import ImageDisplay
+from robotics_utils.visualization import display_image
 
 
 def main() -> None:
     """Demo the Intel RealSense."""
-    displayer = ImageDisplay()
-
-    with RealSense(camera_spec=D455_SPEC) as sensor, PointcloudVisualizer() as vis:
+    with RealSense(depth_spec=D455_SPEC) as sensor, PointcloudVisualizer() as vis:
         while True:
             rgbd = sensor.get_rgbd(timeout_ms=5000)
-            if not displayer.show(rgbd, "RGB-D Image (press 'q' to exit)", wait_for_input=False):
+            if not display_image(rgbd, "RGB-D Image (press 'q' to exit)", wait_for_input=False):
                 break
 
             print(f"Min depth: {rgbd.depth.min_depth_m} Max depth: {rgbd.depth.max_depth_m}")

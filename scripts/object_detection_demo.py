@@ -7,7 +7,6 @@ from copy import deepcopy
 from pathlib import Path
 
 import click
-import cv2
 import numpy as np
 from rich.console import Console
 from rich.panel import Panel
@@ -16,7 +15,7 @@ from rich.text import Text
 
 from robotics_utils.vision.images import RGBImage
 from robotics_utils.vision.object_detector import ObjectDetector, TextQueries
-from robotics_utils.visualization.image_display import ImageDisplay
+from robotics_utils.visualization import display_image
 
 
 @click.group()
@@ -27,7 +26,6 @@ def object_detection_cli(ctx: click.Context, model_name: str | None) -> None:
     ctx.ensure_object(dict)  # Create ctx.obj if it doesn't exist
     ctx.obj["detector"] = ObjectDetector() if model_name is None else ObjectDetector(model_name)
     ctx.obj["console"] = Console()
-    ctx.obj["display"] = ImageDisplay()
 
 
 @object_detection_cli.command()
@@ -37,7 +35,6 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
     """Run object detection in an interactive loop."""
     detector: ObjectDetector = ctx.obj["detector"]
     console: Console = ctx.obj["console"]
-    display: ImageDisplay = ctx.obj["display"]
 
     image = RGBImage.from_file(image_path)
 
@@ -96,13 +93,12 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
                     color = query_colors[detection.query]
                     detection.draw(vis_image, color)
 
-                display.show(vis_image, "Detections (press any key to exit)")
+                display_image(vis_image, "Detections (press any key to exit)")
 
                 if click.confirm("Display cropped images for each detection?"):
-                    for i, detection in enumerate(detections):
-                        detection_str = f"Detection {i}/{len(detections)}: '{detection.query}'"
-                        cropped = detection.bounding_box.crop(image, scale_ratio=1.2)
-                        display.show(cropped, detection_str)
+                    for i, d in enumerate(detections):
+                        cropped = d.bounding_box.crop(image, scale_ratio=1.2)
+                        display_image(cropped, f"Detection {i}/{len(detections)}: '{d.query}'")
 
                 if click.confirm("Clear the current text queries?"):
                     current_queries.clear()

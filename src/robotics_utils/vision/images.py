@@ -12,7 +12,7 @@ import numpy as np
 from numpy.typing import NDArray
 from typing_extensions import Self
 
-from robotics_utils.visualization.image_display import Displayable
+from robotics_utils.visualization import Displayable
 
 
 class Image(ABC, Displayable):

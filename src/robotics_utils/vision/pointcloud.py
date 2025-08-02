@@ -9,8 +9,8 @@ import open3d as o3d
 from numpy.typing import NDArray
 from typing_extensions import Self
 
+from robotics_utils.sensors.cameras import CameraIntrinsics
 from robotics_utils.vision.images import DepthImage
-from robotics_utils.vision.vision_utils import CameraIntrinsics
 
 
 class Pointcloud:
