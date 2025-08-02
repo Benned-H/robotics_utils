@@ -52,11 +52,3 @@ class CameraIntrinsics:
     def to_matrix(self) -> NDArray[np.float64]:
         """Convert the camera intrinsic parameters into a 3x3 intrinsic matrix."""
         return np.array([[self.fx, 0, self.x0], [0, self.fy, self.y0], [0, 0, 1]])
-
-
-@dataclass(frozen=True)
-class RGBDIntrinsics:
-    """Camera intrinsics for a pair of RGB and depth cameras."""
-
-    rgb: CameraIntrinsics
-    depth: CameraIntrinsics

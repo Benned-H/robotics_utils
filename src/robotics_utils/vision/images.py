@@ -12,38 +12,15 @@ import numpy as np
 from numpy.typing import NDArray
 from typing_extensions import Self
 
-
-def display_image(data: NDArray[np.uint8], window_title: str, wait_for_input: bool = True) -> bool:
-    """Display the given image in a titled window.
-
-    :param data: NumPy array containing image data to be displayed
-    :param window_title: Title used for the display window
-    :param wait_for_input: Whether to display the image until user input (defaults to True)
-    :return: Boolean indicating if the window remains active (True = Active, False = Closed)
-    """
-    cv2.imshow(window_title, data)
-    if wait_for_input:
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        return False
-
-    key_input = cv2.waitKey(1) & 0xFF
-    if key_input == ord("q"):  # Close the window if the user inputs 'q'
-        cv2.destroyAllWindows()
-        return False
-
-    return True
+from robotics_utils.visualization.image_display import Displayable
 
 
-class Image(ABC):
+class Image(ABC, Displayable):
     """An image represented as a NumPy array."""
 
     @abstractmethod
     def convert_for_visualization(self) -> NDArray[np.uint8]:
-        """Convert the image data for visualization in an OpenCV window.
-
-        :return: Image data converted for visualization
-        """
+        """Convert the image data into a form that can be visualized."""
 
     def __init__(self, data: NDArray) -> None:
         """Initialize the image using the given array."""
@@ -86,16 +63,6 @@ class Image(ABC):
 
         cropped_data = self.data[min_y : max_y + 1, min_x : max_x + 1, :]
         return type(self)(cropped_data.copy())
-
-    def visualize(self, window_title: str, wait_for_input: bool = True) -> bool:
-        """Visualize the image in an OpenCV2 window with the given title.
-
-        :param window_title: Title used for the OpenCV window
-        :param wait_for_input: Whether to display the image until user input (defaults to True)
-        :return: Boolean indicating if the window remains active (True = Active, False = Closed)
-        """
-        visualize_data = self.convert_for_visualization()
-        return display_image(visualize_data, window_title, wait_for_input)
 
 
 class RGBImage(Image):
@@ -146,6 +113,16 @@ class DepthImage(Image):
         if len(self.data.shape) != 2:
             raise ValueError(f"DepthImage expects 2-dim. data, got {self.data.shape}")
 
+    @property
+    def min_depth_m(self) -> float:
+        """Retrieve the minimum non-zero depth (meters) in the image."""
+        return np.min(self.data[self.data > 0])
+
+    @property
+    def max_depth_m(self) -> float:
+        """Retrieve the maximum depth in the image."""
+        return np.max(self.data)
+
     def convert_for_visualization(self) -> NDArray[np.uint8]:
         """Convert the depth image into a form that can be visualized."""
         normalized_depth = cv2.normalize(self.data, None, 0, 255, norm_type=cv2.NORM_MINMAX)
@@ -154,7 +131,7 @@ class DepthImage(Image):
 
 
 @dataclass
-class RGBDImage:
+class RGBDImage(Displayable):
     """An RGB-D image represented using a pair of RGB and depth images."""
 
     rgb: RGBImage
@@ -167,17 +144,11 @@ class RGBDImage:
         if rgb_hw != depth_hw:
             raise ValueError(f"Invalid RGB-D image dimensions: RGB: {rgb_hw} Depth: {depth_hw}")
 
-    def visualize(self, window_title: str, wait_for_input: bool = True) -> bool:
-        """Visualize the RGB-D image in an OpenCV2 window with the given title.
-
-        :param window_title: Title used for the OpenCV window
-        :param wait_for_input: Whether to display the image until user input (defaults to True)
-        :return: Boolean indicating if the window remains active (True = Active, False = Closed)
-        """
+    def convert_for_visualization(self) -> NDArray[np.uint8]:
+        """Convert the RGBDImage into a form that can be visualized."""
         rgb_viz = self.rgb.convert_for_visualization()
         depth_viz = self.depth.convert_for_visualization()
-        stacked_images = np.concatenate((rgb_viz, depth_viz), axis=0)  # Axis 0 = Height (vertical)
-        return display_image(stacked_images, window_title, wait_for_input)
+        return np.concatenate((rgb_viz, depth_viz), axis=0)  # Axis 0 = Height (vertical)
 
 
 class PixelXY:

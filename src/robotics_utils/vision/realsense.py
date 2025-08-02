@@ -7,11 +7,10 @@ from types import TracebackType
 
 import numpy as np
 import pyrealsense2 as rs
-from numpy.typing import NDArray
 from typing_extensions import Self
 
 from robotics_utils.vision.images import DepthImage, RGBDImage, RGBImage
-from robotics_utils.vision.vision_utils import CameraIntrinsics, RGBDIntrinsics
+from robotics_utils.vision.vision_utils import CameraIntrinsics
 
 
 @dataclass(frozen=True)
@@ -65,11 +64,18 @@ class RealSense:
         self.depth_scale_to_m: float | None = None
         """Scale between units of the depth image and meters."""
 
+        self._rgb_intrinsics: CameraIntrinsics | None = None
+        self._depth_intrinsics: CameraIntrinsics | None = None
+
     def __enter__(self) -> Self:
         """Enter a managed context for streaming data from an Intel RealSense."""
         self.profile = self.pipeline.start()
+
         self.depth_sensor = self.profile.get_device().first_depth_sensor()
         self.depth_scale_to_m = self.depth_sensor.get_depth_scale()
+
+        self._populate_intrinsics()
+
         return self
 
     def __exit__(
@@ -88,6 +94,20 @@ class RealSense:
         self.pipeline.stop()
         return None
 
+    @property
+    def rgb_intrinsics(self) -> CameraIntrinsics:
+        """Retrieve the RealSense's RGB camera intrinsics."""
+        if self._rgb_intrinsics is None:
+            raise RuntimeError("RGB camera intrinsics are unavailable")
+        return self._rgb_intrinsics
+
+    @property
+    def depth_intrinsics(self) -> CameraIntrinsics:
+        """Retrieve the RealSense's depth camera intrinsics."""
+        if self._depth_intrinsics is None:
+            raise RuntimeError("Depth camera intrinsics are unavailable")
+        return self._depth_intrinsics
+
     def get_rgbd(self, timeout_ms: int = 500) -> RGBDImage:
         """Wait for an RGB-D image from the RealSense pipeline.
 
@@ -96,25 +116,21 @@ class RealSense:
         """
         frames = self.pipeline.wait_for_frames(timeout_ms=timeout_ms)
 
-        color_frame = frames.get_color_frame()
-        color_data = np.asanyarray(color_frame.data)
+        color_data = np.asanyarray(frames.get_color_frame().data)
 
-        depth_frame = frames.get_depth_frame()
-        depth_data = np.asanyarray(depth_frame.data)
+        depth_data = np.asanyarray(frames.get_depth_frame().data)
         depth_m = depth_data * self.depth_scale_to_m
 
         # Zero out any depth values outside the camera's operating range
         depth_m[depth_m < self.camera_spec.min_range_m] = 0
         depth_m[depth_m > self.camera_spec.max_range_m] = 0
 
-        print(f"Min non-zero depth: {np.min(depth_m[depth_m != 0])} Max depth: {np.max(depth_m)}")
-
         return RGBDImage(rgb=RGBImage(color_data), depth=DepthImage(depth_m))
 
-    def get_intrinsics(self) -> RGBDIntrinsics | None:
+    def _populate_intrinsics(self) -> None:
         """Retrieve the camera intrinsics from the current RealSense device, if available."""
         if self.profile is None:
-            return None
+            return
 
         video_streams = [
             stream.as_video_stream_profile()
@@ -122,21 +138,12 @@ class RealSense:
             if stream.is_video_stream_profile
         ]
 
-        rgb_intrinsics: CameraIntrinsics | None = None
-        depth_intrinsics: CameraIntrinsics | None = None
-
         for vs in video_streams:
             stream_name = vs.stream_name().lower()
             rs_i = vs.get_intrinsics()
             intrinsics = CameraIntrinsics(rs_i.fx, rs_i.fy, rs_i.ppx, rs_i.ppy)
 
             if stream_name == "color":
-                rgb_intrinsics = intrinsics
-
-            if stream_name == "depth":
-                depth_intrinsics = intrinsics
-
-        if rgb_intrinsics is None or depth_intrinsics is None:
-            return None
-
-        return RGBDIntrinsics(rgb=rgb_intrinsics, depth=depth_intrinsics)
+                self._rgb_intrinsics = intrinsics
+            elif stream_name == "depth":
+                self._depth_intrinsics = intrinsics

@@ -50,7 +50,7 @@ class Pointcloud:
 
 
 class PointcloudVisualizer:
-    """A manager context for visualizing live pointclouds using Open3D."""
+    """A manager context for visualizing pointclouds live using Open3D."""
 
     def __init__(self) -> None:
         """Initialize an Open3D visualizer for pointclouds."""
