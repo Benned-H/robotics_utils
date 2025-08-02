@@ -62,7 +62,7 @@ class PointcloudVisualizer:
         self.o3d_pcd = o3d.geometry.PointCloud()
 
         self.uncalled_while_active: bool | None = None
-        """None =  Visualizer inactive; True = Uncalled but live; False = Been called and live."""
+        """None = Visualizer inactive; True = Uncalled but live; False = Active and been called."""
 
     def __enter__(self) -> Self:
         """Enter a managed context for live pointcloud visualization."""
