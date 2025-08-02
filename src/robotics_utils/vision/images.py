@@ -39,6 +39,11 @@ class Image(ABC, Displayable):
         """Retrieve the width (in pixels) of the image."""
         return self.data.shape[1]
 
+    @property
+    def height_width(self) -> tuple[int, int]:
+        """Retrieve a tuple containing the height and width (in pixels) of the image."""
+        return (self.height, self.width)
+
     def clip_x(self, pixel_x: int) -> int:
         """Clip a pixel x-coordinate into the image."""
         return np.clip(pixel_x, a_min=0, a_max=self.width - 1)
@@ -109,6 +114,8 @@ class DepthImage(Image):
         """Initialize the depth image using an array of shape (H, W) of depth data (in meters)."""
         super().__init__(data)
 
+        print(f"Depth image data type: {self.data.dtype} {self.data.shape}")
+
         # Verify expected properties of depth image data
         if len(self.data.shape) != 2:
             raise ValueError(f"DepthImage expects 2-dim. data, got {self.data.shape}")
@@ -120,7 +127,7 @@ class DepthImage(Image):
 
     @property
     def max_depth_m(self) -> float:
-        """Retrieve the maximum depth in the image."""
+        """Retrieve the maximum depth (meters) in the image."""
         return np.max(self.data)
 
     def convert_for_visualization(self) -> NDArray[np.uint8]:
@@ -139,10 +146,26 @@ class RGBDImage(Displayable):
 
     def __post_init__(self) -> None:
         """Verify that the constructed RGBDImage is valid."""
-        rgb_hw = (self.rgb.height, self.rgb.width)
-        depth_hw = (self.depth.height, self.rgb.width)
-        if rgb_hw != depth_hw:
-            raise ValueError(f"Invalid RGB-D image dimensions: RGB: {rgb_hw} Depth: {depth_hw}")
+        if self.rgb.height_width != self.depth.height_width:
+            raise ValueError(
+                "Invalid RGB-D image dimensions.\n\t"
+                f"RGB (H, W): {self.rgb.height_width} Depth (H, W): {self.depth.height_width}",
+            )
+
+    @property
+    def height(self) -> int:
+        """Retrieve the height of the RGB-D image (identical for the RGB and depth parts)."""
+        return self.rgb.height
+
+    @property
+    def width(self) -> int:
+        """Retrieve the width of the RGB-D image (identical for the RGB and depth parts)."""
+        return self.rgb.width
+
+    @property
+    def height_width(self) -> tuple[int, int]:
+        """Retrieve a tuple containing the height and width (in pixels) of the RGB-D image."""
+        return (self.height, self.width)
 
     def convert_for_visualization(self) -> NDArray[np.uint8]:
         """Convert the RGBDImage into a form that can be visualized."""

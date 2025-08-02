@@ -21,7 +21,7 @@ class ImageDisplay:
         """Initialize an empty image displayer."""
 
     def show(self, image: Displayable, window_title: str, wait_for_input: bool = True) -> bool:
-        """Display the given image in a titled window.
+        """Display an image in an OpenCV window with the given title.
 
         :param image: Image supporting conversion into a displayable format of data
         :param window_title: Title used for the display window

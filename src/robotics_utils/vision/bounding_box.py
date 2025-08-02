@@ -94,9 +94,9 @@ class BoundingBox:
     def crop(self, image: Image, scale_ratio: float = 1.0) -> Image:
         """Return a crop of the given image based on this bounding box.
 
-        :param image: Image from which a cropped image is created
+        :param image: Image from which a cropped section is taken
         :param scale_ratio: Ratio to scale the bounding box size (defaults to 1.0)
-        :return: New image containing the cropped section of the given image
+        :return: New image containing the cropped section
         """
         scaled_height = int(self.height * scale_ratio)
         scaled_width = int(self.width * scale_ratio)
