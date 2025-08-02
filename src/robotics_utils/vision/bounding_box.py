@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from robotics_utils.vision.images import PixelXY, RGBImage
+from robotics_utils.vision.images import Image, PixelXY, RGBImage
 from robotics_utils.vision.vision_utils import RGB
 
 
@@ -91,12 +91,12 @@ class BoundingBox:
         )
         cv2.circle(image.data, tuple(self.center_pixel.xy), 1, color, thickness)
 
-    def crop(self, image: RGBImage, scale_ratio: float = 1.0) -> RGBImage:
+    def crop(self, image: Image, scale_ratio: float = 1.0) -> Image:
         """Return a crop of the given image based on this bounding box.
 
-        :param image: RGB image from which a cropped image is created
+        :param image: Image from which a cropped image is created
         :param scale_ratio: Ratio to scale the bounding box size (defaults to 1.0)
-        :return: New RGB image containing the cropped section of the given image
+        :return: New image containing the cropped section of the given image
         """
         scaled_height = int(self.height * scale_ratio)
         scaled_width = int(self.width * scale_ratio)

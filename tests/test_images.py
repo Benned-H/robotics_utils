@@ -10,9 +10,9 @@ from .vision_strategies import pixels_xy, rgb_images
 
 
 @given(rgb_images(), pixels_xy())
-def test_rgb_image_clip_pixel(image: RGBImage, pixel: PixelXY) -> None:
-    """Verify that any RGB image correctly clips (x,y) pixels into its image indices."""
-    # Arrange/Act - Given an RGB image and (x,y) coordinates, clip the (x,y) pixel into the image
+def test_image_clip_pixel(image: RGBImage, pixel: PixelXY) -> None:
+    """Verify that any image correctly clips (x,y) pixels into its image indices."""
+    # Arrange/Act - Given an image and (x,y) coordinates, clip the (x,y) pixel into the image
     result_pixel = image.clip_pixel(pixel)
 
     # Assert - Expect that the shifted pixel's coordinates are inside the image

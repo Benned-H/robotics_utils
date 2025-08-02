@@ -18,6 +18,9 @@ dependencies = ["click", "rich", "numpy", "trimesh"]
 # Optional dependencies to support computer vision applications
 vision = ["torch", "torchvision", "transformers", "pillow", "opencv-python"]
 
+# Optional dependencies to support Intel RealSense sensors
+realsense = ["robotics-utils[vision]", "pyrealsense2", "open3d"]
+
 all = ["robotics-utils[vision]"] # Install everything
 
 
