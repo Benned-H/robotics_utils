@@ -222,7 +222,7 @@ class RealSense:
         return self._depth_intrinsics
 
     def _update(self, timeout_ms: int = 500) -> None:
-        """Update the stored data with the latest data from the RealSense device."""
+        """Update all member variables with the latest data from the RealSense."""
         frames = self.pipeline.wait_for_frames(timeout_ms=timeout_ms)
         frames.foreach(self._process_frame)
 

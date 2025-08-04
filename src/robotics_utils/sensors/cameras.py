@@ -51,7 +51,7 @@ class Resolution:
     height: int
 
     def __lt__(self, other: Resolution) -> bool:
-        """Evaluate whether the Resolution is less then the given resolution."""
+        """Evaluate whether the Resolution is less than another."""
         return self.pixels < other.pixels
 
     def __str__(self) -> str:
