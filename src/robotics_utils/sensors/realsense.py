@@ -140,19 +140,6 @@ def display_streams_table(variants: list[StreamVariant]) -> None:
     Console().print(table)
 
 
-def expected_np_dtype(fmt: str) -> np.typing.DTypeLike | None:
-    """Find the expected NumPy datatype for a RealSense stream format (or None if unspecified)."""
-    if fmt == "format.z16":
-        return np.uint16
-    if fmt == "format.rgb8":
-        return np.uint8
-    if fmt == "format.motion_xyz32f":
-        return np.uint8
-
-    log_info(f"RealSense stream format '{fmt}' has no NumPy datatype specified...")
-    return None
-
-
 class RealSense:
     """A wrapper class for an Intel RealSense camera."""
 
@@ -229,17 +216,16 @@ class RealSense:
     def _process_frame(self, frame: rs2.frame) -> None:
         """Process the given pyrealsense2.frame from the RealSense camera."""
         stream_info = StreamVariant.from_profile(frame.get_profile())
-
         frame_data = np.asanyarray(frame.data)
-        expected_dtype = expected_np_dtype(stream_info.fmt)
-        if frame_data.dtype != expected_dtype:
-            raise TypeError(f"Expected NumPy datatype {expected_dtype}, got {frame_data.dtype}")
+        stream_type = stream_info.core.stream_type
 
-        if stream_info.core.stream_type == "stream.color":
+        RealSense.validate_data_format(frame_data, stream_info.fmt)
+
+        if stream_type == "stream.color":
             self._latest_rgb = RGBImage(frame_data)
             return
 
-        if stream_info.core.stream_type == "stream.depth":
+        if stream_type == "stream.depth":
             depth_m = frame_data * self.depth_scale_to_m
 
             # Zero out any depth values outside the camera's operating range
@@ -249,15 +235,15 @@ class RealSense:
             self._latest_depth = DepthImage(depth_m)
             return
 
-        if stream_info.core.stream_type == "stream.gyro":
+        if stream_type == "stream.gyro":
             self._latest_gyro = frame_data
             return
 
-        if stream_info.core.stream_type == "stream.accel":
+        if stream_type == "stream.accel":
             self._latest_accel = frame_data
             return
 
-        raise ValueError(f"Unrecognized type of RealSense frame: {frame}")
+        raise ValueError(f"Unrecognized RealSense stream type: '{stream_type}'")
 
     def get_rgbd(self, timeout_ms: int = 500) -> RGBDImage:
         """Wait for an RGB-D image from the RealSense pipeline.
@@ -293,3 +279,22 @@ class RealSense:
                 self._rgb_intrinsics = intrinsics
             elif stream_name == "Depth":
                 self._depth_intrinsics = intrinsics
+
+    @staticmethod
+    def validate_data_format(data: NDArray, s_format: str) -> None:
+        """Validate that the given NumPy array has the expected type for the given stream format.
+
+        :param data: Array of raw data from the RealSense
+        :param s_format: Stream format corresponding to the data
+        """
+        format_to_dtype = {
+            "format.z16": np.uint16,
+            "format.rgb8": np.uint8,
+            "format.motion_xyz32f": np.uint8,
+        }
+        if s_format not in format_to_dtype:
+            raise ValueError(f"Unrecognized RealSense stream format: {s_format}")
+        expected_dtype = format_to_dtype[s_format]
+
+        if data.dtype != expected_dtype:
+            raise TypeError(f"Expected NumPy datatype {expected_dtype}, got {data.dtype}")
