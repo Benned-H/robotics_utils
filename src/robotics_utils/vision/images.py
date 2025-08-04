@@ -114,11 +114,12 @@ class DepthImage(Image):
         """Initialize the depth image using an array of shape (H, W) of depth data (in meters)."""
         super().__init__(data)
 
-        print(f"Depth image data type: {self.data.dtype} {self.data.shape}")
-
         # Verify expected properties of depth image data
         if len(self.data.shape) != 2:
             raise ValueError(f"DepthImage expects 2-dim. data, got {self.data.shape}")
+
+        if self.data.dtype != np.float64:  # Expect floats because the depth data is in meters
+            raise TypeError(f"DepthImage expects datatype np.float64, got {self.data.dtype}")
 
     @property
     def min_depth_m(self) -> float:
