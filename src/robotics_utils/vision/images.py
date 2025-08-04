@@ -145,34 +145,18 @@ class RGBDImage(Displayable):
     rgb: RGBImage
     depth: DepthImage
 
-    def __post_init__(self) -> None:
-        """Verify that the constructed RGBDImage is valid."""
-        if self.rgb.height_width != self.depth.height_width:
-            raise ValueError(
-                "Invalid RGB-D image dimensions.\n\t"
-                f"RGB (H, W): {self.rgb.height_width} Depth (H, W): {self.depth.height_width}",
-            )
-
-    @property
-    def height(self) -> int:
-        """Retrieve the height of the RGB-D image (identical for the RGB and depth parts)."""
-        return self.rgb.height
-
-    @property
-    def width(self) -> int:
-        """Retrieve the width of the RGB-D image (identical for the RGB and depth parts)."""
-        return self.rgb.width
-
-    @property
-    def height_width(self) -> tuple[int, int]:
-        """Retrieve a tuple containing the height and width (in pixels) of the RGB-D image."""
-        return (self.height, self.width)
-
     def convert_for_visualization(self) -> NDArray[np.uint8]:
         """Convert the RGBDImage into a form that can be visualized."""
         rgb_viz = self.rgb.convert_for_visualization()
         depth_viz = self.depth.convert_for_visualization()
-        return np.concatenate((rgb_viz, depth_viz), axis=0)  # Axis 0 = Height (vertical)
+
+        max_width = max(self.rgb.width, self.depth.width)
+        rgb_stack = np.zeros(shape=(self.rgb.height, max_width, 3), dtype=np.uint8)
+        rgb_stack[:, 0 : self.rgb.width, :] = rgb_viz
+        depth_stack = np.zeros(shape=(self.depth.height, max_width, 3), dtype=np.uint8)
+        depth_stack[:, 0 : self.depth.width, :] = depth_viz
+
+        return np.concatenate((rgb_stack, depth_stack), axis=0)  # Axis 0 = Height (vertical)
 
 
 class PixelXY:

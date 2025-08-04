@@ -44,6 +44,27 @@ class CameraFOV:
 
 
 @dataclass(frozen=True)
+class Resolution:
+    """A camera's resolution, with sensible sorting."""
+
+    width: int
+    height: int
+
+    def __lt__(self, other: Resolution) -> bool:
+        """Evaluate whether the Resolution is less then the given resolution."""
+        return self.pixels < other.pixels
+
+    def __str__(self) -> str:
+        """Return a readable string representation of the resolution."""
+        return f"{self.width}x{self.height}"
+
+    @property
+    def pixels(self) -> int:
+        """Calculate the total number of pixels in the camera resolution."""
+        return self.width * self.height
+
+
+@dataclass(frozen=True)
 class DepthCameraSpec:
     """Operational specifications for a specific model of depth camera."""
 

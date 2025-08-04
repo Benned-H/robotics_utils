@@ -2,80 +2,155 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
-from enum import Enum
-from pathlib import Path
 from types import TracebackType
 
 import numpy as np
-import pyrealsense2 as rs
+import pyrealsense2 as rs2
 from numpy.typing import NDArray
+from rich.console import Console
+from rich.table import Table
 from typing_extensions import Self
 
 from robotics_utils.filesystem.logging import log_info
-from robotics_utils.sensors.cameras import CameraIntrinsics, DepthCameraSpec
+from robotics_utils.sensors.cameras import CameraIntrinsics, DepthCameraSpec, Resolution
 from robotics_utils.vision.images import DepthImage, RGBDImage, RGBImage
 
 
-class StreamType(Enum):
-    """An enumeration of stream types available from Intel RealSense devices."""
+@dataclass(order=True, frozen=True)
+class CoreProfile:
+    """Immutable ID for a RealSense stream profile, with natural ordering."""
 
-    RGB = 0
-    DEPTH = 1
-    GYRO = 2
-    ACCEL = 3
+    name: str  # Human-readable name
+    index: int
+    uid: int
+    stream_type: str
+
+    def __str__(self) -> str:
+        """Return a human-readable representation of the core stream profile."""
+        return f"{self.name}/{self.index}/{self.uid}/{self.stream_type}"
 
     @classmethod
-    def from_string(cls, string: str) -> StreamType:
-        """Construct a StreamType corresponding to the given string."""
-        string = str(string).lower().strip()
-
-        if "color" in string:
-            return StreamType.RGB
-
-        if "depth" in string:
-            return StreamType.DEPTH
-
-        if "gyro" in string:
-            return StreamType.GYRO
-
-        if "accel" in string:
-            return StreamType.ACCEL
-
-        raise ValueError(f"Unknown type of RealSense stream: '{string}'")
-
-
-def string_to_np_dtype(string: str) -> np.typing.DTypeLike:
-    """Map the given string to the corresponding NumPy datatype."""
-    if string == "format.z16":
-        return np.uint16
-    if string == "format.rgb8":
-        return np.uint8
-    if string == "format.motion_xyz32f":
-        return np.uint8
-
-    raise ValueError(f"Unexpected RealSense data format: '{string}'")
+    def from_profile(cls, stream: rs2.stream_profile) -> CoreProfile:
+        """Construct a CoreProfile from a RealSense stream profile."""
+        return CoreProfile(
+            name=str(stream.stream_name()),
+            index=int(stream.stream_index()),
+            uid=int(stream.unique_id()),
+            stream_type=str(stream.stream_type()).lower(),
+        )
 
 
 @dataclass(frozen=True)
-class StreamInfo:
-    """Data characterizing a stream of data from an Intel RealSense."""
+class StreamVariant:
+    """A variant of a RealSense stream profile."""
 
-    name: str
-    uid: int
-    type_: StreamType
-    dtype: np.typing.DTypeLike
+    core: CoreProfile
+    resolution: Resolution | None
+    fmt: str
+    fps: int
+    is_default: bool
 
     @classmethod
-    def from_stream_profile(cls, stream: rs.stream_profile) -> StreamInfo:
-        """Construct a StreamInfo from a RealSense stream profile."""
-        return StreamInfo(
-            name=str(stream.stream_name()),
-            uid=int(stream.unique_id()),
-            type_=StreamType.from_string(stream.stream_type()),
-            dtype=string_to_np_dtype(str(stream.format())),
+    def from_profile(cls, stream: rs2.stream_profile) -> StreamVariant:
+        """Construct a StreamVariant from a RealSense stream profile."""
+        resolution = None
+        if stream.is_video_stream_profile():
+            vsp = stream.as_video_stream_profile()
+            resolution = Resolution(width=vsp.width(), height=vsp.height())
+
+        return StreamVariant(
+            core=CoreProfile.from_profile(stream),
+            fmt=str(stream.format()).lower(),
+            fps=int(stream.fps()),
+            resolution=resolution,
+            is_default=bool(stream.is_default()),
         )
+
+
+def get_all_stream_variants() -> list[StreamVariant]:
+    """Query every sensor and return a flat list of all available stream variants."""
+    return [
+        StreamVariant.from_profile(profile)
+        for sensor in rs2.context().query_all_sensors()
+        for profile in sensor.get_stream_profiles()
+    ]
+
+
+def display_streams_table(variants: list[StreamVariant]) -> None:
+    """Render a table of all available stream profiles, marking default streams in green."""
+    core_res_fmt_to_fps: dict[tuple[CoreProfile, Resolution | None, str], set[int]] = {}
+    default_variants: set[tuple[CoreProfile, Resolution | None, str, int]] = set()
+
+    for v in variants:
+        key1 = (v.core, v.resolution, v.fmt)
+        core_res_fmt_to_fps.setdefault(key1, set()).add(v.fps)
+
+        if v.is_default:
+            default_variants.add((v.core, v.resolution, v.fmt, v.fps))
+
+    # Group rows of differing formats if they share a common set of possible FPS
+    core_res_fps_to_fmts: dict[tuple[CoreProfile, Resolution | None, frozenset[int]], set[str]] = {}
+    for (core, res, fmt), fps_set in core_res_fmt_to_fps.items():
+        frozen_fps_set: frozenset[int] = frozenset(fps_set)
+        key2 = (core, res, frozen_fps_set)
+        core_res_fps_to_fmts.setdefault(key2, set()).add(fmt)
+
+    rows = []
+    for (core, res, frozen_fps_set), formats in core_res_fps_to_fmts.items():
+        default_fps_set: set[int] = set()  # Set of FPS that appear in a default stream
+        default_fmt_set: set[str] = set()  # Set of formats that appear in a default stream
+
+        for fmt in formats:
+            for fps in frozen_fps_set:
+                if (core, res, fmt, fps) in default_variants:
+                    default_fps_set.add(fps)
+                    default_fmt_set.add(fmt)
+
+        # Build the FPS and format cells by using bold green for default stream settings
+        fps_cells = []
+        for fps in sorted(frozen_fps_set):
+            fps_text = f"[bold green]{fps}[/]" if (fps in default_fps_set) else str(fps)
+            fps_cells.append(fps_text)
+        fps_cell = ", ".join(fps_cells)
+
+        fmt_cells = []
+        for fmt in sorted(formats):
+            fmt_text = f"[bold green]{fmt}[/]" if (fmt in default_fmt_set) else fmt
+            fmt_cells.append(fmt_text)
+        fmt_cell = ", ".join(fmt_cells)
+
+        default_row = bool(default_fps_set or default_fmt_set)
+        rows.append((core, res, fmt_cell, fps_cell, default_row))
+
+    rows.sort(key=lambda r: (r[0], r[1]))  # Sort by core profile, then resolution
+
+    table = Table(title="Available RealSense Streams")
+    table.add_column("Stream (name/index/UID/type)", style="cyan", no_wrap=True)
+    table.add_column("Resolution", style="yellow")
+    table.add_column("Format", style="magenta")
+    table.add_column("FPS", style="white")
+
+    for core, resolution, fmt_cell, fps_cell, default_row in rows:
+        core_cell = f"[bold green]{core}[/]" if default_row else str(core)
+        res_str = str(resolution) if resolution is not None else "-"
+        res_cell = f"[bold green]{res_str}[/]" if default_row else res_str
+        table.add_row(core_cell, res_cell, fmt_cell, fps_cell)
+
+    Console().print(table)
+
+
+def expected_np_dtype(fmt: str) -> np.typing.DTypeLike | None:
+    """Find the expected NumPy datatype for a RealSense stream format (or None if unspecified)."""
+    if fmt == "format.z16":
+        return np.uint16
+    if fmt == "format.rgb8":
+        return np.uint8
+    if fmt == "format.motion_xyz32f":
+        return np.uint8
+
+    log_info(f"RealSense stream format '{fmt}' has no NumPy datatype specified...")
+    return None
 
 
 class RealSense:
@@ -84,11 +159,11 @@ class RealSense:
     def __init__(self, depth_spec: DepthCameraSpec) -> None:
         """Initialize a pipeline to communicate with RealSense devices."""
         self.depth_spec = depth_spec
-        self.pipeline = rs.pipeline()
-        self.profile: rs.pipeline_profile | None = None
-        self.streams: dict[str, StreamInfo] = {}  # Maps each stream name to its identifying info
 
-        self.depth_sensor: rs.depth_sensor | None = None
+        self.pipeline = rs2.pipeline()
+        self.profile: rs2.pipeline_profile | None = None
+
+        self.depth_sensor: rs2.depth_sensor | None = None
         self.depth_scale_to_m: float | None = None
         """Scale between units of the depth image and meters."""
 
@@ -104,11 +179,8 @@ class RealSense:
         """Enter a managed context for streaming data from an Intel RealSense."""
         self.profile = self.pipeline.start()
 
-        # Log information about the available streams from the RealSense device
-        for stream in self.profile.get_streams():
-            stream_info = StreamInfo.from_stream_profile(stream)
-            self.streams[stream_info.name] = stream_info
-            log_info(f"Stream {len(self.streams)}: {stream_info.name}")
+        # Log information about all available RealSense streams
+        display_streams_table(variants=get_all_stream_variants())
 
         self.rgb_sensor = self.profile.get_device().first_color_sensor()
 
@@ -154,18 +226,20 @@ class RealSense:
         frames = self.pipeline.wait_for_frames(timeout_ms=timeout_ms)
         frames.foreach(self._process_frame)
 
-    def _process_frame(self, frame: rs.frame) -> None:
+    def _process_frame(self, frame: rs2.frame) -> None:
         """Process the given pyrealsense2.frame from the RealSense camera."""
-        frame_info = StreamInfo.from_stream_profile(frame.get_profile())
-        frame_data = np.asanyarray(frame.data)
-        if frame_data.dtype != frame_info.dtype:
-            raise TypeError(f"Expected NumPy datatype {frame_info.dtype}, got {frame_data.dtype}")
+        stream_info = StreamVariant.from_profile(frame.get_profile())
 
-        if frame_info.type_ == StreamType.RGB:
+        frame_data = np.asanyarray(frame.data)
+        expected_dtype = expected_np_dtype(stream_info.fmt)
+        if frame_data.dtype != expected_dtype:
+            raise TypeError(f"Expected NumPy datatype {expected_dtype}, got {frame_data.dtype}")
+
+        if stream_info.core.stream_type == "stream.color":
             self._latest_rgb = RGBImage(frame_data)
             return
 
-        if frame_info.type_ == StreamType.DEPTH:
+        if stream_info.core.stream_type == "stream.depth":
             depth_m = frame_data * self.depth_scale_to_m
 
             # Zero out any depth values outside the camera's operating range
@@ -175,11 +249,11 @@ class RealSense:
             self._latest_depth = DepthImage(depth_m)
             return
 
-        if frame_info.type_ == StreamType.GYRO:
+        if stream_info.core.stream_type == "stream.gyro":
             self._latest_gyro = frame_data
             return
 
-        if frame_info.type_ == StreamType.ACCEL:
+        if stream_info.core.stream_type == "stream.accel":
             self._latest_accel = frame_data
             return
 
