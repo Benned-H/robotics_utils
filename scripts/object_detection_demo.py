@@ -7,7 +7,6 @@ from copy import deepcopy
 from pathlib import Path
 
 import click
-import cv2
 import numpy as np
 from rich.console import Console
 from rich.panel import Panel
@@ -16,6 +15,7 @@ from rich.text import Text
 
 from robotics_utils.vision.images import RGBImage
 from robotics_utils.vision.object_detector import ObjectDetector, TextQueries
+from robotics_utils.visualization import display_image
 
 
 @click.group()
@@ -93,12 +93,12 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
                     color = query_colors[detection.query]
                     detection.draw(vis_image, color)
 
-                vis_image.visualize("Detections (press any key to exit)")
+                display_image(vis_image, "Detections (press any key to exit)")
 
                 if click.confirm("Display cropped images for each detection?"):
-                    for i, detection in enumerate(detections):
-                        cropped = detection.bounding_box.crop(image, scale_ratio=1.2)
-                        cropped.visualize(f"Detection {i}/{len(detections)}: '{detection.query}'")
+                    for i, d in enumerate(detections):
+                        cropped = d.bounding_box.crop(image, scale_ratio=1.2)
+                        display_image(cropped, f"Detection {i}/{len(detections)}: '{d.query}'")
 
                 if click.confirm("Clear the current text queries?"):
                     current_queries.clear()

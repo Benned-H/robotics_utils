@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import hypothesis.strategies as st
+import numpy as np
 from hypothesis.extra import numpy as numpy_st
 
 from robotics_utils.vision.bounding_box import BoundingBox
-from robotics_utils.vision.images import PixelXY, RGBImage
+from robotics_utils.vision.images import DepthImage, Image, PixelXY, RGBImage
 
 from .common_strategies import integer_ranges
 
@@ -38,5 +39,21 @@ def rgb_images(draw: st.DrawFn) -> RGBImage:
     height = draw(st.integers(min_value=1, max_value=1024))
     width = draw(st.integers(min_value=1, max_value=1024))
 
-    data = draw(numpy_st.arrays(dtype=int, shape=(height, width, 3), elements=st.integers(0, 255)))
+    data = draw(numpy_st.arrays(dtype=np.uint8, shape=(height, width, 3)))
     return RGBImage(data)
+
+
+@st.composite
+def depth_images(draw: st.DrawFn) -> DepthImage:
+    """Generate random depth images."""
+    height = draw(st.integers(min_value=1, max_value=1024))
+    width = draw(st.integers(min_value=1, max_value=1024))
+
+    data = draw(numpy_st.arrays(dtype=np.float64, shape=(height, width)))
+    return DepthImage(data)
+
+
+@st.composite
+def images(draw: st.DrawFn) -> Image:
+    """Generate random RGB or depth images."""
+    return draw(st.one_of(rgb_images(), depth_images()))

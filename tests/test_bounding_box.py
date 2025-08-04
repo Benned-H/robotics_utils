@@ -1,6 +1,7 @@
 """Unit tests for the BoundingBox class."""
 
 import hypothesis.strategies as st
+import numpy as np
 from hypothesis import given
 
 from robotics_utils.vision.bounding_box import BoundingBox
@@ -40,6 +41,6 @@ def test_bounding_box_from_center(center_pixel: PixelXY, height: int, width: int
     result_bb = BoundingBox.from_center(center_pixel, height, width)
 
     # Assert - Expect that the bounding box has a correct center pixel, height, and width
-    assert result_bb.center_pixel == center_pixel
+    assert all(np.equal(result_bb.center_pixel.xy, center_pixel.xy))
     assert result_bb.height == height
     assert result_bb.width == width
