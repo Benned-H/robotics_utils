@@ -68,7 +68,20 @@ class Pose3D:
     orientation: Quaternion
     ref_frame: str = DEFAULT_FRAME
 
-    def __matmul__(self, other: Pose3D) -> Pose3D:
+    def __matmul__(self, other: Pose3D | Point3D) -> Pose3D | Point3D:
+        """Compose the homogeneous transformation matrix of this pose with another object.
+
+        :param other: 3D pose or 3D point right-multiplied with this pose
+        :return: Result from the matrix multiplication
+        """
+        if isinstance(other, Pose3D):
+            return self._matrix_multiply_with_pose(other)
+        if isinstance(other, Point3D):
+            return self._matrix_multiply_with_point(other)
+
+        raise NotImplementedError(f"Cannot matrix-multiply Pose3D with: {other}")
+
+    def _matrix_multiply_with_pose(self, other: Pose3D) -> Pose3D:
         """Multiply the homogeneous transformation matrix of this pose with another pose.
 
         Consider: pose_A_B @ pose_B_C = pose_A_C, meaning the pose of 'C' relative to frame A.
@@ -81,6 +94,16 @@ class Pose3D:
         right_m = other.to_homogeneous_matrix()
         result_ref_frame = self.ref_frame  # Result takes the "leftmost" reference frame
         return Pose3D.from_homogeneous_matrix(left_m @ right_m, result_ref_frame)
+
+    def _matrix_multiply_with_point(self, other: Point3D) -> Point3D:
+        """Multiply the homogeneous transformation matrix of this pose with a 3D point.
+
+        :param other: 3D point treated as a homogeneous coordinate in the multiplication
+        :return: Point3D resulting from the matrix multiplication
+        """
+        pose_matrix = self.to_homogeneous_matrix()
+        result = pose_matrix @ other.to_homogeneous_coordinate()
+        return Point3D.from_array(result[:3])
 
     @property
     def yaw_rad(self) -> float:
