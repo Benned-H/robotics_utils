@@ -8,9 +8,9 @@ from typing import Any, Protocol
 
 import trimesh
 
-from robotics_utils.kinematics.collision_models.aabb import AxisAlignedBoundingBox
-from robotics_utils.kinematics.point3d import Point3D
-from robotics_utils.kinematics.rotations import EulerRPY
+from robotics_utils.collision_models.aabb import AxisAlignedBoundingBox
+from robotics_utils.filesystem.yaml_utils import load_yaml_data
+from robotics_utils.kinematics import EulerRPY, Point3D
 
 
 def load_trimesh_from_file(mesh_path: Path) -> trimesh.Trimesh:
@@ -42,6 +42,21 @@ def load_trimesh_from_yaml_data(data: dict[str, Any], yaml_path: Path) -> trimes
         transform.apply(mesh)
 
     return mesh
+
+
+def load_named_mesh(mesh_key: str, yaml_path: Path) -> trimesh.Trimesh:
+    """Load the specified mesh from the given YAML file.
+
+    :param mesh_key: YAML key used to access the imported mesh
+    :param yaml_path: Path to a YAML file specifying mesh data
+    :return: Constructed trimesh.Trimesh instance
+    """
+    yaml_data = load_yaml_data(yaml_path, required_keys={"meshes"})
+    mesh_data = yaml_data["meshes"].get(mesh_key)
+    if mesh_data is None:
+        raise KeyError(f"Could not find mesh named '{mesh_key}' in YAML file {yaml_path}")
+
+    return load_trimesh_from_yaml_data(mesh_data, yaml_path)
 
 
 def compute_aabb(mesh: trimesh.Trimesh) -> AxisAlignedBoundingBox:

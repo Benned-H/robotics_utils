@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from robotics_utils.kinematics.point3d import Point3D
+from robotics_utils.kinematics import Point3D
 
 
 @dataclass(frozen=True)

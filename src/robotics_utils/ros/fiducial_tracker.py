@@ -11,7 +11,7 @@ from pose_estimation_msgs.msg import PoseEstimate
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from robotics_utils.kinematics import DEFAULT_FRAME
-from robotics_utils.perception.pose_tracker import PoseTracker
+from robotics_utils.perception.pose_estimation import PoseEstimateAverager
 from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
@@ -19,8 +19,8 @@ from robotics_utils.sensors.visual_fiducials import VisualFiducialSystem
 
 
 @dataclass(frozen=True)
-class MarkerCallbackArgs:
-    """Organizes arguments to the FiducialTracker.marker_callback() method."""
+class MarkersCallbackArgs:
+    """Organizes arguments to the FiducialTracker.markers_callback() method."""
 
     camera_name: str  # Name of the camera source of a detection
 
@@ -36,7 +36,7 @@ class FiducialTracker:
         :param max_estimates: Maximum number of recent pose estimates to retain per frame
         """
         self.system = system
-        self.pose_tracker = PoseTracker(max_estimates)
+        self.pose_averager = PoseEstimateAverager(max_estimates)
 
         self.marker_subs: list[rospy.Subscriber] = []
         for camera_name in self.system.cameras:
@@ -44,8 +44,8 @@ class FiducialTracker:
                 rospy.Subscriber(
                     f"{prefix}/{camera_name}",
                     AlvarMarkers,
-                    callback=self.marker_callback,
-                    callback_args=MarkerCallbackArgs(camera_name),
+                    callback=self.markers_callback,
+                    callback_args=MarkersCallbackArgs(camera_name),
                     queue_size=5,
                 ),
             )
@@ -58,7 +58,7 @@ class FiducialTracker:
         self._tf_pub_thread = threading.Thread(target=self._publish_frames_loop, daemon=True)
         self._tf_pub_thread.start()
 
-    def marker_callback(self, markers_msg: AlvarMarkers, args: MarkerCallbackArgs) -> None:
+    def markers_callback(self, markers_msg: AlvarMarkers, args: MarkersCallbackArgs) -> None:
         """Update pose estimates based on new fiducial marker detections."""
         camera_detects = self.system.camera_detects.get(args.camera_name)
         if camera_detects is None:
@@ -74,7 +74,7 @@ class FiducialTracker:
             marker_pose = TransformManager.convert_to_frame(raw_pose, DEFAULT_FRAME)
 
             frame_name = str(marker.id)
-            self.pose_tracker.update(frame_name, marker_pose)
+            self.pose_averager.update(frame_name, marker_pose)
 
     def handle_output_to_yaml(self, _: TriggerRequest) -> TriggerResponse:
         """Dump the current pose estimates to YAML.
@@ -88,7 +88,7 @@ class FiducialTracker:
         poses_data: dict[str, list[float]] = {}
 
         for fiducial in self.system.markers.values():
-            pose_w_f = self.pose_tracker.get_pose_estimate(fiducial.frame_name)
+            pose_w_f = self.pose_averager.get(fiducial.frame_name)
             if pose_w_f is None:
                 continue
 
@@ -113,7 +113,7 @@ class FiducialTracker:
             pose_estimate_msg = PoseEstimate()
             while not rospy.is_shutdown():
                 for fiducial in self.system.markers.values():
-                    fiducial_pose = self.pose_tracker.get_pose_estimate(fiducial.frame_name)
+                    fiducial_pose = self.pose_averager.get(fiducial.frame_name)
                     if fiducial_pose is not None:
                         TransformManager.broadcast_transform(fiducial.frame_name, fiducial_pose)
 

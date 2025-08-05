@@ -9,10 +9,8 @@ from geometry_msgs.msg import Point as PointMsg
 from std_msgs.msg import ColorRGBA
 from visualization_msgs.msg import Marker as MarkerMsg
 
-from robotics_utils.kinematics import DEFAULT_FRAME
-from robotics_utils.kinematics.point3d import Point3D
-from robotics_utils.kinematics.poses import Pose3D
-from robotics_utils.perception.pose_tracker import PoseTracker
+from robotics_utils.kinematics import DEFAULT_FRAME, Point3D, Pose3D
+from robotics_utils.perception.pose_estimation import PoseEstimateAverager
 from robotics_utils.ros.msg_conversion import point_to_msg
 from robotics_utils.ros.transform_manager import TransformManager
 
@@ -97,8 +95,8 @@ class FrameVisualizer:
 
         return msg
 
-    def visualize_estimates(self, tracker: PoseTracker) -> None:
-        """Visualize a collection of tracked poses by publishing markers to RViz."""
-        for frame_name, estimates in tracker.all_estimates.items():
+    def visualize_estimates(self, averager: PoseEstimateAverager) -> None:
+        """Visualize a collection of averaged pose estimates by publishing markers to RViz."""
+        for frame_name, estimates in averager.all_estimates.items():
             marker_msg = self.estimates_to_msg(frame_name, estimates)
             self.marker_pub.publish(marker_msg)

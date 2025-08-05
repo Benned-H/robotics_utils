@@ -12,7 +12,7 @@ from moveit_commander import MoveGroupCommander, RobotCommander, roscpp_initiali
 from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
 
 from robotics_utils.filesystem.yaml_utils import load_yaml_data
-from robotics_utils.kinematics.poses import Pose3D
+from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros.msg_conversion import pose_to_msg
 from robotics_utils.ros.transform_manager import TransformManager
 

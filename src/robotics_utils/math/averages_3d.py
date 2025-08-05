@@ -6,10 +6,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from robotics_utils.kinematics import DEFAULT_FRAME
-from robotics_utils.kinematics.point3d import Point3D
-from robotics_utils.kinematics.poses import Pose3D
-from robotics_utils.kinematics.rotations import Quaternion
+from robotics_utils.kinematics import DEFAULT_FRAME, Point3D, Pose3D, Quaternion
 
 OptionalWeights = Sequence[float] | None
 

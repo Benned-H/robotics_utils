@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from robotics_utils.filesystem.yaml_utils import load_named_poses, load_yaml_data
-from robotics_utils.kinematics import DEFAULT_FRAME, Configuration
-from robotics_utils.kinematics.collision_models import CollisionModel
+from robotics_utils.collision_models.collision_model import CollisionModel
+from robotics_utils.filesystem.yaml_utils import load_yaml_data
+from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
 
@@ -49,11 +49,11 @@ class KinematicTree:
 
         tree = KinematicTree(root_frame=default_frame)
 
-        for obj_name, obj_pose in load_named_poses(yaml_path, "object_poses").items():
-            tree.set_object_pose(obj_name, obj_pose)
+        for obj_name, pose in Pose3D.load_named_poses(yaml_path, "object_poses").items():
+            tree.set_object_pose(obj_name, pose)
 
-        for robot_name, base_pose in load_named_poses(yaml_path, "robot_base_poses").items():
-            tree.set_robot_base_pose(robot_name, base_pose)
+        for robot_name, pose in Pose3D.load_named_poses(yaml_path, "robot_base_poses").items():
+            tree.set_robot_base_pose(robot_name, pose)
             tree.robot_configurations[robot_name] = {}  # Default: No robot configurations in YAML
 
         collision_models_data: dict[str, Any] = full_yaml_data.get("collision_models", {})

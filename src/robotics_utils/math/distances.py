@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from robotics_utils.kinematics.poses import Pose2D, Pose3D
+from robotics_utils.kinematics import Pose2D, Pose3D
 from robotics_utils.math.angles import normalize_angle
 
 
