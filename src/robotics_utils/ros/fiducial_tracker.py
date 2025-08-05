@@ -52,7 +52,7 @@ class FiducialTracker:
 
         self.pose_pub = rospy.Publisher("/object_pose_estimates", PoseEstimate, queue_size=10)
 
-        self._output_srv = rospy.Service("~output_to_yaml", Trigger, self.handle_output_to_yaml)
+        self.output_srv = rospy.Service("~output_to_yaml", Trigger, self.handle_output_to_yaml)
 
         # Create a thread to publish TF frames (daemon = thread exits when main process does)
         self._tf_pub_thread = threading.Thread(target=self._publish_frames_loop, daemon=True)
@@ -79,13 +79,13 @@ class FiducialTracker:
     def handle_output_to_yaml(self, _: TriggerRequest) -> TriggerResponse:
         """Dump the current pose estimates to YAML.
 
-        :return: ROS message specifying whether the export succeeded
+        :return: ROS message conveying whether the export succeeded
         """
-        yaml_path = get_ros_param("~yaml_output_path", param_t=Path)
+        yaml_path = get_ros_param("~yaml_output_path", Path)
         if yaml_path.suffix not in {".yaml", ".yml"}:
             return TriggerResponse(success=False, message=f"Invalid YAML file suffix: {yaml_path}")
 
-        object_poses: dict[str, list[float]] = {}
+        poses_data: dict[str, list[float]] = {}
 
         for fiducial in self.system.markers.values():
             pose_w_f = self.pose_tracker.get_pose_estimate(fiducial.frame_name)
@@ -94,11 +94,11 @@ class FiducialTracker:
 
             for obj_name, pose_f_o in fiducial.relative_frames.items():
                 pose_w_o = pose_w_f @ pose_f_o
-                object_poses[obj_name] = pose_w_o.to_list()
+                poses_data[obj_name] = pose_w_o.to_list()
 
-        poses_data = {"object_poses": object_poses, "default_frame": DEFAULT_FRAME}
+        yaml_data = {"object_poses": poses_data, "default_frame": DEFAULT_FRAME}
 
-        yaml_string = yaml.dump(poses_data, sort_keys=True, default_flow_style=True)
+        yaml_string = yaml.dump(yaml_data, sort_keys=True, default_flow_style=True)
         with yaml_path.open("w") as yaml_file:
             yaml_file.write(yaml_string)
         ok = yaml_path.exists()

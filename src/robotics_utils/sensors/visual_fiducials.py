@@ -69,7 +69,7 @@ class FiducialDetector:
         return FiducialDetector(name=camera_name, recognized_sizes_cm=recognized_sizes_cm)
 
     def can_recognize(self, fiducial: VisualFiducial) -> bool:
-        """Evaluate whether the camera, as configured, as recognize the given fiducial marker."""
+        """Evaluate whether the camera, as configured, can recognize the given fiducial marker."""
         return any(isclose(fiducial.size_cm, size_cm) for size_cm in self.recognized_sizes_cm)
 
 

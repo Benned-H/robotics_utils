@@ -31,7 +31,7 @@ AxesMsgs = tuple[list[PointMsg], list[ColorRGBA]]
 
 
 class FrameVisualizer:
-    """A wrapper used to visualize reference frames in RViz."""
+    """A wrapper used to visualize estimated reference frames in RViz."""
 
     def __init__(self, config: RGBAxesConfig) -> None:
         """Initialize a ROS publisher used to send marker messages to RViz.
@@ -44,7 +44,7 @@ class FrameVisualizer:
         self._marker_id = 0  # Increments indefinitely
 
     def create_rgb_axes(self, pose: Pose3D) -> AxesMsgs:
-        """Convert a 3D pose into six points representing its RGB axes.
+        """Convert a 3D pose into points visualizing its frame as RGB axes.
 
         :param pose: Pose to be visualized using RGB axes
         :return: Tuple containing two lists of ROS messages: Six 3D points and six RGBA colors
@@ -74,7 +74,7 @@ class FrameVisualizer:
 
         :param frame: Name of the frame corresponding to the pose estimates
         :param estimates: Pose estimates for the frame
-        :return: ROS message visualizing the pose estimates
+        :return: ROS message visualizing the pose estimates as RGB axes
         """
         msg = MarkerMsg()
         msg.header.stamp = rospy.Time.now()
