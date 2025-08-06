@@ -9,7 +9,7 @@ from typing import Any, Protocol
 import trimesh
 
 from robotics_utils.collision_models.aabb import AxisAlignedBoundingBox
-from robotics_utils.filesystem.yaml_utils import load_yaml_data
+from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics import EulerRPY, Point3D
 
 

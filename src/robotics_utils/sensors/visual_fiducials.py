@@ -8,7 +8,7 @@ from math import isclose
 from pathlib import Path
 from typing import Any
 
-from robotics_utils.filesystem.yaml_utils import load_yaml_data
+from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics import Pose3D
 
 

@@ -12,7 +12,7 @@ class PoseEstimateAverager:
     """Aggregate noisy pose estimates per frame using a fixed-size sliding window."""
 
     def __init__(self, window_size: int) -> None:
-        """Initialize the pose averager with a maximum window size (per frame)."""
+        """Initialize the pose averager with a maximum sliding window size."""
         self._window_size = window_size
         self._estimates: dict[str, deque[Pose3D]] = defaultdict(lambda: deque(maxlen=window_size))
         self._averages: dict[str, Pose3D | None] = {}
@@ -40,7 +40,7 @@ class PoseEstimateAverager:
         """Retrieve, or compute and cache, the current averaged pose for the requested frame.
 
         :param frame_name: Reference frame identifier
-        :return: Averaged Pose3D, or None if the frame has no estimates
+        :return: Averaged Pose3D, or None if the frame has no stored pose estimates
         """
         if frame_name in self._averages:
             return self._averages[frame_name]  # Return the cached average if previously computed

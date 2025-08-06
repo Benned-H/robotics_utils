@@ -28,15 +28,15 @@ class MarkersCallbackArgs:
 class FiducialTracker:
     """Track fiducial detections, aggregate their pose estimates, and republish averages."""
 
-    def __init__(self, system: VisualFiducialSystem, prefix: str, max_estimates: int = 10) -> None:
+    def __init__(self, system: VisualFiducialSystem, prefix: str, window_size: int = 10) -> None:
         """Initialize the FiducialTracker for the given system of fiducials and detectors.
 
         :param system: System of known visual fiducials and cameras to detect them
         :param prefix: Prefix used for the tracker's ROS subscribers for marker data
-        :param max_estimates: Maximum number of recent pose estimates to retain per frame
+        :param window_size: Size of the sliding window of poses used to compute pose averages
         """
         self.system = system
-        self.pose_averager = PoseEstimateAverager(max_estimates)
+        self.pose_averager = PoseEstimateAverager(window_size)
 
         self.marker_subs: list[rospy.Subscriber] = []
         for camera_name in self.system.cameras:

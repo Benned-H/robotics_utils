@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict
 
-from robotics_utils.filesystem.yaml_utils import load_yaml_data
+from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME
 from robotics_utils.kinematics.poses import Pose2D
 

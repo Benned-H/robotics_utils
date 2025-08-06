@@ -9,7 +9,7 @@ from typing import Any, TypeVar
 
 import numpy as np
 
-from robotics_utils.filesystem.yaml_utils import load_yaml_data
+from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME
 from robotics_utils.kinematics.point3d import Point3D
 from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
@@ -213,16 +213,17 @@ class Pose3D:
         return {"xyz_rpy": self.to_list(), "frame": self.ref_frame}
 
     @classmethod
-    def load_named_poses(cls, yaml_path: Path, collection: str) -> dict[str, Pose3D]:
+    def load_named_poses(cls, yaml_path: Path, poses_key: str) -> dict[str, Pose3D]:
         """Load a collection of named poses from the given YAML file.
 
         :param yaml_path: Path to a YAML file containing pose data
-        :param collection: Name of the collection of poses to be imported (e.g., "object_poses")
+        :param poses_key: YAML key for the collection of poses to be imported
+
         :return: Dictionary mapping pose frame names to their imported 3D poses
         """
-        yaml_data = load_yaml_data(yaml_path, required_keys={collection})
+        yaml_data = load_yaml_data(yaml_path, required_keys={poses_key})
         default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
-        poses_data: dict[str, Any] = yaml_data[collection]
+        poses_data: dict[str, Any] = yaml_data[poses_key]
 
         return {
             pose_name: Pose3D.from_yaml_data(pose_data, default_frame)

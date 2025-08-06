@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from robotics_utils.collision_models.collision_model import CollisionModel
-from robotics_utils.filesystem.yaml_utils import load_yaml_data
+from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
