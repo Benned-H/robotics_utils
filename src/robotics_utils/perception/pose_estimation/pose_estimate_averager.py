@@ -51,7 +51,7 @@ class PoseEstimateAverager:
 
     def compute_all_averages(self) -> dict[str, Pose3D | None]:
         """Compute and return a map from each frame name to its averaged pose estimate."""
-        return {self.get(frame) for frame in self._estimates}
+        return {frame: self.get(frame) for frame in self._estimates}
 
     def reset(self) -> None:
         """Clear all stored pose estimates and cached averages."""

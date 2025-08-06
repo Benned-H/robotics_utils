@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from math import isclose
 from pathlib import Path
@@ -30,7 +31,8 @@ class VisualFiducial:
         if not marker_name.startswith("marker_"):
             raise ValueError(f"Visual fiducial name '{marker_name}' doesn't start with 'marker_'.")
 
-        marker_id = int(marker_name[4:])
+        id_digits = "".join(re.findall(r"\d+", marker_name))
+        marker_id = int(id_digits)
         size_cm = data["size_cm"]
 
         relative_frames: dict[str, Pose3D] = {}

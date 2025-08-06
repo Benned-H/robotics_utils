@@ -32,7 +32,7 @@ class FiducialTracker:
         """Initialize the FiducialTracker for the given system of fiducials and detectors.
 
         :param system: System of known visual fiducials and cameras to detect them
-        :param prefix: Prefix used for the tracker's ROS suscribers for marker data
+        :param prefix: Prefix used for the tracker's ROS subscribers for marker data
         :param max_estimates: Maximum number of recent pose estimates to retain per frame
         """
         self.system = system

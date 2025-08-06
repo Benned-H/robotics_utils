@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import numpy as np
 
@@ -62,6 +62,9 @@ class Pose2D:
         )
 
 
+MultiplyT = TypeVar("MultiplyT", "Pose3D", Point3D)
+
+
 @dataclass
 class Pose3D:
     """A position and orientation in 3D space."""
@@ -70,7 +73,7 @@ class Pose3D:
     orientation: Quaternion
     ref_frame: str = DEFAULT_FRAME
 
-    def __matmul__(self, other: Pose3D | Point3D) -> Pose3D | Point3D:
+    def __matmul__(self, other: MultiplyT) -> MultiplyT:
         """Compose the homogeneous transformation matrix of this pose with another object.
 
         :param other: 3D pose or 3D point right-multiplied with this pose
@@ -105,7 +108,7 @@ class Pose3D:
         """
         pose_matrix = self.to_homogeneous_matrix()
         result = pose_matrix @ other.to_homogeneous_coordinate()
-        return Point3D.from_array(result[:3])
+        return Point3D.from_homogeneous_coordinate(result)
 
     @property
     def yaw_rad(self) -> float:
