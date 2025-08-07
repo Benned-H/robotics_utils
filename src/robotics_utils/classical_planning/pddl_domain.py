@@ -17,7 +17,7 @@ class PDDLDomain:
     """Name of the domain."""
 
     requirements: set[str]
-    """Additional PDDL features required by the domain (e.g., :typing)."""
+    """Additional PDDL features required by the domain (e.g., `:typing`)."""
 
     types: TypeHierarchy
     """A hierarchy of the object types used in the domain."""
