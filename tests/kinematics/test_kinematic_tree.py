@@ -12,7 +12,7 @@ from robotics_utils.kinematics.kinematic_tree import KinematicTree
 @pytest.fixture
 def environment_yaml() -> Path:
     """Specify a path to an example environment YAML file."""
-    env_yaml = Path(__file__).parent / "test_data/example_environment.yaml"
+    env_yaml = Path(__file__).parent.parent / "test_data/example_environment.yaml"
     assert env_yaml.exists(), f"Expected to find file: {env_yaml}"
     return env_yaml
 
