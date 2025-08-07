@@ -1,5 +1,7 @@
 """Define a dataclass to represent PDDL domains."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from robotics_utils.classical_planning.operators import Operator
@@ -9,13 +11,13 @@ from robotics_utils.classical_planning.type_hierarchy import TypeHierarchy
 
 @dataclass(frozen=True)
 class PDDLDomain:
-    """A PDDL domain defining the 'universal' aspects of a planning problem."""
+    """A PDDL domain defining the "universal" aspects of a planning problem."""
 
     name: str
     """Name of the domain."""
 
     requirements: set[str]
-    """Additional PDDL features required by the domain."""
+    """Additional PDDL features required by the domain (e.g., :typing)."""
 
     types: TypeHierarchy
     """A hierarchy of the object types used in the domain."""

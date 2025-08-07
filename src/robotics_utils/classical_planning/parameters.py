@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TypeVar
+
+ObjectT = TypeVar("ObjectT")
+"""Represents a concrete object in the environment."""
 
 
 @dataclass(frozen=True)
@@ -19,5 +23,5 @@ class DiscreteParameter:
         return f"{self.name} (Type {self.object_type}){semantics_str}"
 
 
-Bindings = dict[str, str]
+Bindings = dict[str, ObjectT]
 """A mapping from parameter names to their bound concrete objects."""

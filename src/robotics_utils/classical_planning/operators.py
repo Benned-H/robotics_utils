@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Generic
 
 from robotics_utils.classical_planning.abstract_states import AbstractState
-from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter
+from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter, ObjectT
 from robotics_utils.classical_planning.predicates import Predicate, PredicateInstance
 
 
-@dataclass
+@dataclass(frozen=True)
 class Preconditions:
     """A collection of predicates defining positive and negative preconditions."""
 
@@ -93,11 +94,11 @@ class Operator:
         return OperatorInstance(self, bindings)
 
 
-class OperatorInstance:
+class OperatorInstance(Generic[ObjectT]):
     """An operator grounded by binding concrete objects to its parameters."""
 
-    def __init__(self, operator: Operator, bindings: Bindings) -> None:
-        """Initialize the operator instance with an operator and parameter bindings."""
+    def __init__(self, operator: Operator, bindings: Bindings[ObjectT]) -> None:
+        """Initialize the operator instance using an operator and parameter bindings."""
         self.operator = operator
         self.bindings = bindings
 
@@ -107,8 +108,13 @@ class OperatorInstance:
 
     def __str__(self) -> str:
         """Return a readable string representation of the operator instance."""
-        ordered_args = ", ".join(self.bindings[p.name] for p in self.operator.parameters)
+        ordered_args = ", ".join(str(arg) for arg in self.arguments)
         return f"{self.operator.name}({ordered_args})"
+
+    @property
+    def arguments(self) -> tuple[ObjectT, ...]:
+        """Retrieve the tuple of concrete objects used to ground the operator instance."""
+        return tuple(self.bindings[p.name] for p in self.operator.parameters)
 
     def is_applicable(self, abstract_state: AbstractState) -> bool:
         """Evaluate whether the operator instance is applicable in an abstract state."""
@@ -117,6 +123,6 @@ class OperatorInstance:
     def apply(self, abstract_state: AbstractState) -> AbstractState:
         """Apply the operator instance to transition from the given abstract state."""
         if not self.is_applicable(abstract_state):
-            raise ValueError(f"Cannot apply {self} in abstract state: {abstract_state}")
+            raise ValueError(f"Cannot apply {self} in the abstract state: {abstract_state}")
 
         return self.ground_effects.apply(abstract_state)

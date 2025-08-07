@@ -1,4 +1,6 @@
-"""Define classes to represent symbolic abstract states."""
+"""Define a class to represent symbolic abstract states."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -7,7 +9,7 @@ from robotics_utils.classical_planning.predicates import PredicateInstance
 
 @dataclass(frozen=True)
 class AbstractState:
-    """An abstract state is the set of true predicate instances (i.e., facts) in a state."""
+    """An abstract state is the set of predicate instances (i.e., facts) true in a state."""
 
     facts: set[PredicateInstance]
 
@@ -19,3 +21,8 @@ class AbstractState:
         """Create a readable string representation of the abstract state."""
         sorted_facts = "\n\t".join(sorted(str(fact) for fact in self.facts))
         return f"AbstractState(\n\t{sorted_facts}\n)"
+
+    def to_pddl(self) -> str:
+        """Return a PDDL string representation of the abstract state."""
+        all_facts = "\n\t".join(sorted(fact.to_pddl() for fact in self.facts))
+        return f"(and\n\t{all_facts}\n)"

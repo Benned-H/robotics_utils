@@ -1,10 +1,12 @@
-"""Define classes to represent symbolic predicates, lifted and grounded."""
+"""Define classes to represent lifted and grounded symbolic predicates."""
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
+from typing import Generic
 
-from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter
+from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter, ObjectT
 
 
 @dataclass(frozen=True)
@@ -22,10 +24,9 @@ class Predicate:
 
     def to_pddl(self) -> str:
         """Return a PDDL string representation of the predicate."""
-        types_to_params: dict[str, list[str]] = {}  # Map type names to all such predicate params
+        types_to_params: dict[str, list[str]] = defaultdict(list)  # Map type names to parameters
+
         for param in self.parameters:
-            if param.object_type not in types_to_params:
-                types_to_params[param.object_type] = []
             types_to_params[param.object_type].append(param.name)
 
         type_groups: list[str] = []
@@ -33,7 +34,7 @@ class Predicate:
             pddl_params = " ".join(relevant_params)
             type_groups.append(f"{pddl_params} - {type_name}")
 
-        params_string = " " + " ".join(type_groups) if type_groups else ""
+        params_string = (" " + " ".join(type_groups)) if type_groups else ""
         return f"({self.name}{params_string})"
 
     def ground_with(self, bindings: Bindings) -> PredicateInstance:
@@ -42,23 +43,23 @@ class Predicate:
 
 
 @dataclass(frozen=True)
-class PredicateInstance:
+class PredicateInstance(Generic[ObjectT]):
     """A predicate grounded using particular concrete objects."""
 
     predicate: Predicate
-    bindings: Bindings
+    bindings: Bindings[ObjectT]
 
     def __str__(self) -> str:
         """Return a readable string representation of the predicate instance."""
-        args_string = ", ".join(self.bindings[p.name] for p in self.predicate.parameters)
+        args_string = ", ".join(str(arg) for arg in self.arguments)
         return f"{self.predicate.name}({args_string})"
 
     @property
-    def name(self) -> str:
-        """Retrieve the name of the predicate instance."""
-        return self.predicate.name
+    def arguments(self) -> tuple[ObjectT, ...]:
+        """Retrieve the tuple of concrete objects used to ground the predicate instance."""
+        return tuple(self.bindings[p.name] for p in self.predicate.parameters)
 
     def to_pddl(self) -> str:
         """Return a PDDL string representation of the predicate instance."""
-        args_string = " ".join(self.bindings[p.name] for p in self.predicate.parameters)
+        args_string = " ".join(str(arg) for arg in self.arguments)
         return f"({self.predicate.name} {args_string})"
