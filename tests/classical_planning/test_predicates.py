@@ -45,7 +45,7 @@ def test_predicate_to_pddl(available: Predicate, lifting: Predicate, on: Predica
     """Verify that the Predicate class can reproduce PDDL predicates from a real PDDL domain."""
     # Arrange - Fixtures define three predicates analogous to those in the IPC-5 "Storage" domain
 
-    # Act - Convert the predicates into their PDDL string representation
+    # Act - Convert the predicates into their PDDL string representations
     available_pddl = available.to_pddl()
     lifting_pddl = lifting.to_pddl()
     on_pddl = on.to_pddl()
