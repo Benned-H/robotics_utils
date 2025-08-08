@@ -27,7 +27,7 @@ all = ["robotics-utils[vision]"] # Install everything
 # Dependency groups manage development-time dependencies
 # Reference: https://pydevtools.com/handbook/explanation/what-are-optional-dependencies-and-dependency-groups/
 [dependency-groups]
-dev = ["ruff", "pytest", "hypothesis", "pytest-cov"]
+dev = ["ruff", "pytest", "hypothesis", "pytest-cov", "pylint"]
 
 
 [tool.hatch.build.targets.wheel]

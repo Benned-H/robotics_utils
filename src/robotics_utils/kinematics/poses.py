@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any
+from pathlib import Path
+from typing import Any, TypeVar
 
 import numpy as np
 
-from robotics_utils.kinematics import DEFAULT_FRAME
+from robotics_utils.io.yaml_utils import load_yaml_data
+from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME
 from robotics_utils.kinematics.point3d import Point3D
 from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
 
@@ -60,6 +62,9 @@ class Pose2D:
         )
 
 
+MultiplyT = TypeVar("MultiplyT", "Pose3D", Point3D)
+
+
 @dataclass
 class Pose3D:
     """A position and orientation in 3D space."""
@@ -68,7 +73,20 @@ class Pose3D:
     orientation: Quaternion
     ref_frame: str = DEFAULT_FRAME
 
-    def __matmul__(self, other: Pose3D) -> Pose3D:
+    def __matmul__(self, other: MultiplyT) -> MultiplyT:
+        """Compose the homogeneous transformation matrix of this pose with another object.
+
+        :param other: 3D pose or 3D point right-multiplied with this pose
+        :return: Result from the matrix multiplication
+        """
+        if isinstance(other, Pose3D):
+            return self._matrix_multiply_with_pose(other)
+        if isinstance(other, Point3D):
+            return self._matrix_multiply_with_point(other)
+
+        raise NotImplementedError(f"Cannot matrix-multiply Pose3D with: {other}")
+
+    def _matrix_multiply_with_pose(self, other: Pose3D) -> Pose3D:
         """Multiply the homogeneous transformation matrix of this pose with another pose.
 
         Consider: pose_A_B @ pose_B_C = pose_A_C, meaning the pose of 'C' relative to frame A.
@@ -81,6 +99,16 @@ class Pose3D:
         right_m = other.to_homogeneous_matrix()
         result_ref_frame = self.ref_frame  # Result takes the "leftmost" reference frame
         return Pose3D.from_homogeneous_matrix(left_m @ right_m, result_ref_frame)
+
+    def _matrix_multiply_with_point(self, other: Point3D) -> Point3D:
+        """Multiply the homogeneous transformation matrix of this pose with a 3D point.
+
+        :param other: 3D point treated as a homogeneous coordinate in the multiplication
+        :return: Point3D resulting from the matrix multiplication
+        """
+        pose_matrix = self.to_homogeneous_matrix()
+        result = pose_matrix @ other.to_homogeneous_coordinate()
+        return Point3D.from_homogeneous_coordinate(result)
 
     @property
     def yaw_rad(self) -> float:
@@ -183,6 +211,24 @@ class Pose3D:
     def to_yaml_dict(self) -> dict[str, Any]:
         """Convert the pose into a dictionary suitable for export to YAML."""
         return {"xyz_rpy": self.to_list(), "frame": self.ref_frame}
+
+    @classmethod
+    def load_named_poses(cls, yaml_path: Path, poses_key: str) -> dict[str, Pose3D]:
+        """Load a collection of named poses from the given YAML file.
+
+        :param yaml_path: Path to a YAML file containing pose data
+        :param poses_key: YAML key for the collection of poses to be imported
+
+        :return: Dictionary mapping pose frame names to their imported 3D poses
+        """
+        yaml_data = load_yaml_data(yaml_path, required_keys={poses_key})
+        default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
+        poses_data: dict[str, Any] = yaml_data[poses_key]
+
+        return {
+            pose_name: Pose3D.from_yaml_data(pose_data, default_frame)
+            for pose_name, pose_data in poses_data.items()
+        }
 
     def to_2d(self) -> Pose2D:
         """Convert the 3D pose into a 2D pose by discarding its z-coordinate, roll, and pitch."""

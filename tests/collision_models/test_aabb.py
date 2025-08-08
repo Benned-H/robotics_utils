@@ -5,7 +5,7 @@ from __future__ import annotations
 from hypothesis import given
 from hypothesis.strategies import lists
 
-from robotics_utils.kinematics.collision_models import AxisAlignedBoundingBox
+from robotics_utils.collision_models import AxisAlignedBoundingBox
 
 from .collision_model_strategies import aabbs
 

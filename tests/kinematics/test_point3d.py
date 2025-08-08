@@ -2,7 +2,7 @@
 
 from hypothesis import given
 
-from robotics_utils.kinematics.point3d import Point3D
+from robotics_utils.kinematics import Point3D
 
 from .kinematics_strategies import positions
 

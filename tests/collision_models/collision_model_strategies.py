@@ -2,8 +2,8 @@
 
 import hypothesis.strategies as st
 
-from robotics_utils.kinematics.collision_models import AxisAlignedBoundingBox
-from robotics_utils.kinematics.point3d import Point3D
+from robotics_utils.collision_models import AxisAlignedBoundingBox
+from robotics_utils.kinematics import Point3D
 
 from ..common_strategies import real_ranges
 

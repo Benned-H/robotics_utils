@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from robotics_utils.kinematics.collision_models import Cylinder
+from robotics_utils.collision_models import Cylinder
+from robotics_utils.kinematics import Pose3D
 from robotics_utils.kinematics.kinematic_tree import KinematicTree
-from robotics_utils.kinematics.poses import Pose3D
 
 
 @pytest.fixture
