@@ -53,6 +53,6 @@ class TransformRecorder:
 
     def save_to_file(self, output_path: Path) -> None:
         """Save the recorded relative transforms to file."""
-        yaml_dicts = [pose.to_yaml_dict() for pose in self.tracked_relative_poses]
+        yaml_dicts = [pose.to_yaml_data() for pose in self.tracked_relative_poses]
         export_yaml_data(yaml_dicts, output_path)
         rospy.loginfo(f"Saved {len(self.tracked_relative_poses)} poses to {output_path}")

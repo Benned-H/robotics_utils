@@ -142,7 +142,7 @@ class Pose3D:
     def to_list(self) -> list[float]:
         """Convert the Pose3D into a list of the form [x, y, z, roll (radians), pitch, yaw]."""
         (x, y, z), (roll_rad, pitch_rad, yaw_rad) = self.to_xyz_rpy()
-        return [x, y, z, roll_rad, pitch_rad, yaw_rad]
+        return [float(x), float(y), float(z), float(roll_rad), float(pitch_rad), float(yaw_rad)]
 
     @classmethod
     def from_homogeneous_matrix(cls, matrix: np.ndarray, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
@@ -180,7 +180,7 @@ class Pose3D:
 
         return Pose3D.from_list(pose_list, ref_frame)
 
-    def to_yaml_dict(self) -> dict[str, Any]:
+    def to_yaml_data(self) -> dict[str, Any]:
         """Convert the pose into a dictionary suitable for export to YAML."""
         return {"xyz_rpy": self.to_list(), "frame": self.ref_frame}
 

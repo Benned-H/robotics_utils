@@ -61,7 +61,7 @@ class TrajectoryReplayer:
             pose_b_ee = TransformManager.lookup_transform(ee_frame, body_frame)
 
         if pose_b_ee is None:
-            rospy.loginfo(f"Unable to look up transform from '{body_frame}' to '{ee_frame}'.")
+            rospy.logwarn(f"Unable to look up transform from '{body_frame}' to '{ee_frame}'.")
 
         return pose_b_ee
 
