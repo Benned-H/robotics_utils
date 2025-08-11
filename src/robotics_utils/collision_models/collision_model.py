@@ -8,15 +8,9 @@ from typing import Any
 
 import trimesh
 
-from robotics_utils.kinematics.collision_models.aabb import AxisAlignedBoundingBox
-from robotics_utils.kinematics.collision_models.meshes import (
-    compute_aabb,
-    load_trimesh_from_yaml_data,
-)
-from robotics_utils.kinematics.collision_models.primitive_shapes import (
-    PrimitiveShape,
-    create_primitive_shape,
-)
+from robotics_utils.collision_models.aabb import AxisAlignedBoundingBox
+from robotics_utils.collision_models.meshes import compute_aabb, load_trimesh_from_yaml_data
+from robotics_utils.collision_models.primitive_shapes import PrimitiveShape, create_primitive_shape
 
 
 @dataclass

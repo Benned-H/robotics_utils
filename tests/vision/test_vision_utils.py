@@ -2,7 +2,7 @@
 
 import torch
 
-from robotics_utils.filesystem.convert_memory import Gi_TO_B
+from robotics_utils.math.conversions import Gi_TO_B
 from robotics_utils.vision.vision_utils import determine_pytorch_device
 
 

@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 
-from robotics_utils.kinematics import Configuration
+from robotics_utils.kinematics.kinematics_core import Configuration
 from robotics_utils.kinematics.poses import Pose3D
 
 Path = Sequence[Configuration]

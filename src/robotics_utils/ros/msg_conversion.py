@@ -10,17 +10,8 @@ from moveit_msgs.msg import CollisionObject
 from sensor_msgs.msg import JointState
 from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
 
-from robotics_utils.kinematics import DEFAULT_FRAME, Configuration
-from robotics_utils.kinematics.collision_models import (
-    Box,
-    CollisionModel,
-    Cylinder,
-    PrimitiveShape,
-    Sphere,
-)
-from robotics_utils.kinematics.point3d import Point3D
-from robotics_utils.kinematics.poses import Pose3D
-from robotics_utils.kinematics.rotations import Quaternion
+from robotics_utils.collision_models import Box, CollisionModel, Cylinder, PrimitiveShape, Sphere
+from robotics_utils.kinematics import DEFAULT_FRAME, Configuration, Point3D, Pose3D, Quaternion
 
 
 def point_to_msg(point: Point3D) -> Point:
