@@ -1,9 +1,8 @@
 """Define classes to represent robot trajectories."""
 
-from collections.abc import Sequence
+from typing import Sequence
 
-from robotics_utils.kinematics.kinematics_core import Configuration
-from robotics_utils.kinematics.poses import Pose3D
+from robotics_utils.kinematics import Configuration, Pose3D
 
 Path = Sequence[Configuration]
 """A path is a sequence of robot configurations."""
