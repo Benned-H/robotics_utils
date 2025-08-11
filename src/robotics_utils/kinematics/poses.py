@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from robotics_utils.kinematics import DEFAULT_FRAME
+from robotics_utils.io.yaml_utils import load_yaml_data
+from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME
 from robotics_utils.kinematics.point3d import Point3D
 from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
 
@@ -142,7 +144,7 @@ class Pose3D:
     def to_list(self) -> list[float]:
         """Convert the Pose3D into a list of the form [x, y, z, roll (radians), pitch, yaw]."""
         (x, y, z), (roll_rad, pitch_rad, yaw_rad) = self.to_xyz_rpy()
-        return [x, y, z, roll_rad, pitch_rad, yaw_rad]
+        return [float(x), float(y), float(z), float(roll_rad), float(pitch_rad), float(yaw_rad)]
 
     @classmethod
     def from_homogeneous_matrix(cls, matrix: np.ndarray, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
@@ -180,9 +182,26 @@ class Pose3D:
 
         return Pose3D.from_list(pose_list, ref_frame)
 
-    def to_yaml_dict(self) -> dict[str, Any]:
+    def to_yaml_data(self) -> dict[str, Any]:
         """Convert the pose into a dictionary suitable for export to YAML."""
         return {"xyz_rpy": self.to_list(), "frame": self.ref_frame}
+
+    @classmethod
+    def load_named_poses(cls, yaml_path: Path, collection_name: str) -> dict[str, Pose3D]:
+        """Load a collection of named poses from the given YAML file.
+
+        :param yaml_path: Path to a YAML file containing pose data
+        :param collection_name: Name of the collection of poses to be imported (e.g., "object_poses")
+        :return: Dictionary mapping pose-frame names to their imported 3D poses
+        """
+        yaml_data = load_yaml_data(yaml_path, required_keys={collection_name})
+        default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
+        poses_data: dict[str, Any] = yaml_data[collection_name]
+
+        return {
+            pose_name: Pose3D.from_yaml_data(pose_data, default_frame)
+            for pose_name, pose_data in poses_data.items()
+        }
 
     def to_2d(self) -> Pose2D:
         """Convert the 3D pose into a 2D pose by discarding its z-coordinate, roll, and pitch."""

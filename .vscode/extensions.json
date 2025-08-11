@@ -1,0 +1,16 @@
+{
+    "recommendations": [
+        "charliermarsh.ruff",
+        "esbenp.prettier-vscode",
+        "Gruntfuggly.todo-tree",
+        "jan-dolejsi.pddl",
+        "ms-azuretools.vscode-docker",
+        "ms-python.debugpy",
+        "ms-python.mypy-type-checker",
+        "ms-python.python",
+        "ms-vscode-remote.remote-containers",
+        "njpwerner.autodocstring",
+        "tamasfe.even-better-toml",
+        "vscode-icons-team.vscode-icons"
+    ]
+}

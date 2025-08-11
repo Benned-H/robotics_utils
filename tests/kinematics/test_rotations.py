@@ -33,7 +33,7 @@ def test_quaternion_to_euler_rpy_and_back(quat: Quaternion) -> None:
     result_quat = euler_rpy.to_quaternion()
 
     # Assert - Expect that the resulting quaternion equals the original (modulo negation)
-    assert quat.approx_equal(result_quat)
+    assert quat.approx_equal(result_quat, rtol=1e-05, atol=1e-08)
 
 
 @given(quaternions())

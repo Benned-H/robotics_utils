@@ -11,7 +11,7 @@ import rospy
 from moveit_commander import MoveGroupCommander, RobotCommander, roscpp_initialize
 from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
 
-from robotics_utils.filesystem.yaml_utils import load_yaml_data
+from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.ros.msg_conversion import pose_to_msg
 from robotics_utils.ros.transform_manager import TransformManager
@@ -61,7 +61,7 @@ class TrajectoryReplayer:
             pose_b_ee = TransformManager.lookup_transform(ee_frame, body_frame)
 
         if pose_b_ee is None:
-            rospy.loginfo(f"Unable to look up transform from '{body_frame}' to '{ee_frame}'.")
+            rospy.logwarn(f"Unable to look up transform from '{body_frame}' to '{ee_frame}'.")
 
         return pose_b_ee
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import hypothesis.strategies as st
 
 
@@ -19,3 +21,10 @@ def integer_ranges(draw: st.DrawFn, min_value: int, max_value: int) -> tuple[int
     a = draw(st.integers(min_value=min_value, max_value=max_value))
     b = draw(st.integers(min_value=min_value, max_value=max_value))
     return (min(a, b), max(a, b))
+
+
+def test_data_path() -> Path:
+    """Retrieve the path to the `test_data` folder."""
+    path = Path(__file__).parent / "test_data"
+    assert path.exists()
+    return path
