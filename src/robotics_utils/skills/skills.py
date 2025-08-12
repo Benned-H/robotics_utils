@@ -7,12 +7,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, get_type_hints
 
 from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter
-from robotics_utils.io.skill_parsing import (
-    camel_to_snake,
-    is_camelcase,
-    parse_docstring_params,
-    snake_to_camel,
-)
+from robotics_utils.io.process_python import parse_docstring_params
+from robotics_utils.io.string_utils import camel_to_snake, is_camelcase, snake_to_camel
 
 SkillsProtocol = Any
 """Represents arbitrary skill protocols for different domains."""

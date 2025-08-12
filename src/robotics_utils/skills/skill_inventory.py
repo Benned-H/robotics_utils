@@ -53,18 +53,6 @@ class SkillInventory:
         return {"skills": skills_data, "types": types_data}
 
 
-# ObjectTypeSet = set[Any]  # Allow object types to be expressed as strings or NewTypes
-
-
-# def extract_type_names(types: ObjectTypeSet) -> set[str]:
-#     """Convert a set of NewType objects or strings into a set of type names."""
-#     result = set()
-#     for t in types:
-#         type_name = t.__name__ if hasattr(t, "__name__") else str(t)
-#         result.add(type_name.capitalize())
-#     return result
-
-
 #     def __post_init__(self) -> None:
 #         """Verify that the Domain is valid with respect to the following properties.
 
