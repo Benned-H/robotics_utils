@@ -33,7 +33,7 @@ class SkillInventory:
 
     @classmethod
     def from_yaml_data(cls, inventory_name: str, yaml_data: dict[str, Any]) -> SkillInventory:
-        """Import a SkillInventory instance from a YAML file.
+        """Import a SkillInventory instance from data imported from YAML.
 
         :param inventory_name: Name given to the constructed skill inventory
         :param yaml_data: Filepath to a YAML file containing skills and type data

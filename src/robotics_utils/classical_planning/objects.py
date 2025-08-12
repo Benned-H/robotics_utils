@@ -12,7 +12,7 @@ class Objects:
     def __init__(self, object_to_types: dict[str, set[str]]) -> None:
         """Initialize the collection of typed objects."""
         self.object_to_types = object_to_types
-        """Maps object names to their set of types."""
+        """Maps object names to their sets of types."""
 
         # Construct a map from each object type to the names of all objects of that type
         self._types_to_object_names: dict[str, set[str]] = defaultdict(set)
@@ -35,7 +35,7 @@ class Objects:
         return self._types_to_object_names.keys()
 
     def get_types_of(self, object_name: str) -> set[str]:
-        """Retrieve the type(s) of the names object."""
+        """Retrieve the type(s) of the named object."""
         if object_name not in self.object_to_types:
             raise KeyError(f"Cannot retrieve types of unknown object: '{object_name}'.")
         return self.object_to_types[object_name]
@@ -43,6 +43,6 @@ class Objects:
     def get_objects_of_type(self, obj_type: str) -> set[str]:
         """Retrieve the names of all objects with the given type."""
         if obj_type not in self._types_to_object_names:
-            raise KeyError(f"Unknown object type: '{obj_type}'")
+            raise KeyError(f"Unknown object type: '{obj_type}'.")
 
         return self._types_to_object_names[obj_type]
