@@ -28,3 +28,14 @@ class AbstractState:
         """Return a PDDL string representation of the abstract state."""
         all_facts = "\n\t".join(sorted(fact.to_pddl() for fact in self.facts))
         return f"(and\n\t{all_facts}\n)"
+
+
+@dataclass(frozen=True)
+class GoalCondition:
+    """Specifies a desired abstract state of the world for a planning problem.
+
+    TODO: Handle general first-order logic expressions as goal conditions.
+    """
+
+    positive: set[PredicateInstance]  # Conditions that must be true
+    negative: set[PredicateInstance]  # Conditions that must be false

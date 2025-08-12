@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import inspect
+import re
 from dataclasses import dataclass
-from typing import Any, Callable, get_type_hints
+from typing import TYPE_CHECKING, Any, Callable, get_type_hints
 
 from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter
 from robotics_utils.io.process_python import parse_docstring_params
-from robotics_utils.io.string_utils import camel_to_snake, is_camelcase, snake_to_camel
+from robotics_utils.io.string_utils import camel_to_snake, is_camel_case, snake_to_camel
+
+if TYPE_CHECKING:
+    from robotics_utils.classical_planning.objects import Objects
+    from robotics_utils.skills.skill_inventory import SkillInventory
+
 
 SkillsProtocol = Any
 """Represents arbitrary skill protocols for different domains."""
@@ -29,7 +35,7 @@ class Skill:
 
     def __post_init__(self) -> None:
         """Validate expected properties of any Skill instance."""
-        if not is_camelcase(self.name):
+        if not is_camel_case(self.name):
             raise ValueError(f"Skill name '{self.name}' must be CamelCase.")
 
     def __str__(self) -> str:
@@ -75,7 +81,7 @@ class Skill:
             if param_type is None:
                 raise ValueError(f"Skill {skill_name} didn't define a type for '{param_name}'.")
 
-            object_type = param_type.__name__  # TODO: Used to have .capitalize(); do we want this?
+            object_type = param_type.__name__.capitalize()
 
             # Get parameter semantics from the method docstring
             semantics = param_docs.get(param_name)
@@ -117,49 +123,53 @@ class SkillInstance:
         args_string = ", ".join(self.bindings[p.name] for p in self.skill.parameters)
         return f"{self.skill.name}({args_string})"
 
-    # @classmethod - TODO: Create PDDL Problem to structure the concrete arguments?
-    # def from_string(cls, string: str, domain: Domain, env: Environment) -> SkillInstance:
-    #     """Construct a SkillInstance from the given string.
+    @classmethod
+    def from_string(
+        cls,
+        string: str,
+        available_skills: SkillInventory,
+        objects: Objects,
+    ) -> SkillInstance:
+        """Construct a SkillInstance from the given string.
 
-    #     :param string: String description of the skill instance
-    #     :param domain: Domain defining the available skills
-    #     :param env: Environment defining valid objects and their types
-    #     :return: Constructed SkillInstance instance
-    #     """
-    #     match = re.match(r"^(\w+)\(([^)]*)\)$", string.strip())
-    #     if not match:
-    #         raise ValueError(f"Could not parse SkillInstance string: '{string}'")
+        :param string: String description of a skill instance
+        :param available_skills: Inventory specifying the available skills
+        :param objects: Collection of all objects in the environment
+        :return: Constructed SkillInstance instance
+        """
+        match = re.match(r"^(\w+)\(([^)]*)\)$", string.strip())
+        if not match:
+            raise ValueError(f"Could not parse SkillInstance string: '{string}'.")
 
-    #     skill_name = match.group(1)
-    #     args_string = match.group(2).strip()
+        skill_name = match.group(1)
+        args_string = match.group(2).strip()
 
-    #     args = [arg.strip() for arg in args_string.split(",")] if args_string else []
+        args = [arg.strip() for arg in args_string.split(",")] if args_string else []
 
-    #     if skill_name not in domain.skills:
-    #         raise ValueError(f"Invalid skill name parsed from string: '{skill_name}'")
+        if skill_name not in available_skills.skills:
+            raise ValueError(f"Invalid skill name parsed from string: '{skill_name}'.")
 
-    #     skill = domain.skills[skill_name]
-    #     if len(skill.parameters) != len(args):
-    #         error = f"Skill '{skill_name}' expects {len(skill.parameters)} args, not {len(args)}."
-    #         raise ValueError(error)
+        skill = available_skills.skills[skill_name]
+        if len(skill.parameters) != len(args):
+            len_param = len(skill.parameters)
+            raise ValueError(f"Skill '{skill_name}' expects {len_param} args, not {len(args)}.")
 
-    #     bindings: Bindings = {}
-    #     for bound_object, param in zip(args, skill.parameters, strict=True):
-    #         if bound_object not in env.objects:
-    #             raise ValueError(f"Object '{bound_object}' not found in the environment.")
+        bindings: Bindings = {}
+        for bound_object, param in zip(args, skill.parameters, strict=True):
+            if bound_object not in objects:
+                raise ValueError(f"Object '{bound_object}' not found in the environment.")
 
-    #         obj_types = env.objects.get_types_of_object(bound_object)
+            obj_types = objects.get_types_of(bound_object)
 
-    #         if param.object_type not in obj_types:
-    #             error = (
-    #                 f"Cannot parse skill instance from '{string}' because skill parameter "
-    #                 f"{param.name} expects type {param.object_type} but the provided "
-    #                 f"argument object {bound_object} only has type(s) {obj_types}."
-    #             )
-    #             raise ValueError(error)
-    #         bindings[param.name] = bound_object
+            if param.object_type not in obj_types:
+                raise ValueError(
+                    f"Cannot parse skill instance from '{string}' because skill parameter "
+                    f"'{param.name}' expects type {param.object_type} but the provided "
+                    f"argument object '{bound_object}' only has type(s) {obj_types}.",
+                )
+            bindings[param.name] = bound_object
 
-    #     return SkillInstance(skill, bindings)
+        return SkillInstance(skill, bindings)
 
     def execute(self, executor: SkillsProtocol) -> None:
         """Execute this skill instance."""

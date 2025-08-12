@@ -15,12 +15,12 @@ def snake_to_camel(string: str) -> str:
     return "".join(word.capitalize() for word in chunks)
 
 
-def is_snakecase(string: str) -> bool:
+def is_snake_case(string: str) -> bool:
     """Check whether the given string is snake_case."""
     chunks = string.split()
     return len(chunks) == 1 and chunks[0] == string.lower()
 
 
-def is_camelcase(string: str) -> bool:
+def is_camel_case(string: str) -> bool:
     """Check whether the given string is CamelCase."""
     return string.lower() != string and ("_" not in string)
