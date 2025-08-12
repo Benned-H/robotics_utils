@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import itertools
-from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from robotics_utils.kinematics.point3d import Point3D
+from robotics_utils.kinematics import Point3D
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
 
 
 @dataclass(frozen=True)

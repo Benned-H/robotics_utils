@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
 from dataclasses import astuple, dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
 from trimesh.transformations import (
     euler_from_matrix,
     euler_from_quaternion,
@@ -15,6 +14,11 @@ from trimesh.transformations import (
     quaternion_from_matrix,
     quaternion_matrix,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
+
+    from numpy.typing import NDArray
 
 
 @dataclass
@@ -47,7 +51,7 @@ class EulerRPY:
         if matrix.shape != (4, 4):
             raise ValueError(f"EulerRPY expects a 4x4 homogeneous matrix, got {matrix.shape}")
         roll, pitch, yaw = euler_from_matrix(matrix, axes="sxyz")
-        return EulerRPY(roll, pitch, yaw)
+        return EulerRPY(float(roll), float(pitch), float(yaw))
 
     def to_homogeneous_matrix(self) -> NDArray[np.float64]:
         """Convert the Euler RPY angles into an equivalent homogeneous transformation matrix."""

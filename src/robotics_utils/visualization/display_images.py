@@ -12,6 +12,7 @@ class Displayable(Protocol):
 
     def convert_for_visualization(self) -> NDArray[np.uint8]:
         """Convert the Displayable into a form that can be visualized."""
+        ...
 
 
 def display_image(image: Displayable, window_title: str, wait_for_input: bool = True) -> bool:

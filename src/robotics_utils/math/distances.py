@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 
-from robotics_utils.kinematics.poses import Pose2D
 from robotics_utils.math.angles import normalize_angle
+
+if TYPE_CHECKING:
+    from robotics_utils.kinematics import Pose2D
 
 
 def euclidean_distance_2d_m(pose_a: Pose2D, pose_b: Pose2D, change_frames: bool) -> float:

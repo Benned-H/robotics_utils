@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from robotics_utils.classical_planning.predicates import PredicateInstance
+if TYPE_CHECKING:
+    from robotics_utils.classical_planning.predicates import PredicateInstance
 
 
 @dataclass(frozen=True)

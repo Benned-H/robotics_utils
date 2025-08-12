@@ -5,16 +5,19 @@ from __future__ import annotations
 import sys
 import time
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import rospy
 from moveit_commander import MoveGroupCommander, RobotCommander, roscpp_initialize
 from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
 
 from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.kinematics.poses import Pose3D
+from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros.msg_conversion import pose_to_msg
 from robotics_utils.ros.transform_manager import TransformManager
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass(frozen=True)

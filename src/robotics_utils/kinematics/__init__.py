@@ -1,5 +1,6 @@
 """Import common definitions for kinematics."""
 
+from .kinematic_tree import KinematicTree as KinematicTree
 from .kinematics_core import DEFAULT_FRAME as DEFAULT_FRAME
 from .kinematics_core import Configuration as Configuration
 from .point3d import Point3D as Point3D

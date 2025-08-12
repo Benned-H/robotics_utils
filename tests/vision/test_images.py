@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from hypothesis import given
 
-from robotics_utils.vision.images import Image, PixelXY
-
 from .vision_strategies import images, pixels_xy
+
+if TYPE_CHECKING:
+    from robotics_utils.vision.images import Image, PixelXY
 
 
 @given(images(), pixels_xy())

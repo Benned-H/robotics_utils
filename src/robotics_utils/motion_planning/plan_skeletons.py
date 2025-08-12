@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from robotics_utils.kinematics.poses import Pose3D
+if TYPE_CHECKING:
+    from robotics_utils.kinematics import Pose3D
 
 
 @dataclass(frozen=True)

@@ -2,9 +2,7 @@
 
 import hypothesis.strategies as st
 
-from robotics_utils.kinematics.point3d import Point3D
-from robotics_utils.kinematics.poses import Pose2D, Pose3D
-from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
+from robotics_utils.kinematics import EulerRPY, Point3D, Pose2D, Pose3D, Quaternion
 
 
 @st.composite
