@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict
 
 from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.kinematics import DEFAULT_FRAME, Pose2D
+from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME
+from robotics_utils.kinematics.poses import Pose2D
 
 if TYPE_CHECKING:
     from pathlib import Path

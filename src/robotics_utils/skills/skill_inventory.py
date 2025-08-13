@@ -36,7 +36,7 @@ class SkillInventory:
         """Import a SkillInventory instance from data imported from YAML.
 
         :param inventory_name: Name given to the constructed skill inventory
-        :param yaml_data: Filepath to a YAML file containing skills and type data
+        :param yaml_data: Data loaded from YAML describing an inventory of skills
         :return: Constructed SkillInventory instance
         """
         skills = [Skill.from_yaml_data(name, data) for name, data in yaml_data["skills"].items()]

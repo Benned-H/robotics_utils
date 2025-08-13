@@ -15,10 +15,10 @@ class Objects:
         """Maps object names to their sets of types."""
 
         # Construct a map from each object type to the names of all objects of that type
-        self._types_to_object_names: dict[str, set[str]] = defaultdict(set)
+        self._objects_of_type: dict[str, set[str]] = defaultdict(set)
         for obj_name, obj_types in self.object_to_types.items():
             for obj_type in obj_types:
-                self._types_to_object_names[obj_type].add(obj_name)
+                self._objects_of_type[obj_type].add(obj_name)
 
     def __contains__(self, object_name: str) -> bool:
         """Evaluate whether the named object is in this collection."""
@@ -32,7 +32,7 @@ class Objects:
     @property
     def all_types(self) -> KeysView[str]:
         """Retrieve all object types used in this collection."""
-        return self._types_to_object_names.keys()
+        return self._objects_of_type.keys()
 
     def get_types_of(self, object_name: str) -> set[str]:
         """Retrieve the type(s) of the named object."""
@@ -42,7 +42,7 @@ class Objects:
 
     def get_objects_of_type(self, obj_type: str) -> set[str]:
         """Retrieve the names of all objects with the given type."""
-        if obj_type not in self._types_to_object_names:
+        if obj_type not in self._objects_of_type:
             raise KeyError(f"Unknown object type: '{obj_type}'.")
 
-        return self._types_to_object_names[obj_type]
+        return self._objects_of_type[obj_type]

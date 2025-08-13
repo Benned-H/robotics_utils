@@ -142,14 +142,13 @@ class SkillInstance:
             raise ValueError(f"Could not parse SkillInstance string: '{string}'.")
 
         skill_name = match.group(1)
-        args_string = match.group(2).strip()
-
-        args = [arg.strip() for arg in args_string.split(",")] if args_string else []
-
         if skill_name not in available_skills.skills:
             raise ValueError(f"Invalid skill name parsed from string: '{skill_name}'.")
-
         skill = available_skills.skills[skill_name]
+
+        args_string = match.group(2).strip()
+        args = [arg.strip() for arg in args_string.split(",")] if args_string else []
+
         if len(skill.parameters) != len(args):
             len_param = len(skill.parameters)
             raise ValueError(f"Skill '{skill_name}' expects {len_param} args, not {len(args)}.")
