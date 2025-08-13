@@ -2,7 +2,7 @@
 
 Definitions:
 
-    CamelCase - A string is camel-case if it's fully alphanumeric, contains at least one letter,
+    CamelCase - A string is camel case if it's fully alphanumeric, contains at least one letter,
         and all consecutive sequences of letters begin with an uppercase letter.
 
     snake_case - A string is snake case if it contains at least one letter, is lowercase, and
