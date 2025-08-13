@@ -31,6 +31,8 @@ class Skill:
     """A skill parameterized by object-typed arguments."""
 
     name: str
+    """A skill's name should be CamelCase (e.g., "OpenDoor")."""
+
     parameters: tuple[DiscreteParameter, ...]
 
     def __post_init__(self) -> None:
@@ -46,14 +48,20 @@ class Skill:
     @classmethod
     def from_yaml_data(cls, skill_name: str, yaml_data: dict[str, Any]) -> Skill:
         """Load a Skill instance from data imported from YAML."""
-        params_data = yaml_data.get("parameters")
+        if skill_name not in yaml_data:
+            raise KeyError(f"Skill name '{skill_name}' missing from YAML data: {yaml_data}.")
+
+        params_data = yaml_data[skill_name].get("parameters")
         if params_data is None:
             raise KeyError(f"Key 'parameters' missing from YAML data: {yaml_data}.")
         return Skill(skill_name, DiscreteParameter.tuple_from_yaml_data(params_data))
 
     def to_yaml_data(self) -> dict[str, Any]:
         """Convert the Skill object into a dictionary of YAML data."""
-        params_data = [param.to_yaml_data() for param in self.parameters]
+        params_data = {}
+        for p in self.parameters:
+            params_data.update(p.to_yaml_data())
+
         return {self.name: {"parameters": params_data}}
 
     @classmethod

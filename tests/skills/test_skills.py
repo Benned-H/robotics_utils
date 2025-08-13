@@ -7,6 +7,8 @@ from robotics_utils.classical_planning.parameters import DiscreteParameter
 from robotics_utils.skills.skill_inventory import SkillInventory
 from robotics_utils.skills.skills import Skill
 
+from ..common_strategies import camel_case_strings
+
 
 @st.composite
 def parameters(draw: st.DrawFn) -> DiscreteParameter:
@@ -20,7 +22,7 @@ def parameters(draw: st.DrawFn) -> DiscreteParameter:
 @st.composite
 def skills(draw: st.DrawFn) -> Skill:
     """Generate random object-centric skills."""
-    name = draw(st.text())
+    name = draw(camel_case_strings())  # Skill names should be camel-case
     params_list = draw(st.lists(parameters()))
 
     return Skill(name, tuple(params_list))
