@@ -2,26 +2,26 @@
 
 Definitions:
 
-    CamelCase - A string is camel-case if it's fully alphanumeric, contains at least one letter,
+    PascalCase - A string is Pascal case if it begins with an uppercase letter, is alphanumeric,
         and all consecutive sequences of letters begin with an uppercase letter.
 
-    snake_case - A string is snake case if it contains at least one letter, is lowercase, and
-        contains only letters, numbers, and underscores.
+    snake_case - A string is snake case if it begins with an underscore or lowercase letter,
+        contains at least one letter, is lowercase, and is alphanumeric or underscores.
 
-    No string can be both CamelCase and snake_case.
+    No string can be both PascalCase and snake_case.
 """
 
 import re
 
 
-def camel_to_snake(string: str) -> str:
-    """Convert a CamelCase string to snake_case."""
+def pascal_to_snake(string: str) -> str:
+    """Convert a PascalCase string to snake_case."""
     # Insert an underscore before any uppercase letter that follows a lowercase letter or digit
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", string).lower()
 
 
-def snake_to_camel(string: str) -> str:
-    """Convert a snake_case string to CamelCase."""
+def snake_to_pascal(string: str) -> str:
+    """Convert a snake_case string to PascalCase."""
     chunks = string.split("_")
     return "".join(word.capitalize() for word in chunks)
 
@@ -37,13 +37,13 @@ def is_snake_case(string: str) -> bool:
     return bool(string) and not string[0].isnumeric()
 
 
-def is_camel_case(string: str) -> bool:
-    """Check whether the given string is CamelCase."""
+def is_pascal_case(string: str) -> bool:
+    """Check whether the given string is PascalCase."""
     if not string or not string.isalnum():
         return False
 
     if string[0].lower() == string[0]:
-        return False  # Any CamelCase string must begin with an uppercase letter
+        return False  # Any PascalCase string must begin with an uppercase letter
 
     for c_prev, c_next in zip(string[:-1], string[1:], strict=True):
         # Ensure that a lowercase letter never follows a digit
