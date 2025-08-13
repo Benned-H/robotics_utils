@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from types import TracebackType
+from typing import TYPE_CHECKING
 
 import numpy as np
 import open3d as o3d
-from numpy.typing import NDArray
 from typing_extensions import Self
 
-from robotics_utils.sensors.cameras import CameraIntrinsics
-from robotics_utils.vision.images import DepthImage
+if TYPE_CHECKING:
+    from types import TracebackType
+
+    from numpy.typing import NDArray
+
+    from robotics_utils.perception.sensors.cameras import CameraIntrinsics
+    from robotics_utils.vision.images import DepthImage
 
 
 class Pointcloud:

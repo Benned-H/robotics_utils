@@ -12,10 +12,10 @@ from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from robotics_utils.kinematics import DEFAULT_FRAME
 from robotics_utils.perception.pose_estimation import PoseEstimateAverager
+from robotics_utils.perception.sensors.visual_fiducials import VisualFiducialSystem
 from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
-from robotics_utils.sensors.visual_fiducials import VisualFiducialSystem
 
 
 @dataclass(frozen=True)

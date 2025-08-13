@@ -55,7 +55,7 @@ class FiducialDetector:
     """A camera that detects visual fiducial markers."""
 
     name: str
-    recognized_sizes_cm: set[float]  # Sizes of AR markers detected by the camera
+    recognized_sizes_cm: frozenset[float]  # Sizes of AR markers detected by the camera
 
     @classmethod
     def from_yaml_data(cls, camera_name: str, camera_data: dict[str, Any]) -> FiducialDetector:
@@ -69,8 +69,7 @@ class FiducialDetector:
             if key not in camera_data:
                 raise KeyError(f"Expected key '{key}' in data for camera '{camera_name}'.")
 
-        recognized_sizes_cm = set(camera_data["recognized_sizes_cm"])
-        return FiducialDetector(name=camera_name, recognized_sizes_cm=recognized_sizes_cm)
+        return FiducialDetector(camera_name, frozenset(camera_data["recognized_sizes_cm"]))
 
     def can_recognize(self, fiducial: VisualFiducial) -> bool:
         """Evaluate whether the camera, as configured, can recognize the given fiducial marker."""
@@ -90,10 +89,10 @@ class VisualFiducialSystem:
         """Load a system of visual fiducial markers and camera detectors from a YAML file."""
         yaml_data = load_yaml_data(yaml_path, required_keys={"markers", "cameras"})
 
-        fiducials = {
+        fiducials = [
             VisualFiducial.from_yaml_data(fiducial_name, data)
             for fiducial_name, data in yaml_data["markers"].items()
-        }
+        ]
 
         detectors = {
             FiducialDetector.from_yaml_data(camera_name, data)

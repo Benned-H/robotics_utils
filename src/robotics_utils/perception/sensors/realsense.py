@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.table import Table
 from typing_extensions import Self
 
-from robotics_utils.sensors.cameras import CameraIntrinsics, DepthCameraSpec, Resolution
+from robotics_utils.perception.sensors.cameras import CameraIntrinsics, DepthCameraSpec, Resolution
 from robotics_utils.vision.images import DepthImage, RGBDImage, RGBImage
 
 if TYPE_CHECKING:

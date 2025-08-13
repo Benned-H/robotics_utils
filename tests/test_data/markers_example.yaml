@@ -1,0 +1,21 @@
+# Example visual fiducial marker YAML configuration
+
+markers:
+  marker_1:
+    size_cm: 4.0 # Size (cm) along one side of the marker's black square
+    relative_frames: # Relative transforms (expressed w.r.t. marker frame)
+      eraser: [0, 0, 0.1, 0, 0, 3.14159] # [x, y, z, roll, pitch, yaw] (angles in radians)
+      table: [-0.3, 0, -0.5, 0, 0, 0]
+
+  marker_12:
+    size_cm: 18.5
+    relative_frames:
+      sink: [1.3, 0.2, -0.6, 0, 1.5708, 0]
+
+cameras:
+  frontleft:
+    recognized_sizes_cm: [18.5] # Sizes (cm) of tags that the camera is configured to recognize
+  frontright:
+    recognized_sizes_cm: [18.5]
+  hand:
+    recognized_sizes_cm: [4.0, 18.5]
