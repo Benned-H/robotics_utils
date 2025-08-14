@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class TransformManager:
     """A static class used to manage and read from the /tf tree."""
 
-    LOOP_HZ = 10.0  # Frequency (Hz) of any transform request/send loops
+    LOOP_HZ = 3.0  # Frequency (Hz) of any transform request/send loops
 
     # Delay initialization of TF2 objects until ROS is available
     _tf_broadcaster: TransformBroadcaster | None = None
@@ -87,7 +87,7 @@ class TransformManager:
         source_frame: str,
         target_frame: str,
         when: rospy.Time | None = None,
-        timeout_s: float = 5.0,
+        timeout_s: float = 10.0,
     ) -> Pose3D | None:
         """Look up the transform to convert from one frame to another using /tf.
 

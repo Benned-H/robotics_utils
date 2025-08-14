@@ -8,8 +8,6 @@ import numpy as np
 
 from robotics_utils.kinematics import DEFAULT_FRAME, Point3D, Pose3D, Quaternion
 
-OptionalWeights = Sequence[float] | None
-
 
 def average_positions(positions: Sequence[Point3D], weights: OptionalWeights = None) -> Point3D:
     """Compute a weighted average of 3D positions.

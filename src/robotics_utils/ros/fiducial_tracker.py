@@ -42,7 +42,7 @@ class FiducialTracker:
         for camera_name in self.system.cameras:
             self.marker_subs.append(
                 rospy.Subscriber(
-                    f"{prefix}/{camera_name}",
+                    f"{prefix}/{camera_name}/single",
                     AlvarMarkers,
                     callback=self.markers_callback,
                     callback_args=MarkersCallbackArgs(camera_name),
@@ -73,7 +73,7 @@ class FiducialTracker:
             raw_pose.ref_frame = marker.header.frame_id
             marker_pose = TransformManager.convert_to_frame(raw_pose, DEFAULT_FRAME)
 
-            frame_name = str(marker.id)
+            frame_name = f"marker_{marker.id}"
             self.pose_averager.update(frame_name, marker_pose)
 
     def handle_output_to_yaml(self, _: TriggerRequest) -> TriggerResponse:

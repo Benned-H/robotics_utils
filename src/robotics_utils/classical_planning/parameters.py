@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any, Dict, TypeVar
 
 ObjectT = TypeVar("ObjectT")
 """Represents a concrete object in the environment."""
@@ -40,5 +40,5 @@ class DiscreteParameter:
         return {self.name: yaml_data}
 
 
-Bindings = dict[str, ObjectT]
+Bindings = Dict[str, ObjectT]
 """A mapping from parameter names to their bound concrete objects."""
