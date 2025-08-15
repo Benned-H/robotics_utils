@@ -1,15 +1,17 @@
 """Define dataclasses to structure MoveIt-based skills."""
 
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NewType
 
 import rospy
+from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
 from std_srvs.srv import Trigger
 
 from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D
 from robotics_utils.ros.manipulator import Manipulator
-from robotics_utils.ros.services import trigger_service
+from robotics_utils.ros.services import ServiceCaller, trigger_service
 from robotics_utils.ros.transform_manager import TransformManager
 
 
@@ -80,12 +82,13 @@ class SpotSkillsExecutor:
             "look_poses",
         )
         trigger_service("spot/unlock_arm")
+        # trigger_service("spot/stow_arm")
 
     def pick(self, picked: Pickable) -> None:
         """Pick an object with the given name."""
         execute_pick(self.spot_arm, self.pick_params[picked])
 
-    def look(self, height: str) -> None:
+    def look(self, height: str, missing_objects: list) -> None:
         """Look into a container of the given height."""
         look_ee_pose = self.look_poses.get(height)
         if look_ee_pose is None:
@@ -95,4 +98,22 @@ class SpotSkillsExecutor:
         pose_b_look = TransformManager.convert_to_frame(look_ee_pose, "body")
         self.spot_arm.execute_motion_plan(pose_b_look, "body")
 
+        self.spot_arm.open_gripper()
+
         # Take photo!
+        time.sleep(3)
+        self.spot_arm.close_gripper()
+        trigger_service("spot/stow_arm")
+
+        found_objects = []
+        for obj in missing_objects:
+            pose = TransformManager.lookup_transform(source_frame=obj, target_frame="body")
+            if pose is not None:
+                found_objects.append(obj)
+
+        return found_objects
+
+        # rgbd_getter = ServiceCaller[GetRGBDPairsRequest, GetRGBDPairsResponse](
+        #     "spot/get_rgbd_pairs",
+        #     GetRGBDPairs,
+        # )

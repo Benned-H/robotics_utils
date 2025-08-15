@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 import rospy
@@ -147,7 +148,11 @@ class TransformManager:
         return pose_t_s
 
     @staticmethod
-    def convert_to_frame(pose_c_p: Pose3D | Pose2D, target_frame: str) -> Pose3D:
+    def convert_to_frame(
+        pose_c_p: Pose3D | Pose2D,
+        target_frame: str,
+        timeout_s: float = 10.0,
+    ) -> Pose3D:
         """Convert the given pose into the target reference frame.
 
         Frames: Frame implied by the pose (p), current ref. frame (c), target ref. frame (t)
@@ -163,7 +168,11 @@ class TransformManager:
         if current_frame == target_frame:
             return pose_c_p
 
-        pose_t_c = TransformManager.lookup_transform(current_frame, target_frame, None, 10.0)
+        pose_t_c = None
+        end_time_s = time.time() + timeout_s
+        while pose_t_c is None and time.time() < end_time_s:
+            pose_t_c = TransformManager.lookup_transform(current_frame, target_frame, timeout_s=3)
+
         if pose_t_c is None:
             raise RuntimeError(f"Lookup from frame '{current_frame}' to '{target_frame}' failed")
 
