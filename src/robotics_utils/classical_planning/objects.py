@@ -12,7 +12,7 @@ class Objects:
     def __init__(self, object_to_types: dict[str, set[str]]) -> None:
         """Initialize the collection of typed objects."""
         self.object_to_types = object_to_types
-        """Maps object names to their sets of types."""
+        """Maps the name of each object to its set of types."""
 
         # Construct a map from each object type to the names of all objects of that type
         self._objects_of_type: dict[str, set[str]] = defaultdict(set)

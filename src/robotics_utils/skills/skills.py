@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, get_type_hints
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, get_type_hints
 
 from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter
 from robotics_utils.io.process_python import parse_docstring_params
@@ -13,17 +13,17 @@ from robotics_utils.io.string_utils import camel_to_snake, is_camel_case, snake_
 
 if TYPE_CHECKING:
     from robotics_utils.classical_planning.objects import Objects
-    from robotics_utils.skills.skill_inventory import SkillInventory
+    from robotics_utils.skills.skills_inventory import SkillsInventory, SkillsProtocol
 
 
-SkillsProtocol = Any
-"""Represents arbitrary skill protocols for different domains."""
+OutputT = TypeVar("OutputT")
+"""Represents the output type of a particular skill."""
 
 
-def skill(func: Callable) -> Callable:
-    """Mark a function as implementing a skill."""
-    func._is_skill = True
-    return func
+def skill_method(m: Callable) -> Callable:
+    """Mark a method as implementing a skill."""
+    m._is_skill = True
+    return m
 
 
 @dataclass(frozen=True)
@@ -89,7 +89,7 @@ class Skill:
             if param_type is None:
                 raise ValueError(f"Skill {skill_name} didn't define a type for '{param_name}'.")
 
-            object_type = param_type.__name__.capitalize()
+            object_type = param_type.__name__
 
             # Get parameter semantics from the method docstring
             semantics = param_docs.get(param_name)
@@ -100,7 +100,7 @@ class Skill:
 
         return Skill(skill_name, tuple(parameters))
 
-    def execute(self, executor: SkillsProtocol, bindings: Bindings) -> None:
+    def execute(self, executor: SkillsProtocol, bindings: Bindings) -> object | None:
         """Execute this skill under the given object bindings.
 
         :param executor: Protocol defining an interface for skill execution
@@ -113,7 +113,7 @@ class Skill:
 
         skill_method = getattr(executor, method_name)
         args = [bindings[param.name] for param in self.parameters]
-        skill_method(*args)
+        return skill_method(*args)
 
 
 @dataclass(frozen=True)
@@ -135,7 +135,7 @@ class SkillInstance:
     def from_string(
         cls,
         string: str,
-        available_skills: SkillInventory,
+        available_skills: SkillsInventory,
         objects: Objects,
     ) -> SkillInstance:
         """Construct a SkillInstance from the given string.
@@ -178,6 +178,6 @@ class SkillInstance:
 
         return SkillInstance(skill, bindings)
 
-    def execute(self, executor: SkillsProtocol) -> None:
+    def execute(self, executor: SkillsProtocol) -> object | None:
         """Execute this skill instance."""
-        self.skill.execute(executor, self.bindings)
+        return self.skill.execute(executor, self.bindings)

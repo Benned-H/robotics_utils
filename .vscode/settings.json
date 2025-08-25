@@ -37,12 +37,5 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "python.analysis.typeCheckingMode": "standard",
-    "python-envs.pythonProjects": [
-        {
-            "path": "tests/skills",
-            "envManager": "ms-python.python:venv",
-            "packageManager": "ms-python.python:pip"
-        }
-    ]
+    "python.analysis.typeCheckingMode": "standard"
 }
