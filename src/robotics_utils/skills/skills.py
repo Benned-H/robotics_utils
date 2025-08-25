@@ -44,9 +44,13 @@ class Skill:
     @classmethod
     def from_yaml_data(cls, skill_name: str, skill_data: dict[str, Any]) -> Skill:
         """Load a Skill instance from data imported from YAML."""
-        params_data = skill_data.get("parameters")
-        if params_data is None:
+        if skill_name not in skill_data:
+            raise KeyError(f"Skill name '{skill_name}' missing from YAML data: {skill_data}.")
+
+        if "parameters" not in skill_data[skill_name]:
             raise KeyError(f"Key 'parameters' missing from skill YAML data: {skill_data}.")
+        params_data = skill_data[skill_name]["parameters"]
+
         return Skill(skill_name, DiscreteParameter.tuple_from_yaml_data(params_data))
 
     def to_yaml_data(self) -> dict[str, Any]:

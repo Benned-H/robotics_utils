@@ -64,7 +64,9 @@ class SkillsInventory:
         :param yaml_data: Data loaded from YAML describing an inventory of skills
         :return: Constructed SkillsInventory instance
         """
-        skills = [Skill.from_yaml_data(name, data) for name, data in yaml_data["skills"].items()]
+        skills = [
+            Skill.from_yaml_data(name, {name: data}) for name, data in yaml_data["skills"].items()
+        ]
         return SkillsInventory(inventory_name, skills)
 
     def to_yaml_data(self) -> dict[str, Any]:
