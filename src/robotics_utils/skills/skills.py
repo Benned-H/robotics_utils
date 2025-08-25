@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, get_type_hints
+from typing import TYPE_CHECKING, Any, Callable, get_type_hints
 
 from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter
 from robotics_utils.io.process_python import parse_docstring_params
@@ -14,10 +14,6 @@ from robotics_utils.io.string_utils import is_pascal_case, pascal_to_snake, snak
 if TYPE_CHECKING:
     from robotics_utils.classical_planning.objects import Objects
     from robotics_utils.skills.skills_inventory import SkillsInventory, SkillsProtocol
-
-
-OutputT = TypeVar("OutputT")
-"""Represents the output type of a particular skill."""
 
 
 def skill_method(m: Callable) -> Callable:
