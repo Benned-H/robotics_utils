@@ -6,7 +6,7 @@ from typing import Any
 
 from robotics_utils.skills.skills import Skill
 
-SkillsProtocol = Any
+SkillsProtocol = object
 """Represents an arbitrary protocol defining skills for a particular domain."""
 
 
@@ -21,6 +21,28 @@ class SkillsInventory:
 
         self.object_types: set[str] = {p.object_type for skill in skills for p in skill.parameters}
         """Set of object types used by the skills inventory."""
+
+    def __str__(self) -> str:
+        """Create a readable string representation of the skills inventory."""
+        skill_names = sorted(self.skills.keys())
+        skill_strings = [str(self.skills[name]) for name in skill_names]
+        return self.name + "\n\t".join(skill_strings)
+
+    def __key(self) -> tuple[Any, ...]:
+        """Define a key to uniquely identify the SkillInventory."""
+        skill_names = sorted(self.skills.keys())
+        sorted_skills = tuple(self.skills[name] for name in skill_names)
+        return (self.name, sorted_skills)
+
+    def __hash__(self) -> int:
+        """Generate a hash value for the SkillInventory."""
+        return hash(self.__key())
+
+    def __eq__(self, other: object) -> bool:
+        """Evaluate whether another SkillsInventory is equal to this one."""
+        if isinstance(other, SkillsInventory):
+            return self.__key() == other.__key()
+        return NotImplemented
 
     @classmethod
     def from_protocol(cls, protocol: SkillsProtocol) -> SkillsInventory:

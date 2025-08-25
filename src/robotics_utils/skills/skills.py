@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar, get_type_hints
 
 from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter
 from robotics_utils.io.process_python import parse_docstring_params
-from robotics_utils.io.string_utils import camel_to_snake, is_camel_case, snake_to_camel
+from robotics_utils.io.string_utils import is_pascal_case, pascal_to_snake, snake_to_pascal
 
 if TYPE_CHECKING:
     from robotics_utils.classical_planning.objects import Objects
@@ -31,14 +31,14 @@ class Skill:
     """A skill parameterized by object-typed arguments."""
 
     name: str
-    """A skill's name should be CamelCase (e.g., "OpenDoor")."""
+    """A skill's name should be PascalCase (e.g., "OpenDoor")."""
 
     parameters: tuple[DiscreteParameter, ...]
 
     def __post_init__(self) -> None:
         """Validate expected properties of any Skill instance."""
-        if not is_camel_case(self.name):
-            raise ValueError(f"Skill name '{self.name}' must be CamelCase.")
+        if not is_pascal_case(self.name):
+            raise ValueError(f"Skill name '{self.name}' must be PascalCase.")
 
     def __str__(self) -> str:
         """Return a readable string representation of the skill."""
@@ -46,14 +46,11 @@ class Skill:
         return f"{self.name}({params})"
 
     @classmethod
-    def from_yaml_data(cls, skill_name: str, yaml_data: dict[str, Any]) -> Skill:
+    def from_yaml_data(cls, skill_name: str, skill_data: dict[str, Any]) -> Skill:
         """Load a Skill instance from data imported from YAML."""
-        if skill_name not in yaml_data:
-            raise KeyError(f"Skill name '{skill_name}' missing from YAML data: {yaml_data}.")
-
-        params_data = yaml_data[skill_name].get("parameters")
+        params_data = skill_data.get("parameters")
         if params_data is None:
-            raise KeyError(f"Key 'parameters' missing from YAML data: {yaml_data}.")
+            raise KeyError(f"Key 'parameters' missing from skill YAML data: {skill_data}.")
         return Skill(skill_name, DiscreteParameter.tuple_from_yaml_data(params_data))
 
     def to_yaml_data(self) -> dict[str, Any]:
@@ -71,7 +68,7 @@ class Skill:
         :param method: Method defining the parameter signature of the skill
         :return: Constructed Skill instance
         """
-        skill_name = snake_to_camel(method.__name__)
+        skill_name = snake_to_pascal(method.__name__)
         method_params = inspect.signature(method).parameters
         type_hints = get_type_hints(method)
 
@@ -106,14 +103,14 @@ class Skill:
         :param executor: Protocol defining an interface for skill execution
         :param bindings: Map from parameter names to bound object names
         """
-        method_name = camel_to_snake(self.name)  # CamelCase skill name -> snake_case method name
+        method_name = pascal_to_snake(self.name)  # PascalCase skill name -> snake_case method name
 
         if not hasattr(executor, method_name):
             raise NotImplementedError(f"Skills protocol has no method: {method_name}")
 
         skill_method = getattr(executor, method_name)
         args = [bindings[param.name] for param in self.parameters]
-        return skill_method(*args)
+        return skill_method(executor, *args)
 
 
 @dataclass(frozen=True)

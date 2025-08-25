@@ -1,36 +1,53 @@
 """Define strategies for generating skill-related objects for property-based testing."""
 
+from __future__ import annotations
+
 import hypothesis.strategies as st
 
 from robotics_utils.classical_planning.parameters import DiscreteParameter
 from robotics_utils.skills.skills import Skill
 from robotics_utils.skills.skills_inventory import SkillsInventory
 
-from ..common_strategies import camel_case_strings
+from ..common_strategies import pascal_case_strings
 
 
 @st.composite
 def generate_parameters(draw: st.DrawFn) -> DiscreteParameter:
     """Generate random object-typed discrete parameters."""
-    name = draw(st.text())
-    object_type = draw(st.text())
+    name = draw(st.text(min_size=1))
+    object_type = draw(st.text(min_size=1))
     semantics = draw(st.one_of(st.none(), st.text()))
     return DiscreteParameter(name, object_type, semantics)
 
 
 @st.composite
+def generate_parameters_tuple(draw: st.DrawFn) -> tuple[DiscreteParameter, ...]:
+    """Generate a tuple of DiscreteParameters with unique names."""
+    parameter_names = draw(st.lists(st.text(min_size=1), unique=True))
+
+    parameters = []
+    for p_name in parameter_names:
+        p_object_type = draw(st.text(min_size=1))
+        p_semantics = draw(st.one_of(st.none(), st.text()))
+        parameters.append(DiscreteParameter(p_name, p_object_type, p_semantics))
+
+    return tuple(parameters)
+
+
+@st.composite
 def generate_skills(draw: st.DrawFn) -> Skill:
     """Generate random object-centric skills."""
-    name = draw(camel_case_strings())  # Skill names should be camel-case
-    params_list = draw(st.lists(generate_parameters()))
-
-    return Skill(name, tuple(params_list))
+    name = draw(pascal_case_strings())  # Skill names should be Pascal case
+    parameters = draw(generate_parameters_tuple())
+    return Skill(name, parameters)
 
 
 @st.composite
 def generate_skills_inventories(draw: st.DrawFn) -> SkillsInventory:
     """Generate random inventories of skills."""
     inventory_name = draw(st.text())
-    skills_list = draw(st.lists(generate_skills()))
 
-    return SkillsInventory(inventory_name, skills_list)
+    skill_names = draw(st.lists(pascal_case_strings(), unique=True))
+    skills = [Skill(name, parameters=draw(generate_parameters_tuple())) for name in skill_names]
+
+    return SkillsInventory(inventory_name, skills)

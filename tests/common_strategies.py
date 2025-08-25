@@ -76,8 +76,8 @@ def snake_case_strings(draw: st.DrawFn) -> str:
 
 
 @st.composite
-def camel_case_strings(draw: st.DrawFn) -> str:
-    """Generate random CamelCase strings."""
+def pascal_case_strings(draw: st.DrawFn) -> str:
+    """Generate random PascalCase strings."""
     first_char = draw(uppercase_letters())
     rest_of_string = draw(st.text(st.one_of(digits(), letters())))
 
@@ -90,7 +90,7 @@ def camel_case_strings(draw: st.DrawFn) -> str:
         # Otherwise, we have a lowercase letter
         prev_char = output_string[-1]
         if prev_char.isnumeric():
-            output_string += c.upper()  # CamelCase: Letters after digits should be uppercase
+            output_string += c.upper()  # PascalCase: Letters after digits should be uppercase
         else:
             output_string += c
 
