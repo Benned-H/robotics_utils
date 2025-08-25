@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import rospy
 
 from robotics_utils.io.yaml_utils import export_yaml_data
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.ros.transform_manager import TransformManager
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TransformRecorder:

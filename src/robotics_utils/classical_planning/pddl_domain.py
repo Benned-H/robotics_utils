@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from robotics_utils.classical_planning.operators import Operator
-from robotics_utils.classical_planning.predicates import Predicate
-from robotics_utils.classical_planning.type_hierarchy import TypeHierarchy
+if TYPE_CHECKING:
+    from robotics_utils.classical_planning.operators import Operator
+    from robotics_utils.classical_planning.predicates import Predicate
+    from robotics_utils.classical_planning.type_hierarchy import TypeHierarchy
 
 
 @dataclass(frozen=True)

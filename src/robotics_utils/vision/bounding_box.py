@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
 
 from robotics_utils.vision.images import Image, PixelXY, RGBImage
-from robotics_utils.vision.vision_utils import RGB
+
+if TYPE_CHECKING:
+    from robotics_utils.vision.vision_utils import RGB
 
 
 @dataclass(frozen=True)

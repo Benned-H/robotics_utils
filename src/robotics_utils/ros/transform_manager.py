@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import rospy
-from geometry_msgs.msg import TransformStamped
 from tf2_ros import Buffer, TransformBroadcaster, TransformException, TransformListener
 
-from robotics_utils.kinematics.poses import Pose3D
+from robotics_utils.kinematics import Pose2D, Pose3D
 from robotics_utils.ros.msg_conversion import pose_from_tf_stamped_msg, pose_to_tf_stamped_msg
+
+if TYPE_CHECKING:
+    from geometry_msgs.msg import TransformStamped
 
 
 class TransformManager:
@@ -143,7 +147,7 @@ class TransformManager:
         return pose_t_s
 
     @staticmethod
-    def convert_to_frame(pose_c_p: Pose3D, target_frame: str) -> Pose3D:
+    def convert_to_frame(pose_c_p: Pose3D | Pose2D, target_frame: str) -> Pose3D:
         """Convert the given pose into the target reference frame.
 
         Frames: Frame implied by the pose (p), current ref. frame (c), target ref. frame (t)
@@ -152,6 +156,9 @@ class TransformManager:
         :param target_frame: Target reference frame (frame t) of the output pose
         :return: Pose3D relative to the target reference frame (i.e., pose_t_p)
         """
+        if isinstance(pose_c_p, Pose2D):
+            pose_c_p = pose_c_p.to_3d()
+
         current_frame = pose_c_p.ref_frame
         if current_frame == target_frame:
             return pose_c_p

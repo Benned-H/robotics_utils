@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -13,6 +11,10 @@ from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME
 from robotics_utils.kinematics.point3d import Point3D
 from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
+    from pathlib import Path
 
 
 @dataclass

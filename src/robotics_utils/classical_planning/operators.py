@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Generic
+from typing import TYPE_CHECKING, Generic
 
 from robotics_utils.classical_planning.abstract_states import AbstractState
 from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter, ObjectT
-from robotics_utils.classical_planning.predicates import Predicate, PredicateInstance
+
+if TYPE_CHECKING:
+    from robotics_utils.classical_planning.predicates import Predicate, PredicateInstance
 
 
 @dataclass(frozen=True)

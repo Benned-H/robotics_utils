@@ -5,14 +5,16 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 from typing_extensions import Self
 
 from robotics_utils.visualization import Displayable
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 
 class Image(ABC, Displayable):

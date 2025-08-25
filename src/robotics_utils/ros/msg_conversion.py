@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import rospy
-import trimesh
 from geometry_msgs.msg import Point, Pose, PoseStamped, Transform, TransformStamped, Vector3
 from geometry_msgs.msg import Quaternion as QuaternionMsg
 from moveit_msgs.msg import CollisionObject
@@ -12,6 +13,9 @@ from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
 
 from robotics_utils.collision_models import Box, CollisionModel, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.kinematics import DEFAULT_FRAME, Configuration, Point3D, Pose3D, Quaternion
+
+if TYPE_CHECKING:
+    import trimesh
 
 
 def point_to_msg(point: Point3D) -> Point:

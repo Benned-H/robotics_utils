@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from types import TracebackType
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pyrealsense2 as rs2
-from numpy.typing import NDArray
 from rich.console import Console
 from rich.table import Table
 from typing_extensions import Self
 
 from robotics_utils.sensors.cameras import CameraIntrinsics, DepthCameraSpec, Resolution
 from robotics_utils.vision.images import DepthImage, RGBDImage, RGBImage
+
+if TYPE_CHECKING:
+    from types import TracebackType
+
+    from numpy.typing import NDArray
 
 
 @dataclass(order=True, frozen=True)
