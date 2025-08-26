@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from robotics_utils.kinematics import DEFAULT_FRAME, Point3D, Pose3D, Quaternion
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 def average_positions(positions: Sequence[Point3D], weights: Sequence[float] | None) -> Point3D:
     """Compute a weighted average of 3D positions.
 
     :param positions: Collection of (x,y,z) coordinates
-    :param weights: Optional sequence of per-position weights (defaults to uniform weighting)
+    :param weights: Optional sequence of per-position weights (None = uniform weighting)
     :return: Point3D result of the weighted average
     """
     if not positions:
@@ -38,7 +41,7 @@ def average_quaternions(qs: Sequence[Quaternion], weights: Sequence[float] | Non
         Reference: Method 2 from this answer: https://math.stackexchange.com/a/3435296/614782
 
     :param qs: Collection of unit quaternions representing 3D rotations
-    :param weights: Optional sequence of per-quaternion weights (defaults to uniform weighting)
+    :param weights: Optional sequence of per-quaternion weights (None = uniform weighting)
     :return: Quaternion result of the weighted average
     """
     if not qs:
