@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 
@@ -15,6 +15,8 @@ from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
     from pathlib import Path
+
+MultiplyT = TypeVar("MultiplyT", "Pose3D", Point3D)
 
 
 @dataclass
@@ -72,7 +74,20 @@ class Pose3D:
     orientation: Quaternion
     ref_frame: str = DEFAULT_FRAME
 
-    def __matmul__(self, other: Pose3D) -> Pose3D:
+    def __matmul__(self, other: MultiplyT) -> MultiplyT:
+        """Compose the homogeneous transformation matrix of this pose with another object.
+
+        :param other: 3D pose or 3D point right-multiplied with this pose
+        :return: Result from the matrix multiplication
+        """
+        if isinstance(other, Pose3D):
+            return self._matrix_multiply_with_pose(other)
+        if isinstance(other, Point3D):
+            return self._matrix_multiply_with_point(other)
+
+        raise NotImplementedError(f"Cannot matrix-multiply Pose3D with: {other}")
+
+    def _matrix_multiply_with_pose(self, other: Pose3D) -> Pose3D:
         """Multiply the homogeneous transformation matrix of this pose with another pose.
 
         Consider: pose_A_B @ pose_B_C = pose_A_C, meaning the pose of 'C' relative to frame A.
@@ -85,6 +100,15 @@ class Pose3D:
         right_m = other.to_homogeneous_matrix()
         result_ref_frame = self.ref_frame  # Result takes the "leftmost" reference frame
         return Pose3D.from_homogeneous_matrix(left_m @ right_m, result_ref_frame)
+
+    def _matrix_multiply_with_point(self, other: Point3D) -> Point3D:
+        """Multiply the homogeneous transformation matrix of this pose with a 3D point.
+
+        :param other: 3D point treated as a homogeneous coordinate in the multiplication
+        :return: Point3D resulting from the matrix multiplication
+        """
+        result = self.to_homogeneous_matrix() @ other.to_homogeneous_coordinate()
+        return Point3D.from_homogeneous_coordinate(result)
 
     @property
     def yaw_rad(self) -> float:

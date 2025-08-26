@@ -6,10 +6,9 @@ import hypothesis.strategies as st
 import numpy as np
 from hypothesis.extra import numpy as numpy_st
 
-from robotics_utils.vision.bounding_box import BoundingBox
-from robotics_utils.vision.images import DepthImage, Image, PixelXY, RGBImage
+from robotics_utils.perception.vision import BoundingBox, DepthImage, Image, PixelXY, RGBImage
 
-from ..common_strategies import integer_ranges
+from ...common_strategies import integer_ranges
 
 
 @st.composite

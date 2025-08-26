@@ -42,6 +42,13 @@ class Point3D:
         """Convert the 3D point to a NumPy array."""
         return np.array([self.x, self.y, self.z])
 
+    @classmethod
+    def from_homogeneous_coordinate(cls, coord: NDArray) -> Point3D:
+        """Construct a Point3D instance from a homogeneous coordinate given as a NumPy array."""
+        if coord.shape != (4,):
+            raise ValueError(f"Homogeneous coordinate should have shape (4,), got {coord.shape}.")
+        return Point3D.from_array(coord[:3])
+
     def to_homogeneous_coordinate(self) -> NDArray[np.float64]:
         """Convert the 3D point into a homogeneous coordinate."""
         return np.array([self.x, self.y, self.z, 1.0])

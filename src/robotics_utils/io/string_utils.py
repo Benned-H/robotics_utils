@@ -2,11 +2,11 @@
 
 Definitions:
 
-    PascalCase - A string is Pascal case if it's fully alphanumeric, begins with a letter, and
-        all of its consecutive sequences of letters begin with an uppercase letter.
+    PascalCase - A string is Pascal case if it begins with an uppercase letter, is alphanumeric,
+        and all consecutive sequences of letters begin with an uppercase letter.
 
-    snake_case - A string is snake case if it contains at least one letter, is lowercase, and
-        contains only letters, numbers, and underscores.
+    snake_case - A string is snake case if it begins with an underscore or lowercase letter,
+        contains at least one letter, is lowercase, and is alphanumeric or underscores.
 
     No string can be both PascalCase and snake_case.
 """
