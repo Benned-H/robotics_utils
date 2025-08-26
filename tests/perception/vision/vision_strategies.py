@@ -8,7 +8,7 @@ from hypothesis.extra import numpy as numpy_st
 
 from robotics_utils.perception.vision import BoundingBox, DepthImage, Image, PixelXY, RGBImage
 
-from ..common_strategies import integer_ranges
+from ...common_strategies import integer_ranges
 
 
 @st.composite
