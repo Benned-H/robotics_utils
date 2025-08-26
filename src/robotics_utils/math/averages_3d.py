@@ -56,7 +56,7 @@ def average_quaternions(qs: Sequence[Quaternion], weights: Sequence[float] | Non
 
     # Accumulate weighted outer products
     matrix = np.zeros((4, 4))
-    for q, w in zip(qs, weights, strict=True):
+    for q, w in zip(qs, weights):  # Omit strict=True to support older Python versions
         v = q.to_array().reshape(4, 1)
         matrix += w * (v @ v.T)  # Sum of weighted outer products
 
