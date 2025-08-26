@@ -39,7 +39,7 @@ def execute_pick(manipulator: Manipulator, params: PickParameters) -> None:
     pose_b_g = TransformManager.convert_to_frame(params.pose_o_g, params.body_frame_name)
 
     # Open the gripper
-    manipulator.open_gripper()
+    # manipulator.open_gripper()
 
     # Pre-grasp trajectory
     pose_g_pregrasp = Pose3D.from_xyz_rpy(x=-params.pre_grasp_offset_m)  # Pregrasp w.r.t. grasp
@@ -61,7 +61,7 @@ def execute_pick(manipulator: Manipulator, params: PickParameters) -> None:
 
 
 SPOT_PICK_CUP = PickParameters(
-    pose_o_g=Pose3D.from_xyz_rpy(x=-0.2, y=0.03, roll_rad=1.5708, ref_frame="waterbottle"),
+    pose_o_g=Pose3D.from_xyz_rpy(x=-0.2, y=0.03, z=0.07, roll_rad=1.5708, ref_frame="waterbottle"),
     pre_grasp_offset_m=0.15,
     post_grasp_lift_m=0.1,
 )
@@ -77,9 +77,9 @@ class SpotSkillsExecutor:
         self.pick_params: dict[str, PickParameters] = {"waterbottle": SPOT_PICK_CUP}
         self.spot_arm = Manipulator(move_group="arm", base_link="body", grasping_group="gripper")
 
-        self.look_poses = Pose3D.load_named_poses(
+        self.ee_poses = Pose3D.load_named_poses(
             Path("/resources/apriltags/ee_poses.yaml"),
-            "look_poses",
+            "ee_poses",
         )
         trigger_service("spot/unlock_arm")
 
@@ -87,9 +87,16 @@ class SpotSkillsExecutor:
         """Pick an object with the given name."""
         execute_pick(self.spot_arm, self.pick_params[picked])
 
-    def look(self, height: str, missing_objects: list[str]) -> list[str]:
+        carry_ee_pose = self.ee_poses.get("carry")
+        if carry_ee_pose is None:
+            rospy.logwarn("No 'carry' pose.")
+            exit()
+
+        self.spot_arm.execute_motion_plan(carry_ee_pose, "body")
+
+    def look(self, height: str = "high", missing_objects: list = []) -> list[str]:
         """Look into a container of the given height."""
-        look_ee_pose = self.look_poses.get(height)
+        look_ee_pose = self.ee_poses.get(height)
         if look_ee_pose is None:
             rospy.logwarn(f"Height '{height}' had no corresponding 'Look' pose.")
             exit()
@@ -101,13 +108,36 @@ class SpotSkillsExecutor:
 
         # Take photo!
         time.sleep(3)
-        self.spot_arm.close_gripper()
-        trigger_service("spot/stow_arm")
 
         found_objects: list[str] = []
         for obj in missing_objects:
             pose = TransformManager.lookup_transform(source_frame=obj, target_frame="body")
             if pose is not None:
                 found_objects.append(obj)
-
+        if len(found_objects) == 0:
+            self.spot_arm.close_gripper()
+            trigger_service("spot/stow_arm")
         return found_objects
+
+        # rgbd_getter = ServiceCaller[GetRGBDPairsRequest, GetRGBDPairsResponse](
+        #     "spot/get_rgbd_pairs",
+        #     GetRGBDPairs,
+        # )
+
+    def place(self) -> None:
+        """Place an object."""
+        for ee in ["above_carry", "place_on_countertop"]:
+            self.motion_plan_to_pose(ee)
+
+        self.spot_arm.open_gripper()
+        trigger_service("spot/stow_arm")
+        self.spot_arm.close_gripper()
+
+    def motion_plan_to_pose(self, ee_pose_name: str) -> None:
+        """Motion plan to a pre-defined end effector pose."""
+        target_ee_pose = self.ee_poses.get(ee_pose_name)
+        if target_ee_pose is None:
+            rospy.logwarn(f"No '{ee_pose_name}' pose.")
+            exit()
+
+        self.spot_arm.execute_motion_plan(target_ee_pose, "body")
