@@ -1,5 +1,6 @@
 """Demo script playing with an Intel RealSense camera."""
 
+from robotics_utils.io.logging import log_info
 from robotics_utils.perception.sensors.cameras import D455_SPEC
 from robotics_utils.perception.sensors.realsense import RealSense
 from robotics_utils.perception.vision import Pointcloud
@@ -14,7 +15,7 @@ def main() -> None:
             if not display_image(rgbd, "RGB-D Image (press 'q' to exit)", wait_for_input=False):
                 break
 
-            print(f"Min depth: {rgbd.depth.min_depth_m} Max depth: {rgbd.depth.max_depth_m}")
+            log_info(f"Min depth: {rgbd.depth.min_depth_m} Max depth: {rgbd.depth.max_depth_m}")
 
             # Compute and visualize a pointcloud based on the current depth image
             pointcloud = Pointcloud.from_depth_image(rgbd.depth, sensor.depth_intrinsics)
