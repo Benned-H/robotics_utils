@@ -2,8 +2,8 @@
 
 Definitions:
 
-    PascalCase - A string is Pascal case if it begins with an uppercase letter, is alphanumeric,
-        and all consecutive sequences of letters begin with an uppercase letter.
+    PascalCase - A string is Pascal case if it's fully alphanumeric, begins with a letter, and
+        all of its consecutive sequences of letters begin with an uppercase letter.
 
     snake_case - A string is snake case if it begins with an underscore or lowercase letter,
         contains at least one letter, is lowercase, and is alphanumeric or underscores.
@@ -14,13 +14,13 @@ Definitions:
 import re
 
 
-def camel_to_snake(string: str) -> str:
+def pascal_to_snake(string: str) -> str:
     """Convert a PascalCase string to snake_case."""
     # Insert an underscore before any uppercase letter that follows a lowercase letter or digit
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", string).lower()
 
 
-def snake_to_camel(string: str) -> str:
+def snake_to_pascal(string: str) -> str:
     """Convert a snake_case string to PascalCase."""
     chunks = string.split("_")
     return "".join(word.capitalize() for word in chunks)
@@ -37,7 +37,7 @@ def is_snake_case(string: str) -> bool:
     return bool(string) and not string[0].isnumeric()
 
 
-def is_camel_case(string: str) -> bool:
+def is_pascal_case(string: str) -> bool:
     """Check whether the given string is PascalCase."""
     if not string or not string.isalnum():
         return False
