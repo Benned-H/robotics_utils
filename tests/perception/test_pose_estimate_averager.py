@@ -13,12 +13,12 @@ from ..kinematics.kinematics_strategies import poses_3d
 
 @st.composite
 def pose_estimates_map(draw: st.DrawFn) -> dict[str, list[Pose3D]]:
-    """Generate a map of random frame names to random poses."""
+    """Generate a map from random frame names to random 3D poses."""
     return draw(
         st.dictionaries(
             keys=st.text(),
-            values=st.lists(elements=poses_3d(), max_size=500),
-            max_size=50,
+            values=st.lists(elements=poses_3d(), max_size=100),
+            max_size=100,
         ),
     )
 
@@ -29,8 +29,8 @@ def test_pose_estimate_averager_compute_all_averages(
     window_size: int,
 ) -> None:
     """Verify that all frames have averaged pose estimates after all averages are computed."""
-    # Arrange - Populate a pose estimate averager using the given map of pose estimates
-    averager = PoseEstimateAverager(window_size=window_size)
+    # Arrange - Populate a pose estimate averager using the given pose estimates
+    averager = PoseEstimateAverager(window_size)
     for frame_name, estimates in poses_map.items():
         for pose in estimates:
             averager.update(frame_name, pose)
@@ -38,7 +38,7 @@ def test_pose_estimate_averager_compute_all_averages(
     # Act - Compute all averages using the averager
     results = averager.compute_all_averages()
 
-    # Assert - Expect that all frames with pose estimates have an average
+    # Assert - Expect that an average pose is computed for any frame with pose estimates
     for frame_name, estimates in poses_map.items():
         if estimates:
             assert results[frame_name] is not None
