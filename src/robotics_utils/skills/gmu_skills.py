@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NewType
 
 import rospy
-from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse
+from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsResponse, NameService
 from std_srvs.srv import Trigger
 
 from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D
@@ -85,6 +86,23 @@ class SpotSkillsExecutor:
         )
         trigger_service("spot/unlock_arm")
         # trigger_service("spot/stow_arm")
+        self._command_dictionary = {
+            "1": [self.look, "trash"],
+            "2": [self.look, "high"],
+            "3": [self.look, "medium"],
+            "4": [self.move_spot_move_base, "kitchen"],
+            "5": [self.move_spot_move_base, "garbagecan"],
+            "6": [self.move_spot_move_base, "diningtable"],
+            "7": [self.move_spot_move_base, "fridge"],
+            "8": [self.move_spot_move_base, "countertop"],
+            "9": [self.move_spot_move_base, "sink"],
+            "10": [self.move_spot_move_base, "bedroom"],
+            "11": [self.move_spot_move_base, "couch"],
+            "12": [self.move_spot_move_base, "desk"],
+            "13": [self.move_spot_move_base, "tvstand"],
+            "14": [self.move_spot_move_base, "bed"],
+            "15": [self.pick, "waterbottle"],
+        }
 
     def pick(self, picked: Pickable) -> None:
         """Pick an object with the given name."""
@@ -144,3 +162,79 @@ class SpotSkillsExecutor:
             exit()
 
         self.spot_arm.execute_motion_plan(target_ee_pose, "body")
+
+    def move_spot_move_base(self, container_name: str) -> bool:
+        """_summary_  moves the robot body to a predefined pose relative to a named container.
+
+        :param container_name: _description_
+        :return: _description_
+        """
+        rospy.wait_for_service("/spot/navigation/to_waypoint")
+        try:
+            move_to_waypoint = rospy.ServiceProxy("/spot/navigation/to_waypoint", NameService)
+            response = move_to_waypoint(name=container_name)
+            return response.success
+        except rospy.ServiceException as e:
+            rospy.logerr("Failed to call /spot/navigation/to_waypoint: %s", e)
+            return False
+
+    def test_skills(self) -> None:
+        while True:
+            print("""
+            Options:
+            (1)look trash
+            (2)look high
+            (3)look medium
+            (4)move kitchen
+            (5)move garbagecan
+            (6)move diningtable
+            (7)move fridge
+            (8)move countertop
+            (9)move sink
+            (10)move bedroom
+            (11)move couch
+            (12)move desk
+            (13)move tvstand
+            (14)move bed
+            (q) Exit.
+            """)
+
+            try:  # noqa: SIM105
+                inputs = input(">")
+            except NameError:
+                pass
+            print(inputs)
+            req_type = str.split(inputs)[0]
+
+            if req_type == "q":
+                self._on_quit()
+                break
+
+            if req_type not in self._command_dictionary:
+                print("Request not in the known command dictionary.")
+                continue
+            try:
+                cmd_func = self._command_dictionary[req_type]
+                skill = cmd_func[0]
+                skill_params = cmd_func[1:]
+                print(skill)
+                print(skill_params)
+                skill(*skill_params)
+            except Exception as e:
+                print(e)
+
+
+if __name__ == "__main__":
+    # exit_code = 0
+    # if not main(sys.argv[1:]):
+    #     exit_code = 1
+    # os._exit(exit_code)
+
+    from moveit_commander import roscpp_initialize
+
+    TransformManager.init_node("taskplan")
+
+    roscpp_initialize(sys.argv)
+
+    executor = SpotSkillsExecutor()
+    executor.test_skills()
