@@ -1,4 +1,4 @@
-"""Define classes to represent and visualize pointclouds."""
+"""Define a class to represent 3D pointclouds."""
 
 from __future__ import annotations
 
