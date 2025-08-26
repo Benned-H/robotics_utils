@@ -1,5 +1,7 @@
 """Define dataclasses to structure MoveIt-based skills."""
 
+from __future__ import annotations
+
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -95,7 +97,7 @@ class SpotSkillsExecutor:
 
         self.spot_arm.execute_motion_plan(carry_ee_pose, "body")
 
-    def look(self, height: str = "high", missing_objects: list = []) -> None:
+    def look(self, height: str = "high", missing_objects: list = []) -> list[str]:
         """Look into a container of the given height."""
         look_ee_pose = self.ee_poses.get(height)
         if look_ee_pose is None:
@@ -135,7 +137,7 @@ class SpotSkillsExecutor:
         self.spot_arm.close_gripper()
 
     def motion_plan_to_pose(self, ee_pose_name: str) -> None:
-        """Motion plan to a pre-defined pose."""
+        """Motion plan to a pre-defined end effector pose."""
         target_ee_pose = self.ee_poses.get(ee_pose_name)
         if target_ee_pose is None:
             rospy.logwarn(f"No '{ee_pose_name}' pose.")
