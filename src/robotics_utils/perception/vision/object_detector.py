@@ -10,13 +10,13 @@ import torch
 from PIL import Image
 from transformers import OwlViTForObjectDetection, OwlViTImageProcessorFast, OwlViTProcessor
 
-from robotics_utils.vision.bounding_box import BoundingBox
-from robotics_utils.vision.vision_utils import RGB, determine_pytorch_device
+from robotics_utils.perception.vision.bounding_box import BoundingBox
+from robotics_utils.perception.vision.vision_utils import RGB, determine_pytorch_device
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from robotics_utils.vision.images import RGBImage
+    from robotics_utils.perception.vision.images import RGBImage
 
 
 class TextQueries:

@@ -8,10 +8,8 @@ import numpy as np
 
 from robotics_utils.kinematics import DEFAULT_FRAME, Point3D, Pose3D, Quaternion
 
-OptionalWeights = Sequence[float] | None
 
-
-def average_positions(positions: Sequence[Point3D], weights: OptionalWeights = None) -> Point3D:
+def average_positions(positions: Sequence[Point3D], weights: Sequence[float] | None) -> Point3D:
     """Compute a weighted average of 3D positions.
 
     :param positions: Collection of (x,y,z) coordinates
@@ -33,7 +31,7 @@ def average_positions(positions: Sequence[Point3D], weights: OptionalWeights = N
     return Point3D.from_array(avg)
 
 
-def average_quaternions(qs: Sequence[Quaternion], weights: OptionalWeights = None) -> Quaternion:
+def average_quaternions(qs: Sequence[Quaternion], weights: Sequence[float] | None) -> Quaternion:
     """Compute a maximum-likelihood average of quaternions.
 
     Uses eigen-decomposition of the weighted sum of outer products.
@@ -66,7 +64,7 @@ def average_quaternions(qs: Sequence[Quaternion], weights: OptionalWeights = Non
     return Quaternion.from_array(principal)
 
 
-def average_poses(poses: Sequence[Pose3D], weights: OptionalWeights = None) -> Pose3D:
+def average_poses(poses: Sequence[Pose3D], weights: Sequence[float] | None = None) -> Pose3D:
     """Compute the weighted average of 3D poses.
 
     :param poses: Collection of poses in 3D space (must be non-empty)

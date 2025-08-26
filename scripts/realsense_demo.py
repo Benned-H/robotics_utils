@@ -2,8 +2,8 @@
 
 from robotics_utils.perception.sensors.cameras import D455_SPEC
 from robotics_utils.perception.sensors.realsense import RealSense
-from robotics_utils.vision.pointcloud import Pointcloud, PointcloudVisualizer
-from robotics_utils.visualization import display_image
+from robotics_utils.perception.vision import Pointcloud
+from robotics_utils.visualization import PointcloudVisualizer, display_image
 
 
 def main() -> None:

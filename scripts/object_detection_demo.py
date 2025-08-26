@@ -13,8 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from robotics_utils.vision.images import RGBImage
-from robotics_utils.vision.object_detector import ObjectDetector, TextQueries
+from robotics_utils.perception.vision import ObjectDetector, RGBImage, TextQueries
 from robotics_utils.visualization import display_image
 
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from robotics_utils.perception.sensors.visual_fiducials import FiducialSystem
+from robotics_utils.perception.pose_estimation import FiducialSystem
 
 
 @pytest.fixture
@@ -15,7 +15,7 @@ def markers_yaml() -> Path:
     return yaml_path
 
 
-def test_visual_fiducial_system_from_yaml(markers_yaml: Path) -> None:
+def test_fiducial_system_from_yaml(markers_yaml: Path) -> None:
     """Verify that a FiducialSystem can be loaded from an example YAML file."""
     system = FiducialSystem.from_yaml(markers_yaml)
 
