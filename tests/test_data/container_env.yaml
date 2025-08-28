@@ -1,0 +1,45 @@
+# Example YAML specifying an environment with a container
+robot_base_poses:
+  spot: [0, 0, 0, 0, 0, 0] # x, y, z, roll, pitch, yaw
+
+object_poses:
+  cup1:
+    xyz_rpy: [0.05, 0, 0.4, 0, 0, 0] # Inside the filing cabinet
+    frame: closed_cabinet
+
+  closed_cabinet: [3, 0, 0, 0, 0, 0]
+
+  open_cabinet: [2, 0, 0, 0, 0, 0]
+
+collision_models:
+  cup1:
+    primitives: [{ type: cylinder, height: 0.1, radius: 0.03 }]
+
+  filing_cabinet_closed:
+    meshes:
+      - filepath: meshes/filing_cabinet_closed.obj
+        transforms:
+          - center_bounds
+          - bottom_at_zero_z
+
+  filing_cabinet_open:
+    meshes:
+      - filepath: meshes/filing_cabinet_open_middle_drawer.obj
+        transforms:
+          - center_bounds
+          - bottom_at_zero_z
+
+containers:
+  closed_cabinet:
+    closed_model: filing_cabinet_closed
+    open_model: filing_cabinet_open
+    contains: [cup1]
+    state: closed
+
+  open_cabinet:
+    closed_model: filing_cabinet_closed
+    open_model: filing_cabinet_open
+    contains: []
+    state: open
+
+default_frame: custom_default

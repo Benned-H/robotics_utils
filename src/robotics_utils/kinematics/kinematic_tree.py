@@ -9,6 +9,7 @@ from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
+from robotics_utils.world_models.containers import ContainerModel, ObjectModel
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -39,6 +40,9 @@ class KinematicTree:
 
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
+        self.container_models: dict[str, ContainerModel] = {}
+        """Maps the name of each container to its kinematic model."""
+
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> KinematicTree:
         """Construct a KinematicTree instance using data from the given YAML file.
@@ -46,7 +50,10 @@ class KinematicTree:
         :param yaml_path: YAML file containing data representing the kinematic state
         :return: Constructed KinematicTree instance
         """
-        full_yaml_data: dict[str, Any] = load_yaml_data(yaml_path)
+        full_yaml_data: dict[str, Any] = load_yaml_data(
+            yaml_path,
+            required_keys={"object_poses", "robot_base_poses"},
+        )
         default_frame = full_yaml_data.get("default_frame", DEFAULT_FRAME)
 
         tree = KinematicTree(root_frame=default_frame)
@@ -58,15 +65,31 @@ class KinematicTree:
             tree.set_robot_base_pose(robot_name, base_pose)
             tree.robot_configurations[robot_name] = {}  # Default: No robot configurations in YAML
 
-        collision_models_data: dict[str, Any] = full_yaml_data.get("collision_models", {})
-
-        for frame_name, model_data in collision_models_data.items():
-            tree.set_collision_model(
-                frame_name,
-                CollisionModel.from_yaml_data(model_data, yaml_path),
-            )
-
         tree.waypoints = Waypoints.from_yaml(yaml_path)
+
+        # Initially, load all collision models into a temporary dictionary
+        collision_models: dict[str, CollisionModel] = {}
+        for m_name, m_data in full_yaml_data.get("collision_models", {}).items():
+            collision_models[m_name] = CollisionModel.from_yaml_data(m_data, yaml_path)
+
+        # Load any containers in the environment from YAML
+        containers: dict[str, ContainerModel] = {}
+        used_by_containers: set[str] = set()  # Names of collision models and contained objects
+        for c_name, c_data in full_yaml_data.get("containers", {}).items():
+            c = ContainerModel.from_yaml_data(c_name, c_data, collision_models, tree.object_poses)
+            containers[c_name] = c
+            c.update_kinematic_tree(tree)
+
+            used_by_containers.add(c_data["closed_model"])  # Name of closed collision model
+            used_by_containers.add(c_data["open_model"])  # Name of open collision model
+            used_by_containers.update(c.contained_objects.keys())
+        tree.container_models = containers
+
+        # Add all collision models that aren't a container model or in a container
+        for name, collision_model in collision_models.items():
+            if name in used_by_containers:
+                continue
+            tree.set_collision_model(frame_name=name, collision_model=collision_model)
 
         return tree
 
@@ -174,3 +197,31 @@ class KinematicTree:
             raise KeyError(f"Cannot get collision model for unknown frame: '{frame_name}'.")
 
         return self.collision_models.get(frame_name)
+
+    def remove_object(self, obj_name: str) -> ObjectModel | None:
+        """Remove the named object from the kinematic state.
+
+        :param obj_name: Name of the object removed from the state
+        :return: Model of the object's state before it was removed (None if no state existed)
+        """
+        if obj_name not in self.object_names:
+            raise KeyError(f"Cannot remove unknown object '{obj_name}' from the kinematic tree.")
+
+        if self.children[obj_name]:
+            raise ValueError(
+                f"Cannot remove object '{obj_name}' from the kinematic state "
+                f"because it has child frames: {self.children[obj_name]}.",
+            )
+
+        parent_frame = self.get_parent_frame(obj_name)
+        if parent_frame is not None:
+            self.children[parent_frame].remove(obj_name)
+
+        # Attempt to clear the object's pose and collision model, if they exist
+        removed_pose = self.frames.pop(obj_name, None)
+        removed_collision_model = self.collision_models.pop(obj_name, None)
+
+        if removed_pose is None or removed_collision_model is None:
+            return None
+
+        return ObjectModel(obj_name, removed_pose, removed_collision_model)
