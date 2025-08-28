@@ -72,7 +72,7 @@ class KinematicTree:
         for m_name, m_data in full_yaml_data.get("collision_models", {}).items():
             collision_models[m_name] = CollisionModel.from_yaml_data(m_data, yaml_path)
 
-        # Identify which collision models are used by container models
+        # Identify which collision models are used by containers
         containers_data = full_yaml_data.get("containers", {})
         used_by_containers: set[str] = set()  # Names of container collision models
         for c_data in containers_data.values():
@@ -197,7 +197,7 @@ class KinematicTree:
         return self.collision_models.get(frame_name)
 
     def add_container(self, container: ContainerModel) -> None:
-        """Add a container model to the kinematic state and update the state accordingly."""
+        """Add a container model to the kinematic tree and update the state accordingly."""
         self._container_models[container.name] = container
         container.update_kinematic_tree(self)
 
