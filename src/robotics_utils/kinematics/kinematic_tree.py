@@ -65,7 +65,9 @@ class KinematicTree:
             tree.set_robot_base_pose(robot_name, base_pose)
             tree.robot_configurations[robot_name] = {}  # Default: No robot configurations in YAML
 
-        tree.waypoints = Waypoints.from_yaml(yaml_path)
+        # Import navigation waypoints from YAML if present
+        if "waypoints" in full_yaml_data:
+            tree.waypoints = Waypoints.from_yaml(yaml_path)
 
         # Initially, load all collision models into a temporary dictionary
         collision_models: dict[str, CollisionModel] = {}
@@ -85,7 +87,7 @@ class KinematicTree:
                 tree.set_collision_model(frame_name=name, collision_model=collision_model)
 
         # Load any containers in the environment from YAML
-        for c_name, c_data in containers_data.values():
+        for c_name, c_data in containers_data.items():
             c = ContainerModel.from_yaml_data(c_name, c_data, collision_models, tree.object_poses)
             tree.add_container(c)
 
