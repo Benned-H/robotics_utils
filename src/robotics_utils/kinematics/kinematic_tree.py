@@ -40,7 +40,7 @@ class KinematicTree:
 
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
-        self._container_models: dict[str, ContainerModel] = {}
+        self.container_models: dict[str, ContainerModel] = {}
         """Maps the name of each container to its kinematic model."""
 
     @classmethod
@@ -198,8 +198,20 @@ class KinematicTree:
 
     def add_container(self, container: ContainerModel) -> None:
         """Add a container model to the kinematic tree and update the state accordingly."""
-        self._container_models[container.name] = container
+        self.container_models[container.name] = container
         container.update_kinematic_tree(self)
+
+    def open_container(self, container_name: str) -> None:
+        """Open the named container and update the state accordingly."""
+        if container_name not in self.container_models:
+            raise KeyError(f"Cannot open unknown container: '{container_name}'.")
+        self.container_models[container_name].open(self)
+
+    def close_container(self, container_name: str) -> None:
+        """Close the named container and update the state accordingly."""
+        if container_name not in self.container_models:
+            raise KeyError(f"Cannot close unknown container: '{container_name}'.")
+        self.container_models[container_name].close(self)
 
     def remove_object(self, obj_name: str) -> ObjectModel | None:
         """Remove the named object from the kinematic state.
@@ -209,12 +221,14 @@ class KinematicTree:
         """
         if obj_name not in self.object_names:
             raise KeyError(f"Cannot remove unknown object '{obj_name}' from the kinematic tree.")
+        self.object_names.remove(obj_name)
 
         if self.children[obj_name]:
             raise ValueError(
                 f"Cannot remove object '{obj_name}' from the kinematic state "
                 f"because it has child frames: {self.children[obj_name]}.",
             )
+        self.children.pop(obj_name)
 
         parent_frame = self.get_parent_frame(obj_name)
         if parent_frame is not None:

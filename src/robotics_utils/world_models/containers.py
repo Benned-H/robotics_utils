@@ -120,8 +120,10 @@ class ContainerModel:
         elif self.state == ContainerState.CLOSED:  # If closed, clear all contained objects' state
             for obj_name in self.contained_objects:
                 removed_obj_model = tree.remove_object(obj_name)
-                if removed_obj_model is not None:
-                    self.contained_objects[obj_name] = removed_obj_model
+                if removed_obj_model is None:
+                    raise RuntimeError(f"Object model for '{obj_name}' couldn't be found.")
+
+                self.contained_objects[obj_name] = removed_obj_model
 
     def open(self, tree: KinematicTree) -> None:
         """Open the container and update the given kinematic tree accordingly.

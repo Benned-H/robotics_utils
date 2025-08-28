@@ -1,4 +1,4 @@
-"""Define a function to forward a kinematic tree to the MoveIt planning scene."""
+"""Define a class to synchronize the MoveIt planning scene with an external kinematic state."""
 
 import time
 
@@ -24,13 +24,16 @@ class PlanningSceneManager:
             pose = tree.get_object_pose(object_name)
             collision_model = tree.get_collision_model(object_name)
             if collision_model is None:
-                rospy.logwarn(f"Warning: Object '{object_name}' has no collision model.")
+                rospy.logwarn(
+                    f"Omitting object '{object_name}' from the MoveIt planning scene "
+                    "because its collision model is undefined...",
+                )
                 continue
 
             collision_msg = make_collision_object_msg(object_name, "TYPE", pose, collision_model)
             self.planning_scene.add_object(collision_msg)
 
-            if not self.wait_for_object_present(object_name):
+            if not self.wait_until_object_exists(object_name):
                 rospy.logerr(f"Failed to add object '{object_name}' to the MoveIt planning scene.")
 
     def wait_until_object_exists(self, name: str, timeout_s: float = 10.0) -> bool:
