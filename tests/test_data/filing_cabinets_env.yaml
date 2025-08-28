@@ -1,4 +1,4 @@
-# Example YAML specifying an environment with two containers
+# Example YAML specifying an environment with three filing cabinets
 robot_base_poses:
   spot: [0, 0, 0, 0, 0, 0] # x, y, z, roll, pitch, yaw
 
@@ -32,7 +32,7 @@ collision_models:
 
   filing_cabinet_open:
     meshes:
-      - filepath: meshes/filing_cabinet_open.obj
+      - filepath: meshes/filing_cabinet_middle_drawer_open.obj
         transforms:
           - center_bounds
           - bottom_at_zero_z

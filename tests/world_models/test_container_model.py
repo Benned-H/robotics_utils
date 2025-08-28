@@ -10,7 +10,7 @@ from robotics_utils.kinematics.kinematic_tree import KinematicTree
 @pytest.fixture
 def container_env_yaml() -> Path:
     """Return a path to a YAML file specifying an environment with containers."""
-    env_yaml = Path(__file__).parent.parent / "test_data/container_env.yaml"
+    env_yaml = Path(__file__).parent.parent / "test_data/filing_cabinets_env.yaml"
     assert env_yaml.exists(), f"Expected to find file: {env_yaml}"
     return env_yaml
 
@@ -64,6 +64,11 @@ def test_container_model_open_and_close(container_env_yaml: Path) -> None:
 
     # Close the first open cabinet
     tree.close_container("open_cabinet1")
+    assert "cup1" in tree.object_names
+    assert "eraser1" not in tree.object_names
+
+    # Close the second open cabinet (nothing should happen)
+    tree.close_container("open_cabinet2")
     assert "cup1" in tree.object_names
     assert "eraser1" not in tree.object_names
 
