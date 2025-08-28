@@ -33,10 +33,10 @@ class PlanningSceneManager:
             if not self.wait_for_object_present(object_name):
                 rospy.logerr(f"Failed to add object '{object_name}' to the MoveIt planning scene.")
 
-    def wait_for_object_present(self, name: str, timeout_s: float = 10.0) -> bool:
+    def wait_until_object_exists(self, name: str, timeout_s: float = 10.0) -> bool:
         """Wait until the MoveIt planning scene contains the named object.
 
-        :param name: Name of the object to look for in the planning scene
+        :param name: Name of the object to find in the planning scene
         :param timeout_s: Timeout duration (seconds)
         :returns: True if the object appears in time, otherwise False
         """

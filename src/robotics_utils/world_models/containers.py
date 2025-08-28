@@ -74,10 +74,14 @@ class ContainerModel:
                 raise KeyError(f"ContainerModel needs YAML key '{required_key}', got {yaml_data}")
 
         initial_state = ContainerState.from_string(yaml_data["state"])
+
         closed_model = collision_models.get(yaml_data["closed_model"])
+        if closed_model is None:
+            raise KeyError(f"Missing closed model when constructing container '{name}'.")
+
         open_model = collision_models.get(yaml_data["open_model"])
-        if closed_model is None or open_model is None:
-            raise KeyError(f"Could not find a object model when constructing container '{name}'.")
+        if open_model is None:
+            raise KeyError(f"Missing open model when constructing container '{name}'.")
 
         contained_objects: dict[str, ObjectModel] = {
             obj_name: ObjectModel(obj_name, object_poses[obj_name], collision_models[obj_name])
@@ -89,20 +93,20 @@ class ContainerModel:
     @property
     def collision_model(self) -> CollisionModel:
         """Retrieve the current collision model of the container."""
-        return self.closed_model if self.state == ContainerState.CLOSED else self.open_model
+        return self.closed_model if self.is_closed else self.open_model
 
     @property
     def is_closed(self) -> bool:
-        """Retrieve whether the container is closed."""
+        """Check whether the container is closed."""
         return self.state == ContainerState.CLOSED
 
     @property
     def is_open(self) -> bool:
-        """Retrieve whether the container is open."""
+        """Check whether the container is open."""
         return self.state == ContainerState.OPEN
 
     def update_kinematic_tree(self, tree: KinematicTree) -> None:
-        """Update the given kinematic tree according to the container state.
+        """Update the given kinematic tree according to this container's state.
 
         :param tree: Kinematic model of the environment updated to reflect the container state
         """
@@ -110,11 +114,6 @@ class ContainerModel:
 
         if self.state == ContainerState.OPEN:  # If open, update all contained objects' state
             for obj_name, obj_model in self.contained_objects.items():
-                if obj_model is None:
-                    raise ValueError(
-                        f"Cannot open '{self.name}' due to unmodeled object '{obj_name}'.",
-                    )
-
                 tree.set_object_pose(obj_name, obj_model.pose)
                 tree.set_collision_model(obj_name, obj_model.collision_model)
 

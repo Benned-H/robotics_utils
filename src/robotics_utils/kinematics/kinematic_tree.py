@@ -40,7 +40,7 @@ class KinematicTree:
 
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
-        self.container_models: dict[str, ContainerModel] = {}
+        self._container_models: dict[str, ContainerModel] = {}
         """Maps the name of each container to its kinematic model."""
 
     @classmethod
@@ -72,24 +72,22 @@ class KinematicTree:
         for m_name, m_data in full_yaml_data.get("collision_models", {}).items():
             collision_models[m_name] = CollisionModel.from_yaml_data(m_data, yaml_path)
 
-        # Load any containers in the environment from YAML
-        containers: dict[str, ContainerModel] = {}
-        used_by_containers: set[str] = set()  # Names of collision models and contained objects
-        for c_name, c_data in full_yaml_data.get("containers", {}).items():
-            c = ContainerModel.from_yaml_data(c_name, c_data, collision_models, tree.object_poses)
-            containers[c_name] = c
-            c.update_kinematic_tree(tree)
+        # Identify which collision models are used by container models
+        containers_data = full_yaml_data.get("containers", {})
+        used_by_containers: set[str] = set()  # Names of container collision models
+        for c_data in containers_data.values():
+            used_by_containers.add(c_data["closed_model"])
+            used_by_containers.add(c_data["open_model"])
 
-            used_by_containers.add(c_data["closed_model"])  # Name of closed collision model
-            used_by_containers.add(c_data["open_model"])  # Name of open collision model
-            used_by_containers.update(c.contained_objects.keys())
-        tree.container_models = containers
-
-        # Add all collision models that aren't a container model or in a container
+        # Add all collision models that aren't used as a container model
         for name, collision_model in collision_models.items():
-            if name in used_by_containers:
-                continue
-            tree.set_collision_model(frame_name=name, collision_model=collision_model)
+            if name not in used_by_containers:
+                tree.set_collision_model(frame_name=name, collision_model=collision_model)
+
+        # Load any containers in the environment from YAML
+        for c_name, c_data in containers_data.values():
+            c = ContainerModel.from_yaml_data(c_name, c_data, collision_models, tree.object_poses)
+            tree.add_container(c)
 
         return tree
 
@@ -197,6 +195,11 @@ class KinematicTree:
             raise KeyError(f"Cannot get collision model for unknown frame: '{frame_name}'.")
 
         return self.collision_models.get(frame_name)
+
+    def add_container(self, container: ContainerModel) -> None:
+        """Add a container model to the kinematic state and update the state accordingly."""
+        self._container_models[container.name] = container
+        container.update_kinematic_tree(self)
 
     def remove_object(self, obj_name: str) -> ObjectModel | None:
         """Remove the named object from the kinematic state.
