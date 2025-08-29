@@ -7,6 +7,7 @@ from moveit_commander import PlanningSceneInterface
 
 from robotics_utils.kinematics.kinematic_tree import KinematicTree
 from robotics_utils.ros.msg_conversion import make_collision_object_msg
+from robotics_utils.ros.transform_manager import TransformManager
 
 
 class PlanningSceneManager:
@@ -21,7 +22,14 @@ class PlanningSceneManager:
     def set_planning_scene(self, tree: KinematicTree) -> None:
         """Update the MoveIt planning scene to reflect the given environment state."""
         for object_name in tree.object_names:
-            pose = tree.get_object_pose(object_name)
+            pose_b_o = TransformManager.lookup_transform(object_name, "body")  # Object w.r.t. body
+            if pose_b_o is None:
+                rospy.logwarn(
+                    f"Omitting object '{object_name}' from the MoveIt planning scene "
+                    "because its /tf transform is undefined...",
+                )
+                continue
+
             collision_model = tree.get_collision_model(object_name)
             if collision_model is None:
                 rospy.logwarn(
@@ -30,7 +38,7 @@ class PlanningSceneManager:
                 )
                 continue
 
-            collision_msg = make_collision_object_msg(object_name, "TYPE", pose, collision_model)
+            collision_msg = make_collision_object_msg(object_name, "", pose_b_o, collision_model)
             self.planning_scene.add_object(collision_msg)
 
             if not self.wait_until_object_exists(object_name):
