@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from pathlib import Path
 from typing import KeysView
+
+from robotics_utils.io.yaml_utils import load_yaml_data
 
 
 class Objects:
@@ -23,6 +26,13 @@ class Objects:
     def __contains__(self, object_name: str) -> bool:
         """Evaluate whether the named object is in this collection."""
         return object_name in self.object_to_types
+
+    @classmethod
+    def from_yaml(cls, yaml_path: Path) -> Objects:
+        """Construct an Objects collection from the given YAML file."""
+        yaml_data = load_yaml_data(yaml_path, required_keys={"object_types"})
+        object_types_data: dict[str, list[str]] = yaml_data["object_types"]
+        return Objects({obj_name: set(types) for obj_name, types in object_types_data.items()})
 
     @property
     def object_names(self) -> KeysView[str]:

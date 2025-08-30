@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from robotics_utils.classical_planning.objects import Objects
 from robotics_utils.collision_models import CollisionModel
 from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
-from robotics_utils.world_models.containers import ContainerModel, ObjectModel
+from robotics_utils.world_models.containers import ContainerModel
+from robotics_utils.world_models.simulators import ObjectModel
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -42,6 +44,9 @@ class KinematicTree:
 
         self.container_models: dict[str, ContainerModel] = {}
         """Maps the name of each container to its kinematic model."""
+
+        self.object_types: Objects = Objects({})
+        """Maps the name of each object to its set of types."""
 
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> KinematicTree:
@@ -90,6 +95,9 @@ class KinematicTree:
         for c_name, c_data in containers_data.items():
             c = ContainerModel.from_yaml_data(c_name, c_data, collision_models, tree.object_poses)
             tree.add_container(c)
+
+        # Also, load object types from the YAML file
+        tree.object_types = Objects.from_yaml(yaml_path)
 
         return tree
 

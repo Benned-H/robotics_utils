@@ -13,6 +13,7 @@ from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
 
 from robotics_utils.collision_models import Box, CollisionModel, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.kinematics import DEFAULT_FRAME, Configuration, Point3D, Pose3D, Quaternion
+from robotics_utils.world_models.simulators import ObjectModel
 
 if TYPE_CHECKING:
     import trimesh
@@ -169,26 +170,25 @@ def primitive_shape_to_msg(shape: PrimitiveShape) -> SolidPrimitive:
 
 
 def make_collision_object_msg(
-    object_name: str,
-    object_type: str,
-    object_pose: Pose3D,
-    collision_model: CollisionModel,
+    object_model: ObjectModel,
+    object_type: str | None = None,
 ) -> CollisionObject:
     """Construct a moveit_msgs/CollisionObject message using the given data."""
     msg = CollisionObject()
-    msg.header.frame_id = object_pose.ref_frame
-    msg.pose = pose_to_msg(object_pose)
+    msg.header.frame_id = object_model.pose.ref_frame
+    msg.pose = pose_to_msg(object_model.pose)
 
-    msg.id = object_name
-    msg.type.key = object_type  # Ignore 'db' field of message
+    msg.id = object_model.name
+    if object_type is not None:
+        msg.type.key = object_type  # Ignore 'db' field of message
 
-    msg.meshes = [trimesh_to_msg(mesh) for mesh in collision_model.meshes]
-    msg.mesh_poses = [Pose() for _ in collision_model.meshes]
+    msg.meshes = [trimesh_to_msg(mesh) for mesh in object_model.collision_model.meshes]
+    msg.mesh_poses = [Pose() for _ in object_model.collision_model.meshes]
 
-    msg.primitives = [primitive_shape_to_msg(shape) for shape in collision_model.primitives]
+    msg.primitives = [primitive_shape_to_msg(ps) for ps in object_model.collision_model.primitives]
 
     # TODO: Frames used to be shifted to bottom of objects
-    msg.primitive_poses = [Pose() for _ in collision_model.primitives]
+    msg.primitive_poses = [Pose() for _ in msg.primitives]
 
     msg.operation = CollisionObject.ADD
     return msg
