@@ -12,7 +12,7 @@ class GraspPose:
     pose_o_g: Pose3D
     """End-effector grasp pose (frame g) w.r.t. the object (frame o)."""
 
-    ignore_collisions: bool = True
+    ignore_collisions: bool
     """Should collisions between the end-effector and the object be ignored? Default: True."""
 
 
