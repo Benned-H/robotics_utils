@@ -2,6 +2,7 @@
 
 from .aabb import AxisAlignedBoundingBox as AxisAlignedBoundingBox
 from .collision_model import CollisionModel as CollisionModel
+from .meshes import load_trimesh_from_file
 from .primitive_shapes import Box as Box
 from .primitive_shapes import Cylinder as Cylinder
 from .primitive_shapes import PrimitiveShape as PrimitiveShape
