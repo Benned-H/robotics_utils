@@ -5,10 +5,11 @@ from dataclasses import dataclass
 import rospy
 from actionlib.simple_action_client import SimpleActionClient
 from control_msgs.msg import GripperCommandAction, GripperCommandGoal
+from moveit_commander import RobotCommander
 
 
 @dataclass(frozen=True)
-class GripperConfig:
+class GripperJointLimits:
     """Specifies joint limits (in radians) for a robot gripper."""
 
     open_rad: float
@@ -21,10 +22,12 @@ class GripperConfig:
 class Gripper:
     """A ROS-based interface for a robot gripper."""
 
-    def __init__(self, action_name: str, config: GripperConfig) -> None:
+    def __init__(self, action_name: str, limits: GripperJointLimits, grasping_group: str) -> None:
         """Initialize a ROS action client to control a robot gripper.
 
         :param action_name: Name of the ROS action used to control the gripper
+        :param limits: Joint limits (radians) for the gripper
+        :param grasping_group: Name of the move group containing links used for grasping
         """
         self._action_name = action_name
         self._client = SimpleActionClient(self._action_name, GripperCommandAction)
@@ -33,7 +36,10 @@ class Gripper:
             rospy.logerr(error_msg)
             raise RuntimeError(error_msg)
 
-        self.config = config
+        self.joint_limits = limits
+
+        self._robot_commander = RobotCommander()
+        self.links = self._robot_commander.get_link_names(group=grasping_group)
 
     def _move_to_angle_rad(self, target_rad: float, timeout_s: float = 10.0) -> None:
         """Move the gripper to a target angle (radians).
@@ -49,8 +55,8 @@ class Gripper:
 
     def open(self) -> None:
         """Open the gripper by calling its internal ROS action."""
-        self._move_to_angle_rad(self.config.open_rad)
+        self._move_to_angle_rad(self.joint_limits.open_rad)
 
     def close(self) -> None:
         """Close the gripper by calling its internal ROS action."""
-        self._move_to_angle_rad(self.config.closed_rad)
+        self._move_to_angle_rad(self.joint_limits.closed_rad)

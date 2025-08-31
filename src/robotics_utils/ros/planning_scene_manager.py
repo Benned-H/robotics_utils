@@ -1,30 +1,42 @@
 """Define a class to synchronize the MoveIt planning scene with an external kinematic state."""
 
+from __future__ import annotations
+
 import time
+from collections import defaultdict
+from typing import TYPE_CHECKING
 
 import rospy
 from moveit_commander import PlanningSceneInterface
 from moveit_msgs.msg import CollisionObject
 
-from robotics_utils.collision_models.collision_model import CollisionModel
-from robotics_utils.kinematics.kinematic_tree import KinematicTree
-from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.ros.msg_conversion import make_collision_object_msg, pose_from_msg, pose_to_msg
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.world_models.simulators import ObjectModel, Simulator
+
+if TYPE_CHECKING:
+    from robotics_utils.collision_models.collision_model import CollisionModel
+    from robotics_utils.kinematics.kinematic_tree import KinematicTree
+    from robotics_utils.kinematics.poses import Pose3D
+    from robotics_utils.ros.robots.manipulator import Manipulator
 
 
 class PlanningSceneManager(Simulator):
     """A manager to update the state of the MoveIt planning scene."""
 
-    def __init__(self, tree: KinematicTree) -> None:
-        """Initialize the scene manager using the given environment state."""
+    def __init__(self) -> None:
+        """Initialize the manager's interface with the MoveIt planning scene."""
         self.planning_scene = PlanningSceneInterface()
         rospy.sleep(3)  # Allow time for the scene to initialize
-        self.set_planning_scene(tree)
+
+        self._added_objects: set[str] = set()
+        """Names of all objects added to the planning scene (doesn't count hidden objects)."""
 
         self._hidden_objects: dict[str, CollisionObject] = {}
         """Hidden objects are ignored for the purposes of collision checking."""
+
+        self._attached_objects: dict[str, set[str]] = defaultdict(set)
+        """Maps each robot name to the names of objects attached to that robot."""
 
     def add_object(self, obj_model: ObjectModel) -> bool:
         """Add an object to the MoveIt planning scene.
@@ -52,6 +64,9 @@ class PlanningSceneManager(Simulator):
         if not object_exists:
             rospy.logerr(f"Failed to add '{collision_obj_msg.id}' to the MoveIt planning scene.")
 
+        if object_exists:
+            self._added_objects.add(collision_obj_msg.id)
+
         return object_exists
 
     def remove_object(self, obj_name: str) -> bool:
@@ -61,7 +76,12 @@ class PlanningSceneManager(Simulator):
         :return: True if the object was successfully removed, else False
         """
         self.planning_scene.remove_world_object(obj_name)
-        return self.wait_until_object_removed(obj_name)
+        removed = self.wait_until_object_removed(obj_name)
+
+        if removed:
+            self._added_objects.remove(obj_name)
+
+        return removed
 
     def hide_object(self, obj_name: str) -> bool:
         """Hide the named object for the purposes of collision checking.
@@ -90,6 +110,20 @@ class PlanningSceneManager(Simulator):
 
         return self.add_object_msg(object_msg)
 
+    def hide_all_objects(self) -> None:
+        """Hide all objects in the planning scene for the purposes of collision checking."""
+        for obj_name in self._added_objects:
+            self.hide_object(obj_name)
+
+    def unhide_all_objects(self) -> None:
+        """Unhide all objects for the purposes of collision checking."""
+        for obj_name in self._hidden_objects:
+            self.unhide_object(obj_name)
+
+    def get_attached_objects(self, robot_name: str) -> set[str]:
+        """Retrieve the names of objects attached to the named robot (defaults to empty set)."""
+        return self._attached_objects[robot_name]
+
     def get_object_msg(self, obj_name: str) -> CollisionObject:
         """Retrieve the CollisionObject message for the named object in the planning scene."""
         object_msgs: dict[str, CollisionObject] = self.planning_scene.get_objects([obj_name])
@@ -115,27 +149,15 @@ class PlanningSceneManager(Simulator):
 
         self.add_object(object_model)
 
-    def set_planning_scene(self, tree: KinematicTree) -> None:
+    def synchronize_state(self, tree: KinematicTree, attempts_per_obj: int = 3) -> None:
         """Update the MoveIt planning scene to reflect the given environment state."""
-        for object_name in tree.object_names:
-            pose_b_o = TransformManager.lookup_transform(object_name, "body")  # Object w.r.t. body
-            if pose_b_o is None:
-                rospy.logwarn(
-                    f"Omitting object '{object_name}' from the MoveIt planning scene "
-                    "because its /tf transform is undefined...",
-                )
-                continue
+        for object_model in tree.object_models.values():
+            attempts_left = attempts_per_obj
+            object_added = self.add_object(object_model)
 
-            collision_model = tree.get_collision_model(object_name)
-            if collision_model is None:
-                rospy.logwarn(
-                    f"Omitting object '{object_name}' from the MoveIt planning scene "
-                    "because its collision model is undefined...",
-                )
-                continue
-
-            obj_model = ObjectModel(object_name, pose_b_o, collision_model)
-            self.add_object(obj_model)
+            while (attempts_left > 0) and not object_added:
+                object_added = self.add_object(object_model)
+                attempts_left -= 1
 
     def wait_until_object_exists(self, name: str, timeout_s: float = 10.0) -> bool:
         """Wait until the MoveIt planning scene contains the named object.
@@ -155,7 +177,7 @@ class PlanningSceneManager(Simulator):
     def wait_until_object_removed(self, name: str, timeout_s: float = 10.0) -> bool:
         """Wait until the named object is removed from the MoveIt planning scene.
 
-        :param name: Name of the object to remove from the planning scene
+        :param name: Name of the object to be removed from the planning scene
         :param timeout_s: Timeout duration (seconds)
         :returns: True if the object is removed in time, otherwise False
         """
@@ -166,3 +188,60 @@ class PlanningSceneManager(Simulator):
             time.sleep(0.1)
 
         return False
+
+    def wait_until_object_attached(self, name: str, timeout_s: float = 10.0) -> bool:
+        """Wait until the named object is attached in the MoveIt planning scene.
+
+        :param name: Name of the object to check for attachment
+        :param timeout_s: Timeout duration (seconds)
+        :returns: True if the object is attached in time, otherwise False
+        """
+        end_time = time.time() + timeout_s
+        while time.time() < end_time:
+            if name in self.planning_scene.get_attached_objects():
+                return True
+            time.sleep(0.1)
+
+        return False
+
+    def wait_until_object_detached(self, name: str, timeout_s: float = 10.0) -> bool:
+        """Wait until the named object is detached in the MoveIt planning scene.
+
+        :param name: Name of the object to check for detachment
+        :param timeout_s: Timeout duration (seconds)
+        :returns: True if the object is detached in time, otherwise False
+        """
+        end_time = time.time() + timeout_s
+        while time.time() < end_time:
+            if name not in self.planning_scene.get_attached_objects():
+                return True
+            time.sleep(0.1)
+
+        return False
+
+    def grasp_object(self, object_name: str, robot_name: str, manipulator: Manipulator) -> bool:
+        """Grasp the named object using the named robot's specified manipulator."""
+        ee_link = manipulator.ee_link
+        gripper_links = manipulator.gripper.links
+
+        self.planning_scene.attach_object(object_name, link=ee_link, touch_links=gripper_links)
+        is_attached = self.wait_until_object_attached(object_name)
+
+        if is_attached:
+            self._attached_objects[robot_name].add(object_name)
+
+        return is_attached
+
+    def release_object(self, object_name: str, robot_name: str, manipulator: Manipulator) -> bool:
+        """Release the named object using the named robot's specified manipulator."""
+        if object_name not in self._attached_objects[robot_name]:
+            rospy.logwarn(f"Cannot release unattached object '{object_name}' with '{robot_name}'.")
+            return False
+
+        self.planning_scene.remove_attached_object(link=manipulator.ee_link, name=object_name)
+        is_detached = self.wait_until_object_detached(object_name)
+
+        if is_detached:
+            self._attached_objects[robot_name].remove(object_name)
+
+        return is_detached

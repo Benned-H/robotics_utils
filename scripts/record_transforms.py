@@ -5,7 +5,7 @@ from pathlib import Path
 
 import rospy
 
-from robotics_utils.ros.robots.manipulator import Manipulator
+from robotics_utils.ros.robots import Gripper, Manipulator
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.ros.transform_recorder import TransformRecorder
 
@@ -20,6 +20,7 @@ def record(output_path: Path, overwrite: bool, reference_frame: str, tracked_fra
 
     TransformManager.init_node("tf_transform_recorder")
 
+    # TODO: Need to add a gripper here!
     arm = Manipulator(move_group="arm", base_link="body", gripper=None)
     config_before = arm.get_configuration()
 

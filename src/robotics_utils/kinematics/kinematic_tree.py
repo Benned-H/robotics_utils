@@ -107,6 +107,23 @@ class KinematicTree:
         return {obj_name: self.frames[obj_name] for obj_name in self.object_names}
 
     @property
+    def object_models(self) -> dict[str, ObjectModel]:
+        """Create and return a dictionary mapping object names to their 3D geometry models.
+
+        :return: Map from object names to the corresponding object models
+        :raises RuntimeError: If an object doesn't have a collision model defined
+        """
+        obj_models: dict[str, ObjectModel] = {}
+        for obj_name, obj_pose in self.object_poses.items():
+            collision_model = self.get_collision_model(obj_name)
+            if collision_model is None:
+                raise RuntimeError(f"Object '{obj_name}' doesn't have a collision model.")
+
+            obj_models[obj_name] = ObjectModel(obj_name, obj_pose, collision_model)
+
+        return obj_models
+
+    @property
     def robot_base_poses(self) -> dict[str, Pose3D]:
         """Create and return a dictionary mapping robot names to their base poses."""
         return {r_name: self.frames[f"{r_name}_base_pose"] for r_name in self.robot_names}
