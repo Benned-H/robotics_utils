@@ -19,12 +19,20 @@ class ObjectModel:
 class Simulator(Protocol):
     """An interface to control the kinematic state of a simulator."""
 
-    def add_object(self, obj_model: ObjectModel) -> None:
-        """Add an object to the simulator's state."""
+    def add_object(self, obj_model: ObjectModel) -> bool:
+        """Add an object to the simulator's state.
+
+        :param obj_model: Geometric model of the object to be added
+        :return: True if the object was successfully added, else False
+        """
         ...
 
-    def remove_object(self, obj_name: str) -> None:
-        """Remove the named object from the simulator state."""
+    def remove_object(self, obj_name: str) -> bool:
+        """Remove the named object from the simulator state.
+
+        :param obj_name: Name of the object to be removed
+        :return: True if the object was successfully removed, else False
+        """
         ...
 
     def set_object_pose(self, obj_name: str, new_pose: Pose3D) -> None:

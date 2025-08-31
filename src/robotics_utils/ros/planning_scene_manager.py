@@ -23,22 +23,77 @@ class PlanningSceneManager(Simulator):
         rospy.sleep(3)  # Allow time for the scene to initialize
         self.set_planning_scene(tree)
 
-    def add_object(self, obj_model: ObjectModel) -> None:
-        """Add an object to the MoveIt planning scene."""
+        self._hidden_objects: dict[str, CollisionObject] = {}
+        """Hidden objects are ignored for the purposes of collision checking."""
+
+    def add_object(self, obj_model: ObjectModel) -> bool:
+        """Add an object to the MoveIt planning scene.
+
+        :param obj_model: Geometric model of the object to be added
+        :return: True if the object was successfully added, else False
+        """
         TransformManager.broadcast_transform(obj_model.name, obj_model.pose)
         pose_b_o = TransformManager.convert_to_frame(obj_model.pose, "body")  # Object w.r.t. body
 
         collision_obj_msg = make_collision_object_msg(obj_model)
         collision_obj_msg.pose = pose_to_msg(pose_b_o)  # Ensure that the pose is in body frame
 
+        return self.add_object_msg(collision_obj_msg)
+
+    def add_object_msg(self, collision_obj_msg: CollisionObject) -> bool:
+        """Add a moveit_msgs/CollisionObject message to the MoveIt planning scene.
+
+        :param collision_obj_msg: ROS message representing an object's collision geometry
+        :return: True if the object was successfully added, else False
+        """
         self.planning_scene.add_object(collision_obj_msg)
 
-        if not self.wait_until_object_exists(obj_model.name):
-            rospy.logerr(f"Failed to add '{obj_model.name}' to the MoveIt planning scene.")
+        object_exists = self.wait_until_object_exists(collision_obj_msg.id)
+        if not object_exists:
+            rospy.logerr(f"Failed to add '{collision_obj_msg.id}' to the MoveIt planning scene.")
 
-    def remove_object(self, obj_name: str) -> None:
-        """Remove the named object from the MoveIt planning scene."""
+        return object_exists
+
+    def remove_object(self, obj_name: str) -> bool:
+        """Remove the named object from the MoveIt planning scene.
+
+        :param obj_name: Name of the object to be removed
+        :return: True if the object was successfully removed, else False
+        """
         self.planning_scene.remove_world_object(obj_name)
+        return self.wait_until_object_removed(obj_name)
+
+    def hide_object(self, obj_name: str) -> bool:
+        """Hide the named object for the purposes of collision checking.
+
+        :param obj_name: Object to be hidden (i.e., ignored during collision checking)
+        :return: True if the object was successfully hidden, else False
+        """
+        if obj_name in self._hidden_objects:
+            rospy.logwarn(f"Object '{obj_name}' is already hidden from the planning scene.")
+            return False
+
+        self._hidden_objects[obj_name] = self.get_object_msg(obj_name)
+        object_hidden = self.remove_object(obj_name)
+        return object_hidden and obj_name in self._hidden_objects
+
+    def unhide_object(self, obj_name: str) -> bool:
+        """Unhide the named object for the purposes of collision checking.
+
+        :param obj_name: Name of the object to be added back for collision checking
+        :return: True if the object was successfully unhidden, else False
+        """
+        object_msg = self._hidden_objects.pop(obj_name, None)
+        if object_msg is None:
+            rospy.logwarn(f"Cannot unhide object '{obj_name}' because it isn't hidden.")
+            return False
+
+        return self.add_object_msg(object_msg)
+
+    def get_object_msg(self, obj_name: str) -> CollisionObject:
+        """Retrieve the CollisionObject message for the named object in the planning scene."""
+        object_msgs: dict[str, CollisionObject] = self.planning_scene.get_objects([obj_name])
+        return object_msgs[obj_name]
 
     def set_object_pose(self, obj_name: str, new_pose: Pose3D) -> None:
         """Update the pose of the named object in the MoveIt planning scene."""
