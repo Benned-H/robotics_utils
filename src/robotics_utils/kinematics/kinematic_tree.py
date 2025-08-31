@@ -96,8 +96,9 @@ class KinematicTree:
             c = ContainerModel.from_yaml_data(c_name, c_data, collision_models, tree.object_poses)
             tree.add_container(c)
 
-        # Also, load object types from the YAML file
-        tree.object_types = Objects.from_yaml(yaml_path)
+        # Load object types (if present) from the YAML file
+        if "object_types" in full_yaml_data:
+            tree.object_types = Objects.from_yaml(yaml_path)
 
         return tree
 

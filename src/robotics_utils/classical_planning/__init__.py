@@ -4,5 +4,6 @@ from .operators import Operator as Operator
 from .operators import OperatorInstance as OperatorInstance
 from .parameters import Bindings as Bindings
 from .parameters import DiscreteParameter as DiscreteParameter
+from .predicates import PartialAtom as PartialAtom
 from .predicates import Predicate as Predicate
 from .predicates import PredicateInstance as PredicateInstance
