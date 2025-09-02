@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, TypeVar
-
-ObjectT = TypeVar("ObjectT")
-"""Represents a concrete object in the environment."""
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -38,29 +35,3 @@ class DiscreteParameter:
         if self.semantics is not None:
             yaml_data["semantics"] = self.semantics
         return {self.name: yaml_data}
-
-
-Bindings = Dict[str, ObjectT]
-"""A mapping from parameter names to their bound concrete objects."""
-
-
-class _UnboundType:
-    """Singleton sentinel representing a yet-unbound parameter."""
-
-    __slots__ = ()  # Explicitly declare no data members
-
-    def __repr__(self) -> str:
-        """Return an unambiguous string representation of the unbound type."""
-        return "UNBOUND"
-
-
-UNBOUND = _UnboundType()
-
-
-def is_unbound(x: object) -> bool:
-    """Check whether the given object is the unbound value."""
-    return x is UNBOUND
-
-
-PartialBindings = Dict[str, ObjectT | _UnboundType]
-"""A mapping from parameter names to bound concrete objects, or the UNBOUND value."""

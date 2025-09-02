@@ -56,13 +56,13 @@ def test_predicate_to_pddl(available: Predicate, lifting: Predicate, on: Predica
     assert on_pddl == "(on ?c - crate ?s - storearea)"
 
 
-def test_predicate_ground_with(lifting: Predicate) -> None:
-    """Verify that a Predicate instance can be grounded using parameter bindings."""
+def test_predicate_fully_ground(lifting: Predicate) -> None:
+    """Verify that a Predicate can be fully grounded using parameter bindings."""
     # Arrange - Define bindings for the two parameters of the `lifting` predicate
     bindings = {"?c": "blue_crate", "?h": "red_hoist"}
 
     # Act - Ground the predicate using the bindings
-    lifting_instance = lifting.ground_with(bindings=bindings)
+    lifting_instance = lifting.fully_ground(bindings=bindings)
 
     # Assert - Expect that the arguments of the predicate instance are correct
     expected_args = ("red_hoist", "blue_crate")  # Recall: `lifting` put the hoist before the crate

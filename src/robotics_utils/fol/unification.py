@@ -5,20 +5,20 @@ Reference: Figure 9.1, Section 9.2, pg. 285 of AIMA (4th Ed.) by Stuart Russell 
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from typing import Tuple
 
 from robotics_utils.classical_planning import (
+    Atom,
     DiscreteParameter,
-    PartialAtom,
     Predicate,
     PredicateInstance,
 )
-from robotics_utils.classical_planning.parameters import ObjectT, is_unbound
+from robotics_utils.objects import ObjectT
 
 ParametersT = tuple[DiscreteParameter | ObjectT, ...]
 """Represents any tuple of parameters or (partially) bound arguments."""
 
-PredicateT = Predicate | PredicateInstance | PartialAtom
+PredicateT = Predicate | PredicateInstance | Atom
 """Represents any "predicate-like" expression."""
 
 
@@ -28,18 +28,18 @@ def get_parameters(predicate: PredicateT) -> ParametersT:
         return predicate.parameters
     if isinstance(predicate, PredicateInstance):
         return predicate.arguments
-    if isinstance(predicate, PartialAtom):  # Replace unbound values with corresponding parameters
-        args_list = list(predicate.arguments)
-        for idx, bound_value in enumerate(predicate.arguments):
-            if is_unbound(bound_value):
+    if isinstance(predicate, Atom):  # Replace unbound values with corresponding parameters
+        args_list = list(predicate.ordered_arguments(allow_missing=True))
+        for idx, bound_value in enumerate(predicate.ordered_arguments(allow_missing=True)):
+            if bound_value is None:
                 args_list[idx] = predicate.predicate.parameters[idx]
 
         return tuple(args_list)
 
-    raise RuntimeError(f"Unexpected predicate type: {predicate} (type {type(predicate)}).")
+    raise RuntimeError(f"Unexpected predicate-like type: {predicate} (type {type(predicate)}).")
 
 
-Unifiable = DiscreteParameter | ParametersT | PredicateT | Sequence[PredicateT]
+Unifiable = DiscreteParameter | ParametersT | PredicateT | Tuple[PredicateT, ...]
 
 UnifierBindings = dict[str, Unifiable]
 """A mapping from parameter (i.e., variable) names to bound values."""
@@ -69,8 +69,8 @@ def unify(x: Unifiable, y: Unifiable, bindings: UnifierBindings | None) -> Unifi
     if isinstance(x, PredicateT) and isinstance(y, PredicateT):
         return unify_predicates(x, y, bindings)
 
-    if isinstance(x, Sequence) and isinstance(y, Sequence):
-        return unify_sequences(x, y, bindings)
+    if isinstance(x, tuple) and isinstance(y, tuple):
+        return unify_tuples(x, y, bindings)
 
     return None  # Otherwise, the expressions cannot be unified; return None to indicate failure
 
@@ -123,10 +123,10 @@ def occurs_in(param: DiscreteParameter, x: Unifiable) -> bool:
     if isinstance(x, Predicate):
         return param in x.parameters
 
-    if isinstance(x, PartialAtom):
+    if isinstance(x, Atom):
         return param in x.unbound_params
 
-    if isinstance(x, Sequence):
+    if isinstance(x, tuple):
         return any(occurs_in(param, item) for item in x)
 
     return False  # Otherwise, x is a ground expression or concrete argument
@@ -148,25 +148,25 @@ def unify_predicates(
         return None
 
     # If the predicates' names match, all that's left to unify are their parameters
-    return unify_sequences(get_parameters(x), get_parameters(y), bindings)
+    return unify_tuples(get_parameters(x), get_parameters(y), bindings)
 
 
-def unify_sequences(
-    x: Sequence[Unifiable],
-    y: Sequence[Unifiable],
+def unify_tuples(
+    x: tuple[Unifiable, ...],
+    y: tuple[Unifiable, ...],
     bindings: UnifierBindings,
 ) -> UnifierBindings | None:
-    """Find parameter bindings to unify the given sequences.
+    """Find parameter bindings to unify the given tuples.
 
-    :param x: First sequence of elements to be unified
-    :param y: Second sequence of elements to be unified
+    :param x: First tuple of elements to be unified
+    :param y: Second tuple of elements to be unified
     :param bindings: Current set of parameter-value bindings
-    :return: Updated bindings to unify the sequences, or None upon failure
+    :return: Updated bindings to unify the tuples, or None upon failure
     """
-    if len(x) != len(y):  # Cannot unify sequences with different lengths
+    if len(x) != len(y):  # Cannot unify tuples with different lengths
         return None
 
-    if not x:  # Empty sequences -> Return the bindings as given
+    if not x:  # Empty tuples -> Return the bindings as given
         return bindings
 
     if len(x) == 1:
@@ -174,7 +174,7 @@ def unify_sequences(
         (y_only,) = y
         return unify(x_only, y_only, bindings)
 
-    # Otherwise, attempt to unify the first element in each sequence
+    # Otherwise, attempt to unify the first element in each tuple
     x_first, *x_rest = x
     y_first, *y_rest = y
 
@@ -182,4 +182,4 @@ def unify_sequences(
     if updated_bindings is None:
         return None
 
-    return unify_sequences(x_rest, y_rest, updated_bindings)
+    return unify_tuples(tuple(x_rest), tuple(y_rest), updated_bindings)

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic
+from typing import TYPE_CHECKING, Generic, Mapping
 
 from robotics_utils.classical_planning.abstract_states import AbstractState
-from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter, ObjectT
+from robotics_utils.objects import ObjectT
 
 if TYPE_CHECKING:
+    from robotics_utils.classical_planning.parameters import DiscreteParameter
     from robotics_utils.classical_planning.predicates import Predicate, PredicateInstance
 
 
@@ -26,11 +27,11 @@ class Preconditions:
 
         return f":precondition (and\n\t{positive_pre}\n\t{negative_pre}\n)"
 
-    def ground_with(self, bindings: Bindings) -> GroundedPreconditions:
+    def ground_with(self, bindings: Mapping[str, ObjectT]) -> GroundedPreconditions:
         """Ground the preconditions using the given parameter bindings."""
         return GroundedPreconditions(
-            positive={p.ground_with(bindings) for p in self.positive},
-            negative={p.ground_with(bindings) for p in self.negative},
+            positive={p.fully_ground(bindings) for p in self.positive},
+            negative={p.fully_ground(bindings) for p in self.negative},
         )
 
 
@@ -62,11 +63,11 @@ class Effects:
 
         return f":effect (and\n\t{add_eff}\n\t{delete_eff}\n)"
 
-    def ground_with(self, bindings: Bindings) -> GroundedEffects:
+    def ground_with(self, bindings: Mapping[str, ObjectT]) -> GroundedEffects:
         """Ground the effects using the given parameter bindings."""
         return GroundedEffects(
-            add={p.ground_with(bindings) for p in self.add},
-            delete={p.ground_with(bindings) for p in self.delete},
+            add={p.fully_ground(bindings) for p in self.add},
+            delete={p.fully_ground(bindings) for p in self.delete},
         )
 
 
@@ -91,7 +92,7 @@ class Operator:
     preconditions: Preconditions  # Positive and negative preconditions for applying the operator
     effects: Effects  # Effects added and removed from the abstract state by the operator
 
-    def ground_with(self, bindings: Bindings) -> OperatorInstance:
+    def ground_with(self, bindings: Mapping[str, ObjectT]) -> OperatorInstance:
         """Ground the operator using the given parameter bindings."""
         return OperatorInstance(self, bindings)
 
@@ -99,10 +100,10 @@ class Operator:
 class OperatorInstance(Generic[ObjectT]):
     """An operator grounded by binding concrete objects to its parameters."""
 
-    def __init__(self, operator: Operator, bindings: Bindings[ObjectT]) -> None:
+    def __init__(self, operator: Operator, bindings: Mapping[str, ObjectT]) -> None:
         """Initialize the operator instance using an operator and parameter bindings."""
         self.operator = operator
-        self.bindings = bindings
+        self.bindings = dict(bindings)
 
         # Ground the operator instance's preconditions and effects
         self.ground_preconditions = self.operator.preconditions.ground_with(bindings)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from hypothesis import given
 
-from robotics_utils.classical_planning.objects import Objects
+from robotics_utils.objects import ObjectCentricState, ObjectTypes
 from robotics_utils.skills.skills import Skill, SkillInstance, skill_method
 from robotics_utils.skills.skills_inventory import SkillsInventory, SkillsProtocol
 
@@ -101,16 +101,16 @@ def example_skill_instance_strings() -> list[str]:
 
 
 @pytest.fixture
-def example_objects() -> Objects:
-    """Generate an example collection of objects."""
-    object_to_types = {"44": {"int", "truthy"}, "-5": {"int", "negative"}}
-    return Objects(object_to_types)
+def example_objects() -> ObjectCentricState:
+    """Generate an example object-centric state."""
+    object_types = ObjectTypes({"44": {"int", "truthy"}, "-5": {"int", "negative"}})
+    return ObjectCentricState(objects={"44": 44, "-5": -5, "10": 10}, object_types=object_types)
 
 
 def test_skill_instance_from_string(
     example_skill_instance_strings: list[str],
     example_skills_protocol: SkillsProtocol,
-    example_objects: Objects,
+    example_objects: ObjectCentricState,
 ) -> None:
     """Verify that SkillInstances can be constructed from strings."""
     # Arrange - Skill instance strings, a skills protocol, and objects are provided via fixture
@@ -127,8 +127,8 @@ def test_skill_instance_from_string(
 
     assert forty_four_instance.skill.name == "AddOne"
     expected_44 = forty_four_instance.bindings.get("value")
-    assert expected_44 == "44"
+    assert expected_44 == 44
 
     assert negative_five_instance.skill.name == "AddOne"
     expected_neg_5 = negative_five_instance.bindings.get("value")
-    assert expected_neg_5 == "-5"
+    assert expected_neg_5 == -5

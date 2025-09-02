@@ -30,14 +30,14 @@ def unification_test_cases() -> list[UnificationTestCase]:
 
     y_knows_x = Predicate("Knows", parameters=(person_y, person_x))
 
-    john_knows_x = y_knows_x.partially_ground({"y": "John"})
-    john_knows_jane = y_knows_x.ground_with({"y": "John", "x": "Jane"})
+    john_knows_x = y_knows_x.as_atom({"y": "John"})
+    john_knows_jane = y_knows_x.fully_ground({"y": "John", "x": "Jane"})
 
-    y_knows_bill = y_knows_x.partially_ground({"x": "Bill"})
+    y_knows_bill = y_knows_x.as_atom({"x": "Bill"})
 
     x_knows_y = Predicate("Knows", parameters=(person_x, person_y))
 
-    x_knows_elizabeth = x_knows_y.partially_ground({"y": "Elizabeth"})
+    x_knows_elizabeth = x_knows_y.as_atom({"y": "Elizabeth"})
 
     return [
         UnificationTestCase(john_knows_x, john_knows_jane, {"x": "Jane"}),

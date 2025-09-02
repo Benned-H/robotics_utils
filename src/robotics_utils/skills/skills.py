@@ -5,14 +5,14 @@ from __future__ import annotations
 import inspect
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, get_type_hints
+from typing import TYPE_CHECKING, Any, Callable, Generic, Mapping, get_type_hints
 
-from robotics_utils.classical_planning.parameters import Bindings, DiscreteParameter
+from robotics_utils.classical_planning.parameters import DiscreteParameter
 from robotics_utils.io.process_python import parse_docstring_params
 from robotics_utils.io.string_utils import is_pascal_case, pascal_to_snake, snake_to_pascal
+from robotics_utils.objects import ObjectCentricState, ObjectT
 
 if TYPE_CHECKING:
-    from robotics_utils.classical_planning.objects import Objects
     from robotics_utils.skills.skills_inventory import SkillsInventory, SkillsProtocol
 
 
@@ -97,7 +97,7 @@ class Skill:
 
         return Skill(skill_name, tuple(parameters))
 
-    def execute(self, executor: SkillsProtocol, bindings: Bindings) -> object | None:
+    def execute(self, executor: SkillsProtocol, bindings: Mapping[str, ObjectT]) -> object | None:
         """Execute this skill under the given object bindings.
 
         :param executor: Protocol defining an interface for skill execution
@@ -114,18 +114,18 @@ class Skill:
 
 
 @dataclass(frozen=True)
-class SkillInstance:
+class SkillInstance(Generic[ObjectT]):
     """A skill instantiated using particular concrete objects."""
 
     skill: Skill
     """Specifies the skill instance's parameter signature."""
 
-    bindings: Bindings
+    bindings: dict[str, ObjectT]
     """Maps each skill parameter name to the name of its bound object."""
 
     def __str__(self) -> str:
         """Return a readable string representation of the skill instance."""
-        args_string = ", ".join(self.bindings[p.name] for p in self.skill.parameters)
+        args_string = ", ".join(str(self.bindings[p.name]) for p in self.skill.parameters)
         return f"{self.skill.name}({args_string})"
 
     @classmethod
@@ -133,13 +133,13 @@ class SkillInstance:
         cls,
         string: str,
         available_skills: SkillsInventory,
-        objects: Objects,
-    ) -> SkillInstance:
+        state: ObjectCentricState[ObjectT],
+    ) -> SkillInstance[ObjectT]:
         """Construct a SkillInstance from the given string.
 
         :param string: String description of a skill instance
         :param available_skills: Inventory specifying the available skills
-        :param objects: Collection of all objects in the environment
+        :param state: Object-centric state of the environment
         :return: Constructed SkillInstance instance
         """
         match = re.match(r"^(\w+)\(([^)]*)\)$", string.strip())
@@ -158,12 +158,12 @@ class SkillInstance:
             len_param = len(skill.parameters)
             raise ValueError(f"Skill '{skill_name}' expects {len_param} args, not {len(args)}.")
 
-        bindings: Bindings = {}
+        bindings: dict[str, ObjectT] = {}
         for bound_object, param in zip(args, skill.parameters, strict=True):
-            if bound_object not in objects:
+            if bound_object not in state:
                 raise ValueError(f"Object '{bound_object}' not found in the environment.")
 
-            obj_types = objects.get_types_of(bound_object)
+            obj_types = state.object_types.get_types_of(bound_object)
 
             if param.object_type not in obj_types:
                 raise ValueError(
@@ -171,7 +171,8 @@ class SkillInstance:
                     f"'{param.name}' expects type {param.object_type} but the provided "
                     f"argument object '{bound_object}' only has type(s) {obj_types}.",
                 )
-            bindings[param.name] = bound_object
+
+            bindings[param.name] = state.get_object(bound_object)
 
         return SkillInstance(skill, bindings)
 
