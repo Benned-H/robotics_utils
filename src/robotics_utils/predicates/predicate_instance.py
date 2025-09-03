@@ -13,10 +13,10 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class PredicateInstance(Generic[StateT, DataclassT]):
+class PredicateInstance(Generic[DataclassT, StateT]):
     """A predicate grounded using particular concrete arguments."""
 
-    predicate: Predicate[StateT, DataclassT]
+    predicate: Predicate[DataclassT, StateT]
     arguments: DataclassT
 
     def __str__(self) -> str:
@@ -39,4 +39,4 @@ class PredicateInstance(Generic[StateT, DataclassT]):
 
     def holds_in(self, state: StateT) -> bool:
         """Evaluate whether the predicate instance holds in the given state."""
-        return self.predicate.holds_in(state, self.arguments)
+        return self.predicate.relation(self.arguments, state)

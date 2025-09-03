@@ -3,43 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 
 from robotics_utils.predicates import Predicate
 
 
-class Hoist(str):
-    """Represents a hoist in a PDDL problem."""
-
-    __slots__ = ()
+class Hoist(str): ...
 
 
-class Crate(str):
-    """Represents a crate in a PDDL problem."""
-
-    __slots__ = ()
+class Crate(str): ...
 
 
-class StorageArea(str):
-    """Represents a storage area in a PDDL problem."""
-
-    __slots__ = ()
+class StorageArea(str): ...
 
 
-@pytest.fixture
-def example_predicate() -> type[Predicate]:
-    """Create an example Predicate class."""
-
-    class AlwaysHolds(Predicate):
-        """An example predicate implementing the abstract `holds_in` method."""
-
-        def holds_in(self, state: Any, args: Any) -> bool:
-            """Evaluate whether the predicate holds in the given state for the given arguments."""
-            return True
-
-    return AlwaysHolds
+StringState = str  # Stands in for an actual state representation
 
 
 @dataclass(frozen=True)
@@ -49,10 +28,15 @@ class AvailableArgs:
     h: Hoist
 
 
+def is_available(_args: AvailableArgs, _state: StringState) -> bool:
+    """Evaluate whether a hoist in available in a given state."""
+    return True
+
+
 @pytest.fixture
-def available(example_predicate: type[Predicate]) -> Predicate:
+def available() -> Predicate:
     """Define a predicate named `available` expecting one parameter."""
-    return example_predicate.from_dataclass(name="available", dataclass_t=AvailableArgs)
+    return Predicate("available", AvailableArgs, relation=is_available)
 
 
 @dataclass(frozen=True)
@@ -63,10 +47,15 @@ class LiftingArgs:
     c: Crate
 
 
+def is_lifting(_args: LiftingArgs, _state: StringState) -> bool:
+    """Evaluate whether a hoist is lifting a crate in a given state."""
+    return True
+
+
 @pytest.fixture
-def lifting(example_predicate: type[Predicate]) -> Predicate:
+def lifting() -> Predicate:
     """Define a predicate named `lifting` expecting two parameters."""
-    return example_predicate.from_dataclass(name="lifting", dataclass_t=LiftingArgs)
+    return Predicate("lifting", LiftingArgs, relation=is_lifting)
 
 
 @dataclass(frozen=True)
@@ -77,10 +66,15 @@ class OnArgs:
     s: StorageArea
 
 
+def is_on(_args: OnArgs, _state: StringState) -> bool:
+    """Evaluate whether a crate is on a storage area in a given state."""
+    return True
+
+
 @pytest.fixture
-def on(example_predicate: type[Predicate]) -> Predicate:
+def on() -> Predicate:
     """Define a predicate named `on` expecting two parameters."""
-    return example_predicate.from_dataclass(name="on", dataclass_t=OnArgs)
+    return Predicate("on", OnArgs, relation=is_on)
 
 
 def test_predicate_to_pddl(available: Predicate, lifting: Predicate, on: Predicate) -> None:

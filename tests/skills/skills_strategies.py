@@ -5,8 +5,7 @@ from __future__ import annotations
 import hypothesis.strategies as st
 
 from robotics_utils.predicates import Parameter
-from robotics_utils.skills.skills import Skill
-from robotics_utils.skills.skills_inventory import SkillsInventory
+from robotics_utils.skills import Skill, SkillsInventory
 
 from ..common_strategies import pascal_case_strings
 

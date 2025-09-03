@@ -15,14 +15,14 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class Atom(Generic[StateT, DataclassT]):
+class Atom(Generic[DataclassT, StateT]):
     """An atom (i.e., atomic formula) formed by a predicate symbol with partial bindings.
 
     Reference: Chapter 8.2.4 ("Atomic sentences"), pg. 260 of AIMA (4th Ed.) by Russell and Norvig.
     """
 
-    predicate: Predicate[StateT, DataclassT]
-    bindings: dict[str, Any]
+    predicate: Predicate[DataclassT, StateT]
+    bindings: dict[str, object]
     """Maps bound parameter names to corresponding concrete arguments."""
 
     @property
@@ -41,7 +41,7 @@ class Atom(Generic[StateT, DataclassT]):
         bound_param_names = set(self.bindings.keys())
         return tuple(p for p in self.predicate.parameters if p.name not in bound_param_names)
 
-    def ordered_arguments(self, allow_missing: bool = False) -> tuple[Any | None, ...]:
+    def ordered_arguments(self, allow_missing: bool = False) -> tuple[object | None, ...]:
         """Retrieve the atom's arguments, aligned with its predicate parameter order.
 
         :param allow_missing: Whether to allow unbound parameters (defaults to False)
@@ -54,7 +54,7 @@ class Atom(Generic[StateT, DataclassT]):
 
         return tuple(self.bindings.get(p.name) for p in self.predicate.parameters)
 
-    def bind(self, **kwargs: Any) -> Atom[StateT, DataclassT]:
+    def bind(self, **kwargs: Any) -> Atom[DataclassT, StateT]:
         """Return a new atom with updated bindings."""
         for param_name, bound_value in kwargs.items():
             param_type = self.predicate.get_parameter_type(param_name)  # Raises on unknown param
@@ -67,16 +67,16 @@ class Atom(Generic[StateT, DataclassT]):
 
         return replace(self, bindings=new_bindings)
 
-    def unbind(self, *param_names: str) -> Atom[StateT, DataclassT]:
+    def unbind(self, *param_names: str) -> Atom[DataclassT, StateT]:
         """Return a new atom with some parameters made unbound."""
         new_bindings = {p: v for p, v in self.bindings.items() if p not in param_names}
         return replace(self, bindings=new_bindings)
 
-    def as_instance(self) -> PredicateInstance[StateT, DataclassT]:
+    def as_instance(self) -> PredicateInstance[DataclassT, StateT]:
         """Convert the atomic formula into a fully grounded predicate instance."""
         if not self.is_grounded:
             unbound = ", ".join(p.name for p in self.unbound_params)
             raise ValueError(f"{self.name} not fully grounded; missing parameters: {unbound}.")
 
-        args_dataclass = self.predicate.dataclass_t.new(**self.bindings)
+        args_dataclass = self.predicate.construct_arguments(self.bindings)
         return PredicateInstance(self.predicate, args_dataclass)

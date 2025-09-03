@@ -8,18 +8,13 @@ from typing import Any
 import pytest
 
 from robotics_utils.fol.unification import Unifiable, UnifierBindings, unify
-from robotics_utils.predicates import Parameter, Predicate
+from robotics_utils.predicates import Predicate
 
 
 class Person(str): ...
 
 
-class AlwaysHoldsPredicate(Predicate):
-    """An example predicate that holds in all states for all arguments."""
-
-    def holds_in(self, state: Any, args: Any) -> bool:
-        """Evaluate whether the predicate holds in the given state for the given arguments."""
-        return True
+StringState = str  # Stands in for an actual state representation
 
 
 @dataclass(frozen=True)
@@ -28,6 +23,24 @@ class KnowsArgs:
 
     y: Person
     x: Person
+
+
+def knows_person(_args: KnowsArgs, _state: StringState) -> bool:
+    """Evaluate whether one person knows another in a given state."""
+    return True
+
+
+@dataclass(frozen=True)
+class ReversedKnowsArgs:
+    """Reversed arguments of the `Knows` predicate."""
+
+    x: Person
+    y: Person
+
+
+def reversed_knows_person(_args: ReversedKnowsArgs, _state: StringState) -> bool:
+    """Evaluate whether one person knows another in a given state."""
+    return True
 
 
 @dataclass(frozen=True)
@@ -45,15 +58,7 @@ def unification_test_cases() -> list[UnificationTestCase]:
 
     Reference: Examples from Section 9.2.1 ("Unification") of AIMA (4th Ed.) by Russell and Norvig.
     """
-
-    @dataclass(frozen=True)
-    class KnowsArgs:
-        """Arguments to the `Knows` predicate representing if one person knows another."""
-
-        y: Person
-        x: Person
-
-    y_knows_x = AlwaysHoldsPredicate.from_dataclass("Knows", KnowsArgs)
+    y_knows_x = Predicate("Knows", KnowsArgs, relation=knows_person)
 
     john = Person("John")
     jane = Person("Jane")
@@ -65,14 +70,7 @@ def unification_test_cases() -> list[UnificationTestCase]:
 
     y_knows_bill = y_knows_x.as_atom({"x": bill})
 
-    @dataclass(frozen=True)
-    class ReverseKnowsArgs:
-        """Reversed arguments of the `Knows` predicate."""
-
-        x: Person
-        y: Person
-
-    x_knows_y = AlwaysHoldsPredicate.from_dataclass("Knows", ReverseKnowsArgs)
+    x_knows_y = Predicate("Knows", ReversedKnowsArgs, relation=reversed_knows_person)
 
     x_knows_elizabeth = x_knows_y.as_atom({"y": elizabeth})
 

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections import defaultdict
-from dataclasses import dataclass
 from itertools import product
-from typing import Any, Generic, Mapping
+from typing import Any, Callable, Generic, Mapping
 
 from robotics_utils.predicates.atom import Atom
 from robotics_utils.predicates.dataclass_type import DataclassT, DataclassType
@@ -14,38 +12,37 @@ from robotics_utils.predicates.low_level_state import StateT
 from robotics_utils.predicates.parameter import Parameter
 from robotics_utils.predicates.predicate_instance import PredicateInstance
 
+Relation = Callable[[DataclassT, StateT], bool]
+"""Classifier for a relationship between dataclass-structured arguments in a low-level state."""
 
-@dataclass(frozen=True)
-class Predicate(ABC, Generic[StateT, DataclassT]):
+
+class Predicate(Generic[DataclassT, StateT]):
     """A symbolic predicate with typed parameters."""
 
-    name: str
-    parameters: tuple[Parameter, ...]
-    dataclass_t: DataclassType[DataclassT]
-    """Dataclass type defining the structure of the predicate's parameters."""
+    def __init__(
+        self,
+        name: str,
+        dataclass_t: type[DataclassT],
+        relation: Relation[DataclassT, StateT],
+        semantics: str | None = None,
+    ) -> None:
+        """Initialize a predicate with a parameter structure defined by the given dataclass.
 
-    semantics: str | None = None
-    """Optional natural language description of the predicate's meaning."""
-
-    @abstractmethod
-    def holds_in(self, state: StateT, args: DataclassT) -> bool:
-        """Evaluate whether the predicate holds in a state for the given arguments.
-
-        :param state: Low-level environment state in which the predicate is evaluated
-        :param args: Dataclass storing arguments bound to the predicate's parameters
-        :return: True if the grounded predicate holds, else False
-        """
-
-    @classmethod
-    def from_dataclass(cls, name: str, dataclass_t: type[DataclassT]) -> Predicate:
-        """Construct a Predicate instance based on the given dataclass type.
-
-        :param name: Name of the constructed predicate
-        :param dataclass_t: Type of a dataclass
+        :param name: Name of the predicate
+        :param dataclass_t: Dataclass type defining the structure of the predicate parameters
+        :param relation: Classifier for the predicate's relation
+        :param semantics: Optional natural language description of the predicate's meaning
         :return: Constructed Predicate instance
         """
-        parameters = Parameter.tuple_from_dataclass(dataclass_t)
-        return cls(name, parameters, DataclassType(dataclass_t))
+        self.name = name
+        self._dataclass_type = DataclassType(dataclass_t)
+        """Dataclass type defining the structure of the predicate parameters."""
+
+        self.parameters = Parameter.tuple_from_dataclass(dataclass_t)
+        self.relation = relation
+
+        self.semantics = semantics
+        """Optional natural language description of the predicate's meaning."""
 
     def __str__(self) -> str:
         """Return a readable string representation of the predicate."""
@@ -68,9 +65,13 @@ class Predicate(ABC, Generic[StateT, DataclassT]):
         :return: Python type expected by the named parameter
         :raises KeyError: If an unknown parameter name is given
         """
-        if param_name not in self.dataclass_t.field_types:
+        if param_name not in self._dataclass_type.field_types:
             raise KeyError(f"Cannot find type of unknown predicate parameter: '{param_name}'.")
-        return self.dataclass_t.field_types[param_name]
+        return self._dataclass_type.field_types[param_name]
+
+    def construct_arguments(self, bindings: Mapping[str, object]) -> DataclassT:
+        """Construct an arguments dataclass for the predicate using the given bindings."""
+        return self._dataclass_type.new(**bindings)
 
     def ground(self, args: DataclassT) -> PredicateInstance:
         """Ground the predicate using the given dataclass of arguments."""
@@ -80,7 +81,7 @@ class Predicate(ABC, Generic[StateT, DataclassT]):
         """Create a fully grounded predicate instance using the given parameter bindings."""
         return self.as_atom(bindings).as_instance()
 
-    def as_atom(self, bindings: Mapping[str, Any] | None = None) -> Atom[StateT, DataclassT]:
+    def as_atom(self, bindings: Mapping[str, Any] | None = None) -> Atom[DataclassT, StateT]:
         """Create an atomic formula using the given (possibly partial) parameter bindings.
 
         :param bindings: Optional parameter bindings (defaults to None)
