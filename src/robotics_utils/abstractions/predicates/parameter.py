@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from robotics_utils.predicates.dataclass_type import DataclassT, DataclassType
+from robotics_utils.abstractions.predicates.dataclass_type import DataclassT, DataclassType
 
 
 @dataclass(frozen=True)

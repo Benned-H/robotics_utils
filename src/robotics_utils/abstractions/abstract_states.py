@@ -9,7 +9,7 @@ StateT = TypeVar("StateT")
 """Represents a low-level environment state."""
 
 if TYPE_CHECKING:
-    from robotics_utils.predicates import Predicate, PredicateInstance
+    from robotics_utils.abstractions.predicates import Predicate, PredicateInstance
 
 
 @dataclass(frozen=True)

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Tuple
 
-from robotics_utils.predicates import Atom, Parameter, Predicate, PredicateInstance
+from robotics_utils.abstractions.predicates import Atom, Parameter, Predicate, PredicateInstance
 
 ParametersT = tuple[Parameter | Any, ...]
 """Represents any tuple of parameters or (partially) bound arguments."""

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from robotics_utils.predicates import Predicate
+from robotics_utils.abstractions.predicates import Predicate
 
 
 class Hoist(str): ...

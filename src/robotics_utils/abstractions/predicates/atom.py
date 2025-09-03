@@ -5,13 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Generic
 
-from robotics_utils.predicates.dataclass_type import DataclassT
-from robotics_utils.predicates.low_level_state import StateT
-from robotics_utils.predicates.predicate_instance import PredicateInstance
+from robotics_utils.abstractions.predicates.dataclass_type import DataclassT
+from robotics_utils.abstractions.predicates.low_level_state import StateT
+from robotics_utils.abstractions.predicates.predicate_instance import PredicateInstance
 
 if TYPE_CHECKING:
-    from robotics_utils.predicates.parameter import Parameter
-    from robotics_utils.predicates.predicate import Predicate
+    from robotics_utils.abstractions.predicates.parameter import Parameter
+    from robotics_utils.abstractions.predicates.predicate import Predicate
 
 
 @dataclass(frozen=True)

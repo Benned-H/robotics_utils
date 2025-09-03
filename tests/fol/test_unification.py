@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 
+from robotics_utils.abstractions.predicates import Predicate
 from robotics_utils.fol.unification import Unifiable, UnifierBindings, unify
-from robotics_utils.predicates import Predicate
 
 
 class Person(str): ...

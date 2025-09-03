@@ -6,9 +6,9 @@ import inspect
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Mapping, get_type_hints
 
+from robotics_utils.abstractions.predicates import Parameter
 from robotics_utils.io.process_python import parse_docstring_params
 from robotics_utils.io.string_utils import is_pascal_case, pascal_to_snake, snake_to_pascal
-from robotics_utils.predicates import Parameter
 
 if TYPE_CHECKING:
     from robotics_utils.skills.skills_inventory import SkillsProtocol

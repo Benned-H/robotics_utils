@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Generic
 
-from robotics_utils.classical_planning import StateT
+from robotics_utils.abstractions.predicates import StateT
 
 if TYPE_CHECKING:
-    from robotics_utils.classical_planning import AbstractState
+    from robotics_utils.abstractions.abstract_states import AbstractState
     from robotics_utils.skills import Skill, SkillInstance
 
 

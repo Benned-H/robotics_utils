@@ -6,11 +6,11 @@ from collections import defaultdict
 from itertools import product
 from typing import Any, Callable, Generic, Mapping
 
-from robotics_utils.predicates.atom import Atom
-from robotics_utils.predicates.dataclass_type import DataclassT, DataclassType
-from robotics_utils.predicates.low_level_state import StateT
-from robotics_utils.predicates.parameter import Parameter
-from robotics_utils.predicates.predicate_instance import PredicateInstance
+from robotics_utils.abstractions.predicates.atom import Atom
+from robotics_utils.abstractions.predicates.dataclass_type import DataclassT, DataclassType
+from robotics_utils.abstractions.predicates.low_level_state import StateT
+from robotics_utils.abstractions.predicates.parameter import Parameter
+from robotics_utils.abstractions.predicates.predicate_instance import PredicateInstance
 
 Relation = Callable[[DataclassT, StateT], bool]
 """Classifier for a relationship between dataclass-structured arguments in a low-level state."""
