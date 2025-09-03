@@ -9,8 +9,7 @@ StateT = TypeVar("StateT")
 """Represents a low-level environment state."""
 
 if TYPE_CHECKING:
-    from robotics_utils.classical_planning.predicates import Predicate, PredicateInstance
-    from robotics_utils.objects import ObjectTypes
+    from robotics_utils.predicates import Predicate, PredicateInstance
 
 
 @dataclass(frozen=True)
@@ -37,15 +36,15 @@ class AbstractState:
 class AbstractStateSpace(Generic[StateT]):
     """An abstract state space specifies all possible predicate instances in the abstract state."""
 
-    def __init__(self, predicates: set[Predicate], object_types: ObjectTypes) -> None:
+    def __init__(self, predicates: set[Predicate], objects: set[object]) -> None:
         """Initialize the abstract state space using all valid groundings of the given predicates.
 
         :param predicates: Set of predicates defining possible abstract relations between objects
-        :param object_types: Specifies the types of objects in the environment
+        :param objects: Collection of Python objects in the environment
         """
         self.possible_facts: set[PredicateInstance] = set()
         for predicate in predicates:
-            all_instances = predicate.compute_all_groundings(object_types)
+            all_instances = predicate.compute_all_groundings(objects)
             self.possible_facts.update(all_instances)
 
     def abstract(self, state: StateT) -> AbstractState:

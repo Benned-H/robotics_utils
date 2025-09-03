@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from robotics_utils.classical_planning.operators import Operator
-    from robotics_utils.classical_planning.predicates import Predicate
     from robotics_utils.classical_planning.type_hierarchy import TypeHierarchy
+    from robotics_utils.predicates import Predicate
 
 
 @dataclass(frozen=True)

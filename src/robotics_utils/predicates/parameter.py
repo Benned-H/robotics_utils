@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from robotics_utils.predicates.dataclass_type import DataclassType
+from robotics_utils.predicates.dataclass_type import DataclassT, DataclassType
 
 
-# TODO: Delete other parameters.py file once this works as expected
 @dataclass(frozen=True)
 class Parameter:
     """A Python-typed symbolic parameter (e.g., of a predicate or operator)."""
@@ -29,10 +26,12 @@ class Parameter:
         return f"{self.name} (type {self.type_}){semantics}"
 
     @classmethod
-    def tuple_from_dataclass(cls, dataclass_t: DataclassType) -> tuple[Parameter, ...]:
+    def tuple_from_dataclass(cls, dataclass_t: type[DataclassT]) -> tuple[Parameter, ...]:
         """Construct a tuple of Parameter instances from a Python dataclass type."""
-        docstrings = dataclass_t.get_docstrings()
+        dataclass_type = DataclassType(dataclass_t)
+        docstrings = dataclass_type.get_docstrings()
+
         return tuple(
             Parameter(f_name, f_type, docstrings[f_name])
-            for f_name, f_type in dataclass_t.field_types.items()
+            for f_name, f_type in dataclass_type.field_types.items()
         )

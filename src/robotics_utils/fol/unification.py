@@ -5,17 +5,11 @@ Reference: Figure 9.1, Section 9.2, pg. 285 of AIMA (4th Ed.) by Stuart Russell 
 
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Any, Tuple
 
-from robotics_utils.classical_planning import (
-    Atom,
-    DiscreteParameter,
-    Predicate,
-    PredicateInstance,
-)
-from robotics_utils.objects import ObjectT
+from robotics_utils.predicates import Atom, Parameter, Predicate, PredicateInstance
 
-ParametersT = tuple[DiscreteParameter | ObjectT, ...]
+ParametersT = tuple[Parameter | Any, ...]
 """Represents any tuple of parameters or (partially) bound arguments."""
 
 PredicateT = Predicate | PredicateInstance | Atom
@@ -27,10 +21,12 @@ def get_parameters(predicate: PredicateT) -> ParametersT:
     if isinstance(predicate, Predicate):
         return predicate.parameters
     if isinstance(predicate, PredicateInstance):
-        return predicate.arguments
+        return predicate.args_tuple
     if isinstance(predicate, Atom):  # Replace unbound values with corresponding parameters
-        args_list = list(predicate.ordered_arguments(allow_missing=True))
-        for idx, bound_value in enumerate(predicate.ordered_arguments(allow_missing=True)):
+        ordered_args = predicate.ordered_arguments(allow_missing=True)
+
+        args_list = list(ordered_args)
+        for idx, bound_value in enumerate(ordered_args):
             if bound_value is None:
                 args_list[idx] = predicate.predicate.parameters[idx]
 
@@ -39,7 +35,7 @@ def get_parameters(predicate: PredicateT) -> ParametersT:
     raise RuntimeError(f"Unexpected predicate-like type: {predicate} (type {type(predicate)}).")
 
 
-Unifiable = DiscreteParameter | ParametersT | PredicateT | Tuple[PredicateT, ...]
+Unifiable = Parameter | ParametersT | PredicateT | Tuple[PredicateT, ...]
 
 UnifierBindings = dict[str, Unifiable]
 """A mapping from parameter (i.e., variable) names to bound values."""
@@ -61,9 +57,9 @@ def unify(x: Unifiable, y: Unifiable, bindings: UnifierBindings | None) -> Unifi
     if type(x) is type(y) and x == y:
         return bindings
 
-    if isinstance(x, DiscreteParameter):
+    if isinstance(x, Parameter):
         return unify_parameter(x, y, bindings)
-    if isinstance(y, DiscreteParameter):
+    if isinstance(y, Parameter):
         return unify_parameter(y, x, bindings)
 
     if isinstance(x, PredicateT) and isinstance(y, PredicateT):
@@ -76,7 +72,7 @@ def unify(x: Unifiable, y: Unifiable, bindings: UnifierBindings | None) -> Unifi
 
 
 def unify_parameter(
-    param: DiscreteParameter,
+    param: Parameter,
     x: Unifiable,
     bindings: UnifierBindings,
 ) -> UnifierBindings | None:
@@ -93,7 +89,7 @@ def unify_parameter(
         bound_value = bindings[param.name]
         return unify(bound_value, x, bindings)
 
-    if isinstance(x, DiscreteParameter) and x.name in bindings:
+    if isinstance(x, Parameter) and x.name in bindings:
         x_bound_value = bindings[x.name]
         return unify(param, x_bound_value, bindings)
 
@@ -104,7 +100,7 @@ def unify_parameter(
     return bindings
 
 
-def occurs_in(param: DiscreteParameter, x: Unifiable) -> bool:
+def occurs_in(param: Parameter, x: Unifiable) -> bool:
     """Check whether the given parameter occurs in a first-order logic (FOL) expression.
 
     :param param: Parameter searched for in the expression
@@ -114,10 +110,7 @@ def occurs_in(param: DiscreteParameter, x: Unifiable) -> bool:
     if isinstance(x, PredicateInstance):  # All PredicateInstance parameters are already bound
         return False
 
-    if isinstance(x, str):  # Any string is already a bound value
-        return False
-
-    if isinstance(x, DiscreteParameter):
+    if isinstance(x, Parameter):
         return param == x
 
     if isinstance(x, Predicate):

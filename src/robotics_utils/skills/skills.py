@@ -7,10 +7,10 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Generic, Mapping, get_type_hints
 
-from robotics_utils.classical_planning.parameters import DiscreteParameter
 from robotics_utils.io.process_python import parse_docstring_params
 from robotics_utils.io.string_utils import is_pascal_case, pascal_to_snake, snake_to_pascal
 from robotics_utils.objects import ObjectCentricState, ObjectT
+from robotics_utils.predicates import Parameter
 
 if TYPE_CHECKING:
     from robotics_utils.skills.skills_inventory import SkillsInventory, SkillsProtocol
@@ -29,7 +29,7 @@ class Skill:
     name: str
     """A skill's name should be PascalCase (e.g., "OpenDoor")."""
 
-    parameters: tuple[DiscreteParameter, ...]
+    parameters: tuple[Parameter, ...]
 
     def __post_init__(self) -> None:
         """Validate expected properties of any Skill instance."""
@@ -38,28 +38,8 @@ class Skill:
 
     def __str__(self) -> str:
         """Return a readable string representation of the skill."""
-        params = ", ".join(f"{p.name}: {p.object_type}" for p in self.parameters)
+        params = ", ".join(f"{p.name}: {p.type_}" for p in self.parameters)
         return f"{self.name}({params})"
-
-    @classmethod
-    def from_yaml_data(cls, skill_name: str, skill_data: dict[str, Any]) -> Skill:
-        """Load a Skill instance from data imported from YAML."""
-        if skill_name not in skill_data:
-            raise KeyError(f"Skill name '{skill_name}' missing from YAML data: {skill_data}.")
-
-        if "parameters" not in skill_data[skill_name]:
-            raise KeyError(f"Key 'parameters' missing from skill YAML data: {skill_data}.")
-        params_data = skill_data[skill_name]["parameters"]
-
-        return Skill(skill_name, DiscreteParameter.tuple_from_yaml_data(params_data))
-
-    def to_yaml_data(self) -> dict[str, Any]:
-        """Convert the Skill object into a dictionary of YAML data."""
-        params_data = {}
-        for p in self.parameters:
-            params_data.update(p.to_yaml_data())
-
-        return {self.name: {"parameters": params_data}}
 
     @classmethod
     def from_method(cls, method: Callable[[Any], Any]) -> Skill:
@@ -86,14 +66,12 @@ class Skill:
             if param_type is None:
                 raise ValueError(f"Skill {skill_name} didn't define a type for '{param_name}'.")
 
-            object_type = param_type.__name__
-
             # Get parameter semantics from the method docstring
             semantics = param_docs.get(param_name)
             if semantics is None:
                 raise ValueError(f"Skill {skill_name} didn't define semantics for '{param_name}'.")
 
-            parameters.append(DiscreteParameter(param_name, object_type, semantics))
+            parameters.append(Parameter(param_name, param_type, semantics))
 
         return Skill(skill_name, tuple(parameters))
 
@@ -165,10 +143,10 @@ class SkillInstance(Generic[ObjectT]):
 
             obj_types = state.object_types.get_types_of(bound_object)
 
-            if param.object_type not in obj_types:
+            if str(param.type_) not in obj_types:
                 raise ValueError(
                     f"Cannot parse skill instance from '{string}' because skill parameter "
-                    f"'{param.name}' expects type {param.object_type} but the provided "
+                    f"'{param.name}' expects type {param.type_} but the provided "
                     f"argument object '{bound_object}' only has type(s) {obj_types}.",
                 )
 

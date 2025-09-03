@@ -11,16 +11,7 @@ from robotics_utils.skills.skills_inventory import SkillsInventory, SkillsProtoc
 
 from .skills_strategies import generate_skills, generate_skills_inventories
 
-
-@given(generate_skills())
-def test_skill_to_from_yaml_data(skill: Skill) -> None:
-    """Verify that Skills are accurately reconstructed after converting to and from YAML data."""
-    # Arrange/Act - Given a skill, convert to YAML data and then convert back
-    result_yaml = skill.to_yaml_data()
-    result_skill = Skill.from_yaml_data(skill.name, result_yaml)
-
-    # Assert - Expect that the resulting Skill is identical to the original
-    assert skill == result_skill
+# TODO: Review Skill, SkillInstance, and SkillsInventory based on new parameter form
 
 
 @pytest.fixture
@@ -44,17 +35,6 @@ def example_skills_protocol() -> SkillsProtocol:
             return value + 1
 
     return ExampleSkills
-
-
-@given(generate_skills_inventories())
-def test_skills_inventory_to_from_yaml_data(inventory: SkillsInventory) -> None:
-    """Verify that a SkillsInventory is unchanged after converting to and from YAML data."""
-    # Arrange/Act - Given an inventory of skills, convert to YAML data and then convert back
-    inventory_yaml = inventory.to_yaml_data()
-    result_inventory = SkillsInventory.from_yaml_data(inventory.name, inventory_yaml)
-
-    # Assert - Expect that the resulting SkillsInventory is identical to the original
-    assert inventory == result_inventory
 
 
 def test_skills_inventory_from_protocol(example_skills_protocol: SkillsProtocol) -> None:

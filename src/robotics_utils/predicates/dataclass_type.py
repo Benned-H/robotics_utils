@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import fields, is_dataclass
-from inspect import getdoc
-from typing import Any, Generic, Iterator, TypeVar
+from functools import cached_property
+from typing import TYPE_CHECKING, Any, Generic, Iterator, TypeVar
+
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
 
 DataclassT = TypeVar("DataclassT")
 
@@ -16,7 +19,7 @@ class DataclassType(Generic[DataclassT]):
         """Initialize the class using the given dataclass type."""
         if not isinstance(dataclass_t, type) or not is_dataclass(dataclass_t):
             raise TypeError(f"{dataclass_t} is not a dataclass type.")
-        self._dataclass_t = dataclass_t
+        self._dataclass_t: type[DataclassInstance] = dataclass_t
 
     @property
     def field_names(self) -> Iterator[str]:
@@ -24,11 +27,15 @@ class DataclassType(Generic[DataclassT]):
         for field in fields(self._dataclass_t):
             yield field.name
 
-    @property
+    @cached_property
     def field_types(self) -> dict[str, Any]:
         """Retrieve a mapping from dataclass field names to the corresponding types."""
         return {f.name: f.type for f in fields(self._dataclass_t)}
 
     def get_docstrings(self) -> dict[str, str | None]:
-        """Retrieve a mapping from field names to corresponding docstrings, if any (else None)."""
-        return {f.name: (getdoc(f) if getdoc(f) else None) for f in fields(self._dataclass_t)}
+        """Retrieve a mapping from field names to metadata docstrings, if any (else None)."""
+        return {f.name: f.metadata.get("doc") for f in fields(self._dataclass_t)}
+
+    def new(self, **kwargs: Any) -> DataclassT:
+        """Construct an instance of the stored dataclass type."""
+        return self._dataclass_t(**kwargs)

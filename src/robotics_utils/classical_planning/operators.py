@@ -9,8 +9,7 @@ from robotics_utils.classical_planning.abstract_states import AbstractState
 from robotics_utils.objects import ObjectT
 
 if TYPE_CHECKING:
-    from robotics_utils.classical_planning.parameters import DiscreteParameter
-    from robotics_utils.classical_planning.predicates import Predicate, PredicateInstance
+    from robotics_utils.predicates import Parameter, Predicate, PredicateInstance
 
 
 @dataclass(frozen=True)
@@ -88,7 +87,7 @@ class Operator:
     """A lifted abstract action defining an abstract transition model."""
 
     name: str
-    parameters: tuple[DiscreteParameter, ...]
+    parameters: tuple[Parameter, ...]
     preconditions: Preconditions  # Positive and negative preconditions for applying the operator
     effects: Effects  # Effects added and removed from the abstract state by the operator
 

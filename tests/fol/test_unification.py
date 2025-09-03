@@ -3,11 +3,31 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import pytest
 
-from robotics_utils.classical_planning import DiscreteParameter, Predicate
 from robotics_utils.fol.unification import Unifiable, UnifierBindings, unify
+from robotics_utils.predicates import Parameter, Predicate
+
+
+class Person(str): ...
+
+
+class AlwaysHoldsPredicate(Predicate):
+    """An example predicate that holds in all states for all arguments."""
+
+    def holds_in(self, state: Any, args: Any) -> bool:
+        """Evaluate whether the predicate holds in the given state for the given arguments."""
+        return True
+
+
+@dataclass(frozen=True)
+class KnowsArgs:
+    """Arguments to the `Knows` predicate representing if one person knows another."""
+
+    y: Person
+    x: Person
 
 
 @dataclass(frozen=True)
@@ -25,23 +45,40 @@ def unification_test_cases() -> list[UnificationTestCase]:
 
     Reference: Examples from Section 9.2.1 ("Unification") of AIMA (4th Ed.) by Russell and Norvig.
     """
-    person_x = DiscreteParameter("x", object_type="Person")
-    person_y = DiscreteParameter("y", object_type="Person")
 
-    y_knows_x = Predicate("Knows", parameters=(person_y, person_x))
+    @dataclass(frozen=True)
+    class KnowsArgs:
+        """Arguments to the `Knows` predicate representing if one person knows another."""
 
-    john_knows_x = y_knows_x.as_atom({"y": "John"})
-    john_knows_jane = y_knows_x.fully_ground({"y": "John", "x": "Jane"})
+        y: Person
+        x: Person
 
-    y_knows_bill = y_knows_x.as_atom({"x": "Bill"})
+    y_knows_x = AlwaysHoldsPredicate.from_dataclass("Knows", KnowsArgs)
 
-    x_knows_y = Predicate("Knows", parameters=(person_x, person_y))
+    john = Person("John")
+    jane = Person("Jane")
+    bill = Person("Bill")
+    elizabeth = Person("Elizabeth")
 
-    x_knows_elizabeth = x_knows_y.as_atom({"y": "Elizabeth"})
+    john_knows_x = y_knows_x.as_atom({"y": john})
+    john_knows_jane = y_knows_x.fully_ground({"y": john, "x": jane})
+
+    y_knows_bill = y_knows_x.as_atom({"x": bill})
+
+    @dataclass(frozen=True)
+    class ReverseKnowsArgs:
+        """Reversed arguments of the `Knows` predicate."""
+
+        x: Person
+        y: Person
+
+    x_knows_y = AlwaysHoldsPredicate.from_dataclass("Knows", ReverseKnowsArgs)
+
+    x_knows_elizabeth = x_knows_y.as_atom({"y": elizabeth})
 
     return [
-        UnificationTestCase(john_knows_x, john_knows_jane, {"x": "Jane"}),
-        UnificationTestCase(john_knows_x, y_knows_bill, {"x": "Bill", "y": "John"}),
+        UnificationTestCase(john_knows_x, john_knows_jane, {"x": jane}),
+        UnificationTestCase(john_knows_x, y_knows_bill, {"x": bill, "y": john}),
         UnificationTestCase(john_knows_x, x_knows_elizabeth, expected_bindings=None),
     ]
 
