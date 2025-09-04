@@ -41,7 +41,7 @@ class Gripper:
         self._robot_commander = RobotCommander()
         self.links = self._robot_commander.get_link_names(group=grasping_group)
 
-    def _move_to_angle_rad(self, target_rad: float, timeout_s: float = 10.0) -> None:
+    def move_to_angle_rad(self, target_rad: float, timeout_s: float = 10.0) -> None:
         """Move the gripper to a target angle (radians).
 
         :param target_rad: Target angle (radians) for the gripper
@@ -55,8 +55,8 @@ class Gripper:
 
     def open(self) -> None:
         """Open the gripper by calling its internal ROS action."""
-        self._move_to_angle_rad(self.joint_limits.open_rad)
+        self.move_to_angle_rad(self.joint_limits.open_rad)
 
     def close(self) -> None:
         """Close the gripper by calling its internal ROS action."""
-        self._move_to_angle_rad(self.joint_limits.closed_rad)
+        self.move_to_angle_rad(self.joint_limits.closed_rad)

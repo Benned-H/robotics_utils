@@ -112,12 +112,14 @@ class PlanningSceneManager(Simulator):
 
     def hide_all_objects(self) -> None:
         """Hide all objects in the planning scene for the purposes of collision checking."""
-        for obj_name in self._added_objects:
+        objects_to_hide = self._added_objects.copy()
+        for obj_name in objects_to_hide:
             self.hide_object(obj_name)
 
     def unhide_all_objects(self) -> None:
         """Unhide all objects for the purposes of collision checking."""
-        for obj_name in self._hidden_objects:
+        objects_to_hide = self._hidden_objects.copy()
+        for obj_name in objects_to_hide:
             self.unhide_object(obj_name)
 
     def get_attached_objects(self, robot_name: str) -> set[str]:

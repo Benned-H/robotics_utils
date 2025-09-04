@@ -104,8 +104,8 @@ class Manipulator:
             target_pose_b_ee = self.convert_to_base_frame(ee_target)
             self._move_group.set_pose_target(pose_to_stamped_msg(target_pose_b_ee))
 
-            TransformManager.broadcast_frame("target_pose_ee", ee_target)
-            TransformManager.broadcast_frame("target_pose_b_ee", target_pose_b_ee)
+            TransformManager.broadcast_transform("target_pose_ee", ee_target)
+            TransformManager.broadcast_transform("target_pose_b_ee", target_pose_b_ee)
         elif isinstance(ee_target, dict):  # Configuration maps joint names to their positions
             self._move_group.set_joint_value_target(ee_target)
         else:
