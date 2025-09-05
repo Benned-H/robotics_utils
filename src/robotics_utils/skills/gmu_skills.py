@@ -13,6 +13,8 @@ from spot_skills.srv import GetRGBDPairs, GetRGBDPairsRequest, GetRGBDPairsRespo
 from std_srvs.srv import Trigger
 
 from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D
+from robotics_utils.kinematics.rotations import Quaternion
+
 from robotics_utils.ros.manipulator import Manipulator
 from robotics_utils.ros.services import ServiceCaller, trigger_service
 from robotics_utils.ros.transform_manager import TransformManager
@@ -32,9 +34,57 @@ class PickParameters:
 
     pose_o_g: Pose3D
     """Grasp pose (g) of the end-effector w.r.t. the object (o)."""
-    pre_grasp_offset_m: float
-    post_grasp_lift_m: float
+    x_pre_grasp_offset_m: float = 0
+    y_pre_grasp_offset_m: float = 0
+    z_pre_grasp_offset_m: float = 0
+
+    x_post_grasp_lift_m: float = 0
+    y_post_grasp_lift_m: float = 0
+    z_post_grasp_lift_m: float = 0
     body_frame_name: str = "body"
+    carry_pose: str = "vert_carry"       #Refers to which carry pose is used from ee_poses.yaml
+
+
+# def execute_pick(manipulator: Manipulator, params: PickParameters) -> None:
+#     """Execute a Pick skill based on the given parameters."""
+#     pose_b_g = TransformManager.convert_to_frame(params.pose_o_g, params.body_frame_name)
+
+#     # Open the gripper
+#     # manipulator.open_gripper()
+
+#     # Pre-grasp trajectory
+#     pose_g_pregrasp = Pose3D.from_xyz_rpy(x=-params.pre_grasp_offset_m)  # Pregrasp w.r.t. grasp
+#     pose_b_pregrasp = pose_b_g @ pose_g_pregrasp
+
+#     manipulator.execute_motion_plan(pose_b_pregrasp, params.body_frame_name)
+
+#     # Grasp trajectory
+#     manipulator.execute_motion_plan(pose_b_g, params.body_frame_name)
+
+#     # Close the gripper
+#     manipulator.close_gripper()
+
+#     # Post-grasp trajectory
+#     pose_w_g = TransformManager.convert_to_frame(pose_b_g, DEFAULT_FRAME)
+#     pose_w_postgrasp = pose_w_g @ Pose3D.from_xyz_rpy(z=params.post_grasp_lift_m)
+
+#     manipulator.execute_motion_plan(pose_w_postgrasp, params.body_frame_name)
+
+
+SPOT_PICK_CUP = PickParameters(
+    pose_o_g=Pose3D.from_xyz_rpy(x=-0.17, y=0.03, z=0.07, roll_rad=1.5708, ref_frame="waterbottle"),
+    x_pre_grasp_offset_m=0.15,
+    y_post_grasp_lift_m=-0.1,
+)
+
+SPOT_PICK_ERASER = PickParameters(
+    pose_o_g=Pose3D.from_xyz_rpy(x=-0.00, y=0.00, z=0.24, pitch_rad=1.5708, ref_frame="cellphone"),
+    x_pre_grasp_offset_m=0.15,
+    x_post_grasp_lift_m=0.1,
+    carry_pose="horiz_carry"
+)
+
+
 
 
 def execute_pick(manipulator: Manipulator, params: PickParameters) -> None:
@@ -45,7 +95,9 @@ def execute_pick(manipulator: Manipulator, params: PickParameters) -> None:
     # manipulator.open_gripper()
 
     # Pre-grasp trajectory
-    pose_g_pregrasp = Pose3D.from_xyz_rpy(x=-params.pre_grasp_offset_m)  # Pregrasp w.r.t. grasp
+    pose_g_pregrasp = Pose3D.from_xyz_rpy(x=-params.x_pre_grasp_offset_m, 
+                                          y=-params.y_pre_grasp_offset_m,
+                                          z=-params.z_pre_grasp_offset_m)  # Pregrasp w.r.t. grasp
     pose_b_pregrasp = pose_b_g @ pose_g_pregrasp
 
     manipulator.execute_motion_plan(pose_b_pregrasp, params.body_frame_name)
@@ -58,16 +110,12 @@ def execute_pick(manipulator: Manipulator, params: PickParameters) -> None:
 
     # Post-grasp trajectory
     pose_w_g = TransformManager.convert_to_frame(pose_b_g, DEFAULT_FRAME)
-    pose_w_postgrasp = pose_w_g @ Pose3D.from_xyz_rpy(z=params.post_grasp_lift_m)
+    pose_w_postgrasp = pose_w_g @ Pose3D.from_xyz_rpy(x=-params.x_post_grasp_lift_m,
+                                                      y=-params.y_post_grasp_lift_m,
+                                                      z=-params.z_post_grasp_lift_m)
 
     manipulator.execute_motion_plan(pose_w_postgrasp, params.body_frame_name)
 
-
-SPOT_PICK_CUP = PickParameters(
-    pose_o_g=Pose3D.from_xyz_rpy(x=-0.2, y=0.03, z=0.07, roll_rad=1.5708, ref_frame="waterbottle"),
-    pre_grasp_offset_m=0.15,
-    post_grasp_lift_m=0.1,
-)
 
 Pickable = NewType("Pickable", str)
 
@@ -77,7 +125,12 @@ class SpotSkillsExecutor:
 
     def __init__(self) -> None:
         """Define skill parameters for each object."""
-        self.pick_params: dict[str, PickParameters] = {"waterbottle": SPOT_PICK_CUP}
+        self.pick_params: dict[str, PickParameters] = {"waterbottle": SPOT_PICK_CUP, 
+                                                       "cellphone": SPOT_PICK_ERASER}
+        
+        self.place_params: dict[str, [str]] = {"waterbottle": ["cup_pre_place", "cup_place_countertop"], 
+                                                "cellphone": ["eraser_pre_place", "eraser_place_desk"]}
+
         self.spot_arm = Manipulator(move_group="arm", base_link="body", grasping_group="gripper")
 
         self.ee_poses = Pose3D.load_named_poses(
@@ -87,9 +140,10 @@ class SpotSkillsExecutor:
         trigger_service("spot/unlock_arm")
         # trigger_service("spot/stow_arm")
         self._command_dictionary = {
-            "1": [self.look, "trash"],
-            "2": [self.look, "high"],
-            "3": [self.look, "medium"],
+            "0": [self.retract],
+            "1": [self.look, "trash", ["waterbottle", "cellphone"]],
+            "2": [self.look, "high",["waterbottle", "cellphone"]],
+            "3": [self.look, "medium",["waterbottle", "cellphone"]],
             "4": [self.move_spot_move_base, "kitchen"],
             "5": [self.move_spot_move_base, "garbagecan"],
             "6": [self.move_spot_move_base, "diningtable"],
@@ -102,13 +156,16 @@ class SpotSkillsExecutor:
             "13": [self.move_spot_move_base, "tvstand"],
             "14": [self.move_spot_move_base, "bed"],
             "15": [self.pick, "waterbottle"],
+            "16": [self.place, "waterbottle"],
+            "17": [self.pick, "cellphone"],
+            "18": [self.place, "cellphone"],
         }
 
     def pick(self, picked: Pickable) -> None:
         """Pick an object with the given name."""
         execute_pick(self.spot_arm, self.pick_params[picked])
 
-        carry_ee_pose = self.ee_poses.get("carry")
+        carry_ee_pose = self.ee_poses.get(self.pick_params[picked].carry_pose)
         if carry_ee_pose is None:
             rospy.logwarn("No 'carry' pose.")
             exit()
@@ -132,7 +189,7 @@ class SpotSkillsExecutor:
 
         found_objects = []
         for obj in missing_objects:
-            pose = TransformManager.lookup_transform(source_frame=obj, target_frame="body")
+            pose = TransformManager.lookup_transform(source_frame=obj, target_frame="body", timeout_s=0.3)
             if pose is not None:
                 found_objects.append(obj)
         if len(found_objects) == 0:
@@ -145,9 +202,15 @@ class SpotSkillsExecutor:
         #     GetRGBDPairs,
         # )
 
-    def place(self) -> None:
+    def retract(self) -> None:
+        self.spot_arm.close_gripper()
+        trigger_service("spot/stow_arm")
+
+
+    def place(self, object: Pickable) -> None:
         """Place an object."""
-        for ee in ["above_carry", "place_on_countertop"]:
+        # for ee in ["cup_pre_place", "cup_place_countertop"]:
+        for ee in self.place_params[object]:
             self.motion_plan_to_pose(ee)
 
         self.spot_arm.open_gripper()
@@ -196,6 +259,11 @@ class SpotSkillsExecutor:
             (12)move desk
             (13)move tvstand
             (14)move bed
+            (15)pick cup 
+            (16)place cup on countertop
+            (17)pick eraser 
+            (18)place eraser on desk
+
             (q) Exit.
             """)
 
