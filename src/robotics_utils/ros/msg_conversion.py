@@ -10,12 +10,16 @@ from geometry_msgs.msg import Quaternion as QuaternionMsg
 from moveit_msgs.msg import CollisionObject
 from sensor_msgs.msg import JointState
 from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
+from trajectory_msgs.msg import JointTrajectory
 
-from robotics_utils.collision_models import Box, CollisionModel, Cylinder, PrimitiveShape, Sphere
+from robotics_utils.collision_models import Box, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.kinematics import DEFAULT_FRAME, Configuration, Point3D, Pose3D, Quaternion
+from robotics_utils.motion_planning import Trajectory
 
 if TYPE_CHECKING:
     import trimesh
+
+    from robotics_utils.world_models.simulators import ObjectModel
 
 
 def point_to_msg(point: Point3D) -> Point:
@@ -169,26 +173,37 @@ def primitive_shape_to_msg(shape: PrimitiveShape) -> SolidPrimitive:
 
 
 def make_collision_object_msg(
-    object_name: str,
-    object_type: str,
-    object_pose: Pose3D,
-    collision_model: CollisionModel,
+    object_model: ObjectModel,
+    object_type: str | None = None,
 ) -> CollisionObject:
     """Construct a moveit_msgs/CollisionObject message using the given data."""
     msg = CollisionObject()
-    msg.header.frame_id = object_pose.ref_frame
-    msg.pose = pose_to_msg(object_pose)
+    msg.header.frame_id = object_model.pose.ref_frame
+    msg.pose = pose_to_msg(object_model.pose)
 
-    msg.id = object_name
-    msg.type.key = object_type  # Ignore 'db' field of message
+    msg.id = object_model.name
+    if object_type is not None:
+        msg.type.key = object_type  # Ignore 'db' field of message
 
-    msg.meshes = [trimesh_to_msg(mesh) for mesh in collision_model.meshes]
-    msg.mesh_poses = [Pose() for _ in collision_model.meshes]
+    identity_pose_msg = pose_to_msg(Pose3D.identity(ref_frame=object_model.name))
 
-    msg.primitives = [primitive_shape_to_msg(shape) for shape in collision_model.primitives]
+    msg.meshes = [trimesh_to_msg(mesh) for mesh in object_model.collision_model.meshes]
+    msg.mesh_poses = [identity_pose_msg] * len(msg.meshes)
+
+    msg.primitives = [primitive_shape_to_msg(ps) for ps in object_model.collision_model.primitives]
 
     # TODO: Frames used to be shifted to bottom of objects
-    msg.primitive_poses = [Pose() for _ in collision_model.primitives]
+    msg.primitive_poses = [identity_pose_msg] * len(msg.primitives)
 
     msg.operation = CollisionObject.ADD
     return msg
+
+
+def trajectory_to_msg(trajectory: Trajectory) -> JointTrajectory:
+    """Convert a trajectory of configurations into a trajectory_msgs/JointTrajectory message."""
+    raise NotImplementedError("Whoops!")  # TODO: Implement
+
+
+def trajectory_from_msg(msg: JointTrajectory) -> Trajectory:
+    """Construct a Trajectory from a trajectory_msgs/JointTrajectory message."""
+    raise NotImplementedError("Whoops!")  # TODO: Implement

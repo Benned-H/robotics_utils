@@ -84,7 +84,7 @@ class FiducialTracker:
 
         :return: ROS message conveying whether the export succeeded
         """
-        yaml_path = get_ros_param("~yaml_output_path", Path)
+        yaml_path = get_ros_param("~output_yaml_path", Path)
         if yaml_path.suffix not in {".yaml", ".yml"}:
             return TriggerResponse(success=False, message=f"Invalid YAML file suffix: {yaml_path}")
 
