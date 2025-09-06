@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class MoveItManipulator(Manipulator):
     """A MoveIt-based interface for a robot manipulator."""
 
-    def __init__(self, name: str, base_frame: str, gripper: AngularGripper) -> None:
+    def __init__(self, name: str, base_frame: str, gripper: AngularGripper | None) -> None:
         """Initialize the manipulator with its base frame and gripper.
 
         :param name: Name of the manipulator (used as its move group name)
@@ -45,13 +45,13 @@ class MoveItManipulator(Manipulator):
         self._ik_solver = IK(self.base_frame, self._ee_link, urdf_string=robot_urdf)
 
     @property
-    def end_effector_link_name(self) -> str:
+    def ee_link_name(self) -> str:
         """Retrieve the name of the manipulator's end-effector link."""
         return self._ee_link
 
     @property
-    def joint_names(self) -> tuple[str]:
-        """Get the names of the active joints in the manipulator.
+    def joint_names(self) -> tuple[str, ...]:
+        """Retrieve the names of the joints in the manipulator in their canonical order.
 
         Verifies that MoveIt's move group and Trac-IK agree on the tuple of joint names.
         """
@@ -73,10 +73,6 @@ class MoveItManipulator(Manipulator):
         assert len(self.joint_names) == len(joint_values)
         return dict(zip(self.joint_names, joint_values))
 
-    def convert_to_base_frame(self, pose: Pose3D) -> Pose3D:
-        """Convert the given pose into the manipulator's base frame."""
-        return TransformManager.convert_to_frame(pose, self.base_frame)
-
     def execute_motion_plan(self, trajectory: Trajectory) -> None:
         """Execute the given trajectory using the manipulator."""
         trajectory_msg = trajectory_to_msg(trajectory)
@@ -91,7 +87,7 @@ class MoveItManipulator(Manipulator):
         :param ee_target: Target pose of the end-effector
         :return: Manipulator configuration solving the IK problem (else None)
         """
-        target_b_ee = self.convert_to_base_frame(ee_target)  # End-effector w.r.t. base frame
+        target_b_ee = TransformManager.convert_to_frame(ee_target, self.base_frame)
 
         ik_solution = self._ik_solver.get_ik(
             self.joint_values,

@@ -12,13 +12,14 @@ from sensor_msgs.msg import JointState
 from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
 from trajectory_msgs.msg import JointTrajectory
 
-from robotics_utils.collision_models import Box, CollisionModel, Cylinder, PrimitiveShape, Sphere
+from robotics_utils.collision_models import Box, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.kinematics import DEFAULT_FRAME, Configuration, Point3D, Pose3D, Quaternion
 from robotics_utils.motion_planning import Trajectory
-from robotics_utils.world_models.simulators import ObjectModel
 
 if TYPE_CHECKING:
     import trimesh
+
+    from robotics_utils.world_models.simulators import ObjectModel
 
 
 def point_to_msg(point: Point3D) -> Point:
@@ -184,13 +185,15 @@ def make_collision_object_msg(
     if object_type is not None:
         msg.type.key = object_type  # Ignore 'db' field of message
 
+    identity_pose_msg = pose_to_msg(Pose3D.identity(ref_frame=object_model.name))
+
     msg.meshes = [trimesh_to_msg(mesh) for mesh in object_model.collision_model.meshes]
-    msg.mesh_poses = [Pose() for _ in object_model.collision_model.meshes]
+    msg.mesh_poses = [identity_pose_msg] * len(msg.meshes)
 
     msg.primitives = [primitive_shape_to_msg(ps) for ps in object_model.collision_model.primitives]
 
     # TODO: Frames used to be shifted to bottom of objects
-    msg.primitive_poses = [Pose() for _ in msg.primitives]
+    msg.primitive_poses = [identity_pose_msg] * len(msg.primitives)
 
     msg.operation = CollisionObject.ADD
     return msg

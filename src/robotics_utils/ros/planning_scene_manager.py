@@ -18,16 +18,18 @@ if TYPE_CHECKING:
     from robotics_utils.collision_models.collision_model import CollisionModel
     from robotics_utils.kinematics.kinematic_tree import KinematicTree
     from robotics_utils.kinematics.poses import Pose3D
-    from robotics_utils.ros.robots.manipulator import Manipulator
+    from robotics_utils.robots.manipulator import Manipulator
 
 
 class PlanningSceneManager(Simulator):
     """A manager to update the state of the MoveIt planning scene."""
 
-    def __init__(self) -> None:
+    def __init__(self, body_frame: str) -> None:
         """Initialize the manager's interface with the MoveIt planning scene."""
         self.planning_scene = PlanningSceneInterface()
         rospy.sleep(3)  # Allow time for the scene to initialize
+
+        self.body_frame = body_frame
 
         self._added_objects: set[str] = set()
         """Names of all objects added to the planning scene (doesn't count hidden objects)."""
@@ -45,7 +47,7 @@ class PlanningSceneManager(Simulator):
         :return: True if the object was successfully added, else False
         """
         TransformManager.broadcast_transform(obj_model.name, obj_model.pose)
-        pose_b_o = TransformManager.convert_to_frame(obj_model.pose, "body")  # Object w.r.t. body
+        pose_b_o = TransformManager.convert_to_frame(obj_model.pose, self.body_frame)
 
         collision_obj_msg = make_collision_object_msg(obj_model)
         collision_obj_msg.pose = pose_to_msg(pose_b_o)  # Ensure that the pose is in body frame
@@ -110,17 +112,31 @@ class PlanningSceneManager(Simulator):
 
         return self.add_object_msg(object_msg)
 
-    def hide_all_objects(self) -> None:
-        """Hide all objects in the planning scene for the purposes of collision checking."""
-        objects_to_hide = self._added_objects.copy()
-        for obj_name in objects_to_hide:
-            self.hide_object(obj_name)
+    def hide_all_objects(self) -> bool:
+        """Hide all objects in the planning scene for the purposes of collision checking.
 
-    def unhide_all_objects(self) -> None:
-        """Unhide all objects for the purposes of collision checking."""
-        objects_to_hide = self._hidden_objects.copy()
+        :return: True if all objects were successfully hidden, else False
+        """
+        objects_to_hide = self._added_objects.copy()
+        all_hidden = True  # Have all objects succeeded so far?
         for obj_name in objects_to_hide:
-            self.unhide_object(obj_name)
+            hidden = self.hide_object(obj_name)
+            all_hidden = all_hidden and hidden
+
+        return all_hidden
+
+    def unhide_all_objects(self) -> bool:
+        """Unhide all objects for the purposes of collision checking.
+
+        :return: True if all objects were successfully unhidden, else False
+        """
+        objects_to_unhide = self._hidden_objects.copy()
+        all_unhidden = True  # Have all objects succeeded so far?
+        for obj_name in objects_to_unhide:
+            unhidden = self.unhide_object(obj_name)
+            all_unhidden = all_unhidden and unhidden
+
+        return all_unhidden
 
     def get_attached_objects(self, robot_name: str) -> set[str]:
         """Retrieve the names of objects attached to the named robot (defaults to empty set)."""
@@ -133,7 +149,7 @@ class PlanningSceneManager(Simulator):
 
     def set_object_pose(self, obj_name: str, new_pose: Pose3D) -> None:
         """Update the pose of the named object in the MoveIt planning scene."""
-        new_pose_b_o = TransformManager.convert_to_frame(new_pose, "body")  # New pose w.r.t. body
+        new_pose_b_o = TransformManager.convert_to_frame(new_pose, self.body_frame)
 
         move_object_msg = CollisionObject()
         move_object_msg.id = obj_name
@@ -154,8 +170,8 @@ class PlanningSceneManager(Simulator):
     def synchronize_state(self, tree: KinematicTree, attempts_per_obj: int = 3) -> None:
         """Update the MoveIt planning scene to reflect the given environment state."""
         for object_model in tree.object_models.values():
-            attempts_left = attempts_per_obj
             object_added = self.add_object(object_model)
+            attempts_left = attempts_per_obj - 1
 
             while (attempts_left > 0) and not object_added:
                 object_added = self.add_object(object_model)
@@ -223,8 +239,12 @@ class PlanningSceneManager(Simulator):
 
     def grasp_object(self, object_name: str, robot_name: str, manipulator: Manipulator) -> bool:
         """Grasp the named object using the named robot's specified manipulator."""
-        ee_link = manipulator.ee_link
-        gripper_links = manipulator.gripper.links
+        if manipulator.gripper is None:
+            rospy.logerr(f"Cannot grasp without a gripper on manipulator '{manipulator.name}'.")
+            return False
+
+        ee_link = manipulator.ee_link_name
+        gripper_links = manipulator.gripper.link_names
 
         self.planning_scene.attach_object(object_name, link=ee_link, touch_links=gripper_links)
         is_attached = self.wait_until_object_attached(object_name)
@@ -240,7 +260,7 @@ class PlanningSceneManager(Simulator):
             rospy.logwarn(f"Cannot release unattached object '{object_name}' with '{robot_name}'.")
             return False
 
-        self.planning_scene.remove_attached_object(link=manipulator.ee_link, name=object_name)
+        self.planning_scene.remove_attached_object(link=manipulator.ee_link_name, name=object_name)
         is_detached = self.wait_until_object_detached(object_name)
 
         if is_detached:

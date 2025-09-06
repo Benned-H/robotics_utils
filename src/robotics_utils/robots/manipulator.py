@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class Manipulator(ABC):
     """An interface for a robot manipulator."""
 
-    def __init__(self, name: str, base_frame: str, gripper: AngularGripper) -> None:
+    def __init__(self, name: str, base_frame: str, gripper: AngularGripper | None) -> None:
         """Initialize the manipulator with its base frame and gripper."""
         self.name = name
         self.base_frame = base_frame
@@ -22,8 +22,14 @@ class Manipulator(ABC):
 
     @property
     @abstractmethod
-    def end_effector_link_name(self) -> str:
+    def ee_link_name(self) -> str:
         """Retrieve the name of the manipulator's end-effector link."""
+        ...
+
+    @property
+    @abstractmethod
+    def joint_names(self) -> tuple[str, ...]:
+        """Retrieve the names of the joints in the manipulator in their canonical order."""
         ...
 
     @property
@@ -35,12 +41,7 @@ class Manipulator(ABC):
     @property
     def joint_values(self) -> tuple[float, ...]:
         """Retrieve the current joint values of the manipulator in their canonical order."""
-        return tuple(self.configuration.values())
-
-    @abstractmethod
-    def convert_to_base_frame(self, pose: Pose3D) -> Pose3D:
-        """Convert the given pose into the manipulator's base frame."""
-        ...
+        return tuple(self.configuration[joint_name] for joint_name in self.joint_names)
 
     @abstractmethod
     def execute_motion_plan(self, trajectory: Trajectory) -> None:

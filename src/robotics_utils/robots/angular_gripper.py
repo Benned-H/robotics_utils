@@ -24,6 +24,12 @@ class AngularGripper(ABC):
         """Initialize the angular gripper with its joint limits."""
         self.joint_limits = limits
 
+    @property
+    @abstractmethod
+    def link_names(self) -> list[str]:
+        """Retrieve the names of the links in the gripper."""
+        ...
+
     @abstractmethod
     def move_to_angle_rad(self, target_rad: float, timeout_s: float) -> None:
         """Move the gripper to a target angle (radians).
@@ -31,12 +37,6 @@ class AngularGripper(ABC):
         :param target_rad: Target angle (radians) for the gripper
         :param timeout_s: Duration (seconds) after which the motion is abandoned
         """
-        ...
-
-    @property
-    @abstractmethod
-    def link_names(self) -> list[str]:
-        """Retrieve the names of the links in the gripper."""
         ...
 
     def open(self, timeout_s: float = 10.0) -> None:

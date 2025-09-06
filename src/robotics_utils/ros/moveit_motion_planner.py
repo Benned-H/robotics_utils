@@ -10,6 +10,7 @@ from moveit_msgs.msg import MoveItErrorCodes, RobotTrajectory
 from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros.msg_conversion import pose_to_stamped_msg, trajectory_from_msg
 from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
+from robotics_utils.ros.transform_manager import TransformManager as TFManager
 
 if TYPE_CHECKING:
     from robotics_utils.motion_planning import MotionPlanningQuery, Trajectory
@@ -24,7 +25,7 @@ class MoveItMotionPlanner:
     def __init__(self, manipulator: MoveItManipulator) -> None:
         """Initialize the motion planner with the manipulator it will plan for."""
         self._manipulator = manipulator
-        self._planning_scene = PlanningSceneManager()
+        self._planning_scene = PlanningSceneManager(manipulator.base_frame)
 
     def compute_motion_plan(self, query: MotionPlanningQuery) -> Trajectory | None:
         """Compute a motion plan (i.e., trajectory) for the given planning query.
@@ -40,8 +41,8 @@ class MoveItMotionPlanner:
                     rospy.loginfo(f"Failed to hide object '{object_to_ignore}' in planning scene.")
 
         if isinstance(query.ee_target, Pose3D):
-            target_pose_b_ee = self._manipulator.convert_to_base_frame(query.ee_target)
-            ee_target_msg = pose_to_stamped_msg(target_pose_b_ee)
+            target_b_ee = TFManager.convert_to_frame(query.ee_target, self._manipulator.base_frame)
+            ee_target_msg = pose_to_stamped_msg(target_b_ee)
             self._manipulator.move_group.set_pose_target(ee_target_msg)
         elif isinstance(query.ee_target, dict):  # Configuration maps joint names to their positions
             self._manipulator.move_group.set_joint_value_target(query.ee_target)

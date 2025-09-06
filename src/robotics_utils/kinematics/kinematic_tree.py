@@ -232,16 +232,7 @@ class KinematicTree:
         """Open the named container and update the state accordingly."""
         if container_name not in self.container_models:
             raise KeyError(f"Cannot open unknown container: '{container_name}'.")
-
-        closed_container_aabb = self.get_collision_model(container_name).aabb
-        print(f"{container_name} closed AABB min_xyz: {closed_container_aabb.min_xyz}")
-        print(f"{container_name} closed AABB max_xyz: {closed_container_aabb.max_xyz}")
-
         self.container_models[container_name].open(self)
-
-        open_container_aabb = self.get_collision_model(container_name).aabb
-        print(f"{container_name} open AABB min_xyz: {open_container_aabb.min_xyz}")
-        print(f"{container_name} open AABB max_xyz: {open_container_aabb.max_xyz}")
 
     def close_container(self, container_name: str) -> None:
         """Close the named container and update the state accordingly."""

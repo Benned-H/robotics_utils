@@ -38,4 +38,4 @@ class RobotStatePublisher:
                 self._joint_state_pub.publish(joint_state_msg)
                 rate_hz.sleep()
         except rospy.ROSInterruptException as ros_exc:
-            rospy.logwarn(f"[RobotState._publish_state_loop] {ros_exc}")
+            rospy.logwarn(f"[RobotStatePublisher._publish_state_loop] {ros_exc}")
