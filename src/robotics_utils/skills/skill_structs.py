@@ -2,19 +2,6 @@
 
 from dataclasses import dataclass
 
-from robotics_utils.kinematics import Pose3D
-
-
-@dataclass(frozen=True)
-class GraspPose:
-    """An end-effector grasp pose w.r.t. a grasped object."""
-
-    pose_o_g: Pose3D
-    """End-effector grasp pose (frame g) w.r.t. the object (frame o)."""
-
-    ignore_collisions: bool
-    """Should collisions between the end-effector and the object be ignored? Default: True."""
-
 
 @dataclass(frozen=True)
 class PickParameters:

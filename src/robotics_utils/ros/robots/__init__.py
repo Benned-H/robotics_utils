@@ -1,5 +1,4 @@
 """Import class definitions for ROS-based robot interfaces."""
 
-from .gripper import Gripper as Gripper
-from .gripper import GripperJointLimits as GripperJointLimits
-from .manipulator import Manipulator as Manipulator
+from .moveit_manipulator import MoveItManipulator as MoveItManipulator
+from .ros_angular_gripper import ROSAngularGripper as ROSAngularGripper

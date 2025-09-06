@@ -10,9 +10,11 @@ from geometry_msgs.msg import Quaternion as QuaternionMsg
 from moveit_msgs.msg import CollisionObject
 from sensor_msgs.msg import JointState
 from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
+from trajectory_msgs.msg import JointTrajectory
 
 from robotics_utils.collision_models import Box, CollisionModel, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.kinematics import DEFAULT_FRAME, Configuration, Point3D, Pose3D, Quaternion
+from robotics_utils.motion_planning import Trajectory
 from robotics_utils.world_models.simulators import ObjectModel
 
 if TYPE_CHECKING:
@@ -192,3 +194,13 @@ def make_collision_object_msg(
 
     msg.operation = CollisionObject.ADD
     return msg
+
+
+def trajectory_to_msg(trajectory: Trajectory) -> JointTrajectory:
+    """Convert a trajectory of configurations into a trajectory_msgs/JointTrajectory message."""
+    raise NotImplementedError("Whoops!")  # TODO: Implement
+
+
+def trajectory_from_msg(msg: JointTrajectory) -> Trajectory:
+    """Construct a Trajectory from a trajectory_msgs/JointTrajectory message."""
+    raise NotImplementedError("Whoops!")  # TODO: Implement
