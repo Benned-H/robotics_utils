@@ -1,4 +1,4 @@
-"""Define dataclasses to represent motion planning queries."""
+"""Define a dataclass to represent motion planning queries."""
 
 from __future__ import annotations
 
