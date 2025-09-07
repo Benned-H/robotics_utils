@@ -10,11 +10,11 @@ from geometry_msgs.msg import Quaternion as QuaternionMsg
 from moveit_msgs.msg import CollisionObject
 from sensor_msgs.msg import JointState
 from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
-from trajectory_msgs.msg import JointTrajectory
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 from robotics_utils.collision_models import Box, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.kinematics import DEFAULT_FRAME, Configuration, Point3D, Pose3D, Quaternion
-from robotics_utils.motion_planning import Trajectory
+from robotics_utils.motion_planning import StampedConfiguration, Trajectory
 
 if TYPE_CHECKING:
     import trimesh
@@ -199,11 +199,34 @@ def make_collision_object_msg(
     return msg
 
 
+def stamped_config_to_msg(stamped_config: StampedConfiguration) -> JointTrajectoryPoint:
+    """Convert a time-stamped configuration into a trajectory_msgs/JointTrajectoryPoint message."""
+    msg = JointTrajectoryPoint()
+    msg.positions = [stamped_config.configuration[j] for j in stamped_config.joint_names]
+    msg.time_from_start = stamped_config.time_s
+    return msg
+
+
 def trajectory_to_msg(trajectory: Trajectory) -> JointTrajectory:
     """Convert a trajectory of configurations into a trajectory_msgs/JointTrajectory message."""
-    raise NotImplementedError("Whoops!")  # TODO: Implement
+    msg = JointTrajectory()
+    msg.joint_names = trajectory.joint_names
+    msg.points = [stamped_config_to_msg(sc) for sc in trajectory.points]
+    return msg
 
 
-def trajectory_from_msg(msg: JointTrajectory) -> Trajectory:
+def stamped_config_from_msg(
+    msg: JointTrajectoryPoint,
+    joint_names: list[str],
+) -> StampedConfiguration:
+    """Construct a StampedConfiguration from a trajectory_msgs/JointTrajectoryPoint message."""
+    return StampedConfiguration(
+        time_s=msg.time_from_start,
+        configuration=dict(zip(joint_names, msg.positions)),
+    )
+
+
+def trajectory_from_msg(traj_msg: JointTrajectory) -> Trajectory:
     """Construct a Trajectory from a trajectory_msgs/JointTrajectory message."""
-    raise NotImplementedError("Whoops!")  # TODO: Implement
+    joint_names = traj_msg.joint_names
+    return Trajectory([stamped_config_from_msg(p_msg, joint_names) for p_msg in traj_msg.points])

@@ -32,6 +32,11 @@ class StampedConfiguration:
 
     configuration: Configuration
 
+    @property
+    def joint_names(self) -> list[str]:
+        """Retrieve the list of joint names specified by the configuration."""
+        return list(self.configuration.keys())
+
 
 @dataclass
 class StampedPose3D:
@@ -48,6 +53,23 @@ class Trajectory:
     """A time-specified sequence of planned configurations."""
 
     points: list[StampedConfiguration]
+
+    def __post_init__(self) -> None:
+        """Verify properties expected of any valid trajectory."""
+        if not self.points:
+            return
+
+        # If not empty, all points in the trajectory should use the same joint names
+        j0_names = self.points[0].joint_names
+        for p in self.points[1:]:
+            jn_names = p.joint_names
+            if j0_names != jn_names:
+                raise ValueError(f"Trajectory points used joints: {j0_names} and {jn_names}.")
+
+    @property
+    def joint_names(self) -> list[str]:
+        """Retrieve the names of the joints specified by the trajectory."""
+        return [] if not self.points else self.points[0].joint_names
 
 
 @dataclass

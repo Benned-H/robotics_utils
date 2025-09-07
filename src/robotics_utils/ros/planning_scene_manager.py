@@ -10,6 +10,7 @@ import rospy
 from moveit_commander import PlanningSceneInterface
 from moveit_msgs.msg import CollisionObject
 
+from robotics_utils.motion_planning import MotionPlanningQuery
 from robotics_utils.ros.msg_conversion import make_collision_object_msg, pose_from_msg, pose_to_msg
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.world_models.simulators import ObjectModel, Simulator
@@ -137,6 +138,34 @@ class PlanningSceneManager(Simulator):
             all_unhidden = all_unhidden and unhidden
 
         return all_unhidden
+
+    def apply_query_ignores(self, query: MotionPlanningQuery) -> bool:
+        """Hide objects as indicated by the given motion planning query."""
+        if query.ignore_all_collisions:
+            return self.hide_all_objects()
+
+        if query.ignored_objects:
+            all_hidden = True
+            for obj_to_hide in query.ignored_objects:
+                hidden = self.hide_object(obj_to_hide)
+                all_hidden = all_hidden and hidden
+            return all_hidden
+
+        return True
+
+    def unapply_query_ignores(self, query: MotionPlanningQuery) -> bool:
+        """Unhide objects as indicated by the given motion planning query."""
+        if query.ignore_all_collisions:
+            return self.unhide_all_objects()
+
+        if query.ignored_objects:
+            all_unhidden = True
+            for obj_to_unhide in query.ignored_objects:
+                unhidden = self.unhide_object(obj_to_unhide)
+                all_unhidden = all_unhidden and unhidden
+            return all_unhidden
+
+        return True
 
     def get_attached_objects(self, robot_name: str) -> set[str]:
         """Retrieve the names of objects attached to the named robot (defaults to empty set)."""

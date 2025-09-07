@@ -9,12 +9,13 @@ from moveit_msgs.msg import MoveItErrorCodes, RobotTrajectory
 
 from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros.msg_conversion import pose_to_stamped_msg, trajectory_from_msg
-from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
 from robotics_utils.ros.transform_manager import TransformManager as TFManager
 
 if TYPE_CHECKING:
     from robotics_utils.motion_planning import MotionPlanningQuery, Trajectory
+    from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
     from robotics_utils.ros.robots import MoveItManipulator
+
 
 MoveItResult = Tuple[bool, RobotTrajectory, float, MoveItErrorCodes]
 
@@ -22,10 +23,14 @@ MoveItResult = Tuple[bool, RobotTrajectory, float, MoveItErrorCodes]
 class MoveItMotionPlanner:
     """An interface to compute motion plans using MoveIt."""
 
-    def __init__(self, manipulator: MoveItManipulator) -> None:
+    def __init__(
+        self,
+        manipulator: MoveItManipulator,
+        planning_scene: PlanningSceneManager,
+    ) -> None:
         """Initialize the motion planner with the manipulator it will plan for."""
         self._manipulator = manipulator
-        self._planning_scene = PlanningSceneManager(manipulator.base_frame)
+        self._planning_scene = planning_scene
 
     def compute_motion_plan(self, query: MotionPlanningQuery) -> Trajectory | None:
         """Compute a motion plan (i.e., trajectory) for the given planning query.
