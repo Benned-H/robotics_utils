@@ -12,7 +12,7 @@ from robotics_utils.ros.transform_manager import TransformManager
 
 @dataclass(frozen=True)
 class GoalReachedThresholds:
-    """Thresholds specifying when Spot is considered to have reached a goal pose."""
+    """Thresholds specifying when a robot is considered to have reached a goal pose."""
 
     distance_m: float  # Distance (meters) from the goal base pose
     abs_angle_rad: float  # Absolute angle (radians) from the yaw of the base pose
@@ -23,12 +23,12 @@ def check_reached_goal(
     thresholds: GoalReachedThresholds,
     pose_lookup_timeout_s: float = 5.0,
 ) -> bool:
-    """Check whether Spot is considered to have reached a goal pose.
+    """Check whether the robot is considered to have reached a goal pose.
 
-    :param target_pose_2d: Target base pose for Spot
-    :param thresholds: Thresholds specifying when Spot is considered to have reached a goal pose
+    :param target_pose_2d: Target base pose for a mobile robot
+    :param thresholds: Thresholds specifying when the robot is considered to have reached a goal pose
     :param pose_lookup_timeout_s: Duration (sec) after which pose lookup times out (defaults to 5)
-    :return: True if Spot is sufficiently close to the target pose, else False
+    :return: True if the robot is sufficiently close to the target pose, else False
     """
     pose_lookup_end_time = time.time() + pose_lookup_timeout_s
     target_frame = target_pose_2d.ref_frame
