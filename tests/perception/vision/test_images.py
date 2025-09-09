@@ -9,7 +9,7 @@ from hypothesis import given
 from .vision_strategies import images, pixels_xy
 
 if TYPE_CHECKING:
-    from robotics_utils.vision.images import Image, PixelXY
+    from robotics_utils.perception.vision import Image, PixelXY
 
 
 @given(images(), pixels_xy())

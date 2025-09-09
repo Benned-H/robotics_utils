@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 class PoseEstimateAverager:
-    """Aggregate noisy pose estimates per frame using a fixed-size sliding window."""
+    """Aggregate noisy pose estimates per reference frame using a fixed-size sliding window."""
 
     def __init__(self, window_size: int) -> None:
         """Initialize the pose averager with a maximum sliding window size."""

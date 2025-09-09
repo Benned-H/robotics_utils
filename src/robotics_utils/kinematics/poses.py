@@ -107,8 +107,7 @@ class Pose3D:
         :param other: 3D point treated as a homogeneous coordinate in the multiplication
         :return: Point3D resulting from the matrix multiplication
         """
-        pose_matrix = self.to_homogeneous_matrix()
-        result = pose_matrix @ other.to_homogeneous_coordinate()
+        result = self.to_homogeneous_matrix() @ other.to_homogeneous_coordinate()
         return Point3D.from_homogeneous_coordinate(result)
 
     @property

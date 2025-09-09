@@ -4,8 +4,7 @@ import hypothesis.strategies as st
 import numpy as np
 from hypothesis import given
 
-from robotics_utils.vision.bounding_box import BoundingBox
-from robotics_utils.vision.images import PixelXY, RGBImage
+from robotics_utils.perception.vision import BoundingBox, PixelXY, RGBImage
 
 from .vision_strategies import bounding_boxes, pixels_xy, rgb_images
 

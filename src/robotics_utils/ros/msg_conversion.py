@@ -182,13 +182,13 @@ def make_collision_object_msg(
     msg.id = object_name
     msg.type.key = object_type  # Ignore 'db' field of message
 
-    for mesh in collision_model.meshes:
-        msg.meshes.append(trimesh_to_msg(mesh))
-        msg.mesh_poses.append(Pose())
+    msg.meshes = [trimesh_to_msg(mesh) for mesh in collision_model.meshes]
+    msg.mesh_poses = [Pose() for _ in collision_model.meshes]
 
-    for shape in collision_model.primitives:
-        msg.primitives.append(primitive_shape_to_msg(shape))
-        msg.primitive_poses.append(Pose())  # TODO: Frames used to be shifted to bottom of objects
+    msg.primitives = [primitive_shape_to_msg(shape) for shape in collision_model.primitives]
+
+    # TODO: Frames used to be shifted to bottom of objects
+    msg.primitive_poses = [Pose() for _ in collision_model.primitives]
 
     msg.operation = CollisionObject.ADD
     return msg

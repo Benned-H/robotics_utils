@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from robotics_utils.kinematics import DEFAULT_FRAME, Point3D, Pose3D, Quaternion
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
-def average_positions(positions: Sequence[Point3D], weights: OptionalWeights = None) -> Point3D:
+
+def average_positions(positions: Sequence[Point3D], weights: Sequence[float] | None) -> Point3D:
     """Compute a weighted average of 3D positions.
 
     :param positions: Collection of (x,y,z) coordinates
-    :param weights: Optional sequence of per-position weights (defaults to uniform weighting)
+    :param weights: Optional sequence of per-position weights (None = uniform weighting)
     :return: Point3D result of the weighted average
     """
     if not positions:
@@ -31,14 +34,14 @@ def average_positions(positions: Sequence[Point3D], weights: OptionalWeights = N
     return Point3D.from_array(avg)
 
 
-def average_quaternions(qs: Sequence[Quaternion], weights: OptionalWeights = None) -> Quaternion:
+def average_quaternions(qs: Sequence[Quaternion], weights: Sequence[float] | None) -> Quaternion:
     """Compute a maximum-likelihood average of quaternions.
 
     Uses eigen-decomposition of the weighted sum of outer products.
         Reference: Method 2 from this answer: https://math.stackexchange.com/a/3435296/614782
 
     :param qs: Collection of unit quaternions representing 3D rotations
-    :param weights: Optional sequence of per-quaternion weights (defaults to uniform weighting)
+    :param weights: Optional sequence of per-quaternion weights (None = uniform weighting)
     :return: Quaternion result of the weighted average
     """
     if not qs:
@@ -53,7 +56,7 @@ def average_quaternions(qs: Sequence[Quaternion], weights: OptionalWeights = Non
 
     # Accumulate weighted outer products
     matrix = np.zeros((4, 4))
-    for q, w in zip(qs, weights):
+    for q, w in zip(qs, weights):  # Omit strict=True to support older Python versions
         v = q.to_array().reshape(4, 1)
         matrix += w * (v @ v.T)  # Sum of weighted outer products
 
@@ -64,7 +67,7 @@ def average_quaternions(qs: Sequence[Quaternion], weights: OptionalWeights = Non
     return Quaternion.from_array(principal)
 
 
-def average_poses(poses: Sequence[Pose3D], weights: OptionalWeights = None) -> Pose3D:
+def average_poses(poses: Sequence[Pose3D], weights: Sequence[float] | None = None) -> Pose3D:
     """Compute the weighted average of 3D poses.
 
     :param poses: Collection of poses in 3D space (must be non-empty)

@@ -15,20 +15,20 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class VisualFiducial:
-    """A visual fiducial marker used to support pose estimation."""
+class FiducialMarker:
+    """A visual fiducial marker used for pose estimation."""
 
     id: int  # Unique ID of the fiducial
     size_cm: float  # Size (centimeters) of one side of the marker's black square
     relative_frames: dict[str, Pose3D]  # Object frames w.r.t. the marker
 
     @classmethod
-    def from_yaml_data(cls, marker_name: str, data: dict[str, Any]) -> VisualFiducial:
-        """Construct a VisualFiducial instance from imported YAML data.
+    def from_yaml_data(cls, marker_name: str, data: dict[str, Any]) -> FiducialMarker:
+        """Construct a FiducialMarker instance from imported YAML data.
 
         :param marker_name: Name of the marker (e.g., "marker_123")
         :param data: Marker data imported from YAML
-        :return: Constructed VisualFiducial instance
+        :return: Constructed FiducialMarker instance
         """
         if not marker_name.startswith("marker_"):
             raise ValueError(f"Visual fiducial name '{marker_name}' doesn't start with 'marker_'.")
@@ -42,7 +42,7 @@ class VisualFiducial:
             relative_pose = Pose3D.from_yaml_data(pose_data, default_frame=marker_name)
             relative_frames[child_frame_name] = relative_pose
 
-        return VisualFiducial(id=marker_id, size_cm=size_cm, relative_frames=relative_frames)
+        return FiducialMarker(marker_id, size_cm, relative_frames)
 
     @property
     def frame_name(self) -> str:
@@ -51,60 +51,60 @@ class VisualFiducial:
 
 
 @dataclass(frozen=True)
-class FiducialDetector:
+class FiducialCamera:
     """A camera that detects visual fiducial markers."""
 
     name: str
-    recognized_sizes_cm: frozenset[float]  # Sizes of AR markers detected by the camera
+    recognized_sizes_cm: frozenset[float]  # Sizes (cm) of AR markers detected by the camera
 
     @classmethod
-    def from_yaml_data(cls, camera_name: str, camera_data: dict[str, Any]) -> FiducialDetector:
-        """Construct a FiducialDetector instance from imported YAML data.
+    def from_yaml_data(cls, camera_name: str, camera_data: dict[str, Any]) -> FiducialCamera:
+        """Construct a FiducialCamera instance from imported YAML data.
 
         :param camera_name: Name of the relevant camera
         :param camera_data: Camera data imported from YAML
-        :return: Constructed FiducialDetector instance
+        :return: Constructed FiducialCamera instance
         """
         for key in ["recognized_sizes_cm"]:
             if key not in camera_data:
                 raise KeyError(f"Expected key '{key}' in data for camera '{camera_name}'.")
 
-        return FiducialDetector(camera_name, frozenset(camera_data["recognized_sizes_cm"]))
+        return FiducialCamera(camera_name, frozenset(camera_data["recognized_sizes_cm"]))
 
-    def can_recognize(self, fiducial: VisualFiducial) -> bool:
+    def can_recognize(self, fiducial: FiducialMarker) -> bool:
         """Evaluate whether the camera, as configured, can recognize the given fiducial marker."""
         return any(isclose(fiducial.size_cm, size_cm) for size_cm in self.recognized_sizes_cm)
 
 
 @dataclass(frozen=True)
-class VisualFiducialSystem:
+class FiducialSystem:
     """A system of known visual fiducial markers and fiducial-detecting cameras."""
 
-    markers: dict[int, VisualFiducial]  # Map marker IDs to VisualFiducial instances
-    cameras: dict[str, FiducialDetector]  # Map camera names to FiducialDetector instances
+    markers: dict[int, FiducialMarker]  # Map marker IDs to FiducialMarker instances
+    cameras: dict[str, FiducialCamera]  # Map camera names to FiducialCamera instances
     camera_detects: dict[str, set[int]]  # Map camera names to markers they can detect
 
     @classmethod
-    def from_yaml(cls, yaml_path: Path) -> VisualFiducialSystem:
+    def from_yaml(cls, yaml_path: Path) -> FiducialSystem:
         """Load a system of visual fiducial markers and camera detectors from a YAML file."""
         yaml_data = load_yaml_data(yaml_path, required_keys={"markers", "cameras"})
 
-        fiducials = [
-            VisualFiducial.from_yaml_data(fiducial_name, data)
+        markers = [
+            FiducialMarker.from_yaml_data(fiducial_name, data)
             for fiducial_name, data in yaml_data["markers"].items()
         ]
 
-        detectors = {
-            FiducialDetector.from_yaml_data(camera_name, data)
+        cameras = {
+            FiducialCamera.from_yaml_data(camera_name, data)
             for camera_name, data in yaml_data["cameras"].items()
         }
 
         camera_detects_markers = {
-            c.name: {f.id for f in fiducials if c.can_recognize(f)} for c in detectors
+            c.name: {m.id for m in markers if c.can_recognize(m)} for c in cameras
         }
 
-        return VisualFiducialSystem(
-            markers={f.id: f for f in fiducials},
-            cameras={d.name: d for d in detectors},
+        return FiducialSystem(
+            markers={m.id: m for m in markers},
+            cameras={c.name: c for c in cameras},
             camera_detects=camera_detects_markers,
         )
