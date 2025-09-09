@@ -14,7 +14,7 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 from robotics_utils.collision_models import Box, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.kinematics import DEFAULT_FRAME, Configuration, Point3D, Pose3D, Quaternion
-from robotics_utils.motion_planning import StampedConfiguration, Trajectory
+from robotics_utils.motion_planning import Trajectory, TrajectoryPoint
 
 if TYPE_CHECKING:
     import trimesh
@@ -199,34 +199,37 @@ def make_collision_object_msg(
     return msg
 
 
-def stamped_config_to_msg(stamped_config: StampedConfiguration) -> JointTrajectoryPoint:
-    """Convert a time-stamped configuration into a trajectory_msgs/JointTrajectoryPoint message."""
+def trajectory_point_to_msg(point: TrajectoryPoint) -> JointTrajectoryPoint:
+    """Convert a trajectory point into a trajectory_msgs/JointTrajectoryPoint message."""
     msg = JointTrajectoryPoint()
-    msg.positions = [stamped_config.configuration[j] for j in stamped_config.joint_names]
-    msg.time_from_start = stamped_config.time_s
+    msg.positions = [point.position[j] for j in point.joint_names]
+    msg.velocities = [point.velocities[j] for j in point.joint_names]
+    msg.time_from_start = rospy.Duration.from_sec(point.time_s)
     return msg
 
 
 def trajectory_to_msg(trajectory: Trajectory) -> JointTrajectory:
-    """Convert a trajectory of configurations into a trajectory_msgs/JointTrajectory message."""
+    """Convert a trajectory of points into a trajectory_msgs/JointTrajectory message."""
     msg = JointTrajectory()
     msg.joint_names = trajectory.joint_names
-    msg.points = [stamped_config_to_msg(sc) for sc in trajectory.points]
+    msg.points = [trajectory_point_to_msg(p) for p in trajectory.points]
     return msg
 
 
-def stamped_config_from_msg(
+def trajectory_point_from_msg(
     msg: JointTrajectoryPoint,
     joint_names: list[str],
-) -> StampedConfiguration:
-    """Construct a StampedConfiguration from a trajectory_msgs/JointTrajectoryPoint message."""
-    return StampedConfiguration(
-        time_s=msg.time_from_start,
-        configuration=dict(zip(joint_names, msg.positions)),
+) -> TrajectoryPoint:
+    """Construct a TrajectoryPoint from a trajectory_msgs/JointTrajectoryPoint message."""
+    return TrajectoryPoint(
+        time_s=msg.time_from_start.to_sec(),
+        position=dict(zip(joint_names, msg.positions)),
+        velocities=dict(zip(joint_names, msg.velocities)),
     )
 
 
 def trajectory_from_msg(traj_msg: JointTrajectory) -> Trajectory:
     """Construct a Trajectory from a trajectory_msgs/JointTrajectory message."""
     joint_names = traj_msg.joint_names
-    return Trajectory([stamped_config_from_msg(p_msg, joint_names) for p_msg in traj_msg.points])
+    traj_msg.points = traj_msg.points or []
+    return Trajectory([trajectory_point_from_msg(p_msg, joint_names) for p_msg in traj_msg.points])

@@ -37,11 +37,11 @@ class ROSAngularGripper(AngularGripper):
         """Retrieve the names of the links in the gripper."""
         return list(self._robot_commander.get_link_names(group=self.grasping_group))
 
-    def move_to_angle_rad(self, target_rad: float, timeout_s: float) -> None:
+    def move_to_angle_rad(self, target_rad: float, timeout_s: float = 10.0) -> None:
         """Move the gripper to a target angle (radians).
 
         :param target_rad: Target angle (radians) for the gripper
-        :param timeout_s: Duration (seconds) after which the motion is abandoned
+        :param timeout_s: Duration (seconds) after which the motion is abandoned (defaults to 10)
         """
         goal_msg = GripperCommandGoal()
         goal_msg.command.position = target_rad

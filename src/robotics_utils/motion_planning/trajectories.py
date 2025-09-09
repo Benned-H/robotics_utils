@@ -24,18 +24,19 @@ class CartesianPath:
 
 
 @dataclass
-class StampedConfiguration:
-    """A time-stamped configuration in a trajectory."""
+class TrajectoryPoint:
+    """A time-stamped joint state in a trajectory."""
 
     time_s: float
     """Time (seconds) since the trajectory started."""
 
-    configuration: Configuration
+    position: Configuration
+    velocities: Configuration
 
     @property
     def joint_names(self) -> list[str]:
-        """Retrieve the list of joint names specified by the configuration."""
-        return list(self.configuration.keys())
+        """Retrieve the list of joint names specified by the position."""
+        return list(self.position.keys())
 
 
 @dataclass
@@ -50,9 +51,9 @@ class StampedPose3D:
 
 @dataclass
 class Trajectory:
-    """A time-specified sequence of planned configurations."""
+    """A time-specified dynamic sequence of planned configurations."""
 
-    points: list[StampedConfiguration]
+    points: list[TrajectoryPoint]
 
     def __post_init__(self) -> None:
         """Verify properties expected of any valid trajectory."""

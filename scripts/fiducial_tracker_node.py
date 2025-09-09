@@ -4,6 +4,7 @@ from pathlib import Path
 
 import rospy
 
+from robotics_utils.kinematics import Pose3D
 from robotics_utils.perception.pose_estimation import FiducialSystem
 from robotics_utils.ros.fiducial_tracker import FiducialTracker
 from robotics_utils.ros.params import get_ros_param
@@ -21,7 +22,11 @@ def main() -> None:
 
     topic_prefix = get_ros_param("~marker_topic_prefix", str)
 
-    _ = FiducialTracker(fiducial_system, topic_prefix, window_size=10)
+    # Check for a YAML file specifying objects/frames with known, fixed poses
+    known_poses_yaml_path = get_ros_param("~known_poses_yaml_path", Path)
+    known_poses = Pose3D.load_named_poses(known_poses_yaml_path, collection_name="known_poses")
+
+    _ = FiducialTracker(fiducial_system, topic_prefix, 10, known_poses)
     rospy.spin()
 
 

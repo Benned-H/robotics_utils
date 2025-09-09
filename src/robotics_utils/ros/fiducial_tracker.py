@@ -1,5 +1,7 @@
 """Define a class to manage visual fiducial detections and dependent object poses."""
 
+from __future__ import annotations
+
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,7 +12,7 @@ from ar_track_alvar_msgs.msg import AlvarMarkers
 from pose_estimation_msgs.msg import PoseEstimate
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
-from robotics_utils.kinematics import DEFAULT_FRAME
+from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D
 from robotics_utils.perception.pose_estimation import FiducialSystem, PoseEstimateAverager
 from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
 from robotics_utils.ros.params import get_ros_param
@@ -27,15 +29,29 @@ class MarkersCallbackArgs:
 class FiducialTracker:
     """Track fiducial detections, aggregate their pose estimates, and republish averages."""
 
-    def __init__(self, system: FiducialSystem, prefix: str, window_size: int = 10) -> None:
+    def __init__(
+        self,
+        system: FiducialSystem,
+        prefix: str,
+        window_size: int = 10,
+        known_poses: dict[str, Pose3D] | None = None,
+    ) -> None:
         """Initialize the FiducialTracker for the given system of fiducials and cameras.
 
         :param system: System of known visual fiducials and cameras to detect them
         :param prefix: Prefix used for the tracker's ROS subscribers for marker data
         :param window_size: Size of the sliding window of poses used to compute pose averages
+        :param known_poses: Optional collection of known, fixed poses (defaults to None)
         """
         self.system = system
         self.pose_averager = PoseEstimateAverager(window_size)
+
+        if known_poses:
+            for frame_name, pose in known_poses.items():
+                self.pose_averager.update(frame_name, pose)
+                self.pose_averager.lock(frame_name)  # Prevent the stored pose from being updated
+
+        self.known_frames: set[str] = set(known_poses.keys()) if known_poses else set()
 
         self.marker_subs: list[rospy.Subscriber] = []
         for camera_name in self.system.cameras:
@@ -128,6 +144,12 @@ class FiducialTracker:
                             pose_estimate_msg.confidence = 0.0
 
                             self.pose_pub.publish(pose_estimate_msg)
+
+                # Ensure that all frames with known poses are also broadcast
+                for frame_name in self.known_frames:
+                    pose = self.pose_averager.get(frame_name)
+                    if pose is not None:
+                        TransformManager.broadcast_transform(frame_name, pose)
 
                 rate_hz.sleep()
 

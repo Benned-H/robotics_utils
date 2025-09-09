@@ -20,6 +20,9 @@ class PoseEstimateAverager:
         self._estimates: dict[str, deque[Pose3D]] = defaultdict(lambda: deque(maxlen=window_size))
         self._averages: dict[str, Pose3D | None] = {}
 
+        self._locked: set[str] = set()
+        """Names of frames whose estimates have been 'locked' as their current value."""
+
     @property
     def all_stored_estimates(self) -> dict[str, list[Pose3D]]:
         """Retrieve a read-only map of each frame name to its currently stored pose estimates."""
@@ -36,6 +39,9 @@ class PoseEstimateAverager:
         :param frame_name: Identifier of the relevant reference frame
         :param pose: New noisy pose estimate
         """
+        if frame_name in self._locked:
+            return
+
         self._estimates[frame_name].append(pose)
         self._averages.pop(frame_name, None)  # Clear the cached average for this frame
 
@@ -52,11 +58,16 @@ class PoseEstimateAverager:
         self._averages[frame_name] = average_poses(poses) if poses else None
         return self._averages[frame_name]
 
+    def lock(self, frame_name: str) -> None:
+        """Lock the named frame's estimate as its current value (it will ignore future updates)."""
+        self._locked.add(frame_name)
+
     def compute_all_averages(self) -> dict[str, Pose3D | None]:
         """Compute and return a map from each frame name to its averaged pose estimate."""
         return {frame: self.get(frame) for frame in self._estimates}
 
     def reset(self) -> None:
-        """Clear all stored pose estimates and cached averages."""
+        """Clear all stored pose estimates, cached averages, and locked frames."""
         self._estimates.clear()
         self._averages.clear()
+        self._locked.clear()
