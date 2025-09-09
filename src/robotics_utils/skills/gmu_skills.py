@@ -84,6 +84,14 @@ SPOT_PICK_ERASER = PickParameters(
     carry_pose="horiz_carry"
 )
 
+def execute_look(manipulator: Manipulator, lookpose) -> None:
+    manipulator.execute_motion_plan(lookpose, "body")
+    manipulator.open_gripper()
+
+    # Take photo!
+    time.sleep(2)
+
+    return
 
 
 
@@ -132,17 +140,36 @@ class SpotSkillsExecutor:
                                                 "cellphone": ["eraser_pre_place", "eraser_place_desk"]}
 
         self.spot_arm = Manipulator(move_group="arm", base_link="body", grasping_group="gripper")
+        self.looking = True
+        self.robot_location = "robot_start_pose"
 
         self.ee_poses = Pose3D.load_named_poses(
             Path("/resources/apriltags/ee_poses.yaml"),
             "ee_poses",
         )
+
+        self.look_container_dict = {"kitchen" : "high",
+                                    "garbagecan" : "trash",
+                                    "diningtable" : "high",
+                                    "fridge" : "higher",
+                                    "countertop" : "high",
+                                    "sink" : "medium",
+                                    "bedroom" : "high",
+                                    "couch" : "high",
+                                    "desk" : "high",
+                                    "tvstand" : "high",
+                                    "bed" : "high",
+                                    "robot_start_pose": "high", #This is an explicitly bad solution to the planner calling look and not knowing where the robot is
+                                    }
+
         trigger_service("spot/unlock_arm")
         # trigger_service("spot/stow_arm")
         self._command_dictionary = {
             "0": [self.retract],
+            "l": [self.look],
             "1": [self.look, "trash", ["waterbottle", "cellphone"]],
             "2": [self.look, "high",["waterbottle", "cellphone"]],
+            "2a": [self.look, "higher",["waterbottle", "cellphone"]],
             "3": [self.look, "medium",["waterbottle", "cellphone"]],
             "4": [self.move_spot_move_base, "kitchen"],
             "5": [self.move_spot_move_base, "garbagecan"],
@@ -163,6 +190,14 @@ class SpotSkillsExecutor:
 
     def pick(self, picked: Pickable) -> None:
         """Pick an object with the given name."""
+        
+        if not self.looking:
+            height = self.look_container_dict[self.robot_location]
+            look_ee_pose = self.ee_poses.get(height) #picked objects (in this demo) are always seen from this pose
+            pose_b_look = TransformManager.convert_to_frame(look_ee_pose, "body")
+            execute_look(manipulator=self.spot_arm, lookpose=pose_b_look)
+
+        self.looking = False
         execute_pick(self.spot_arm, self.pick_params[picked])
 
         carry_ee_pose = self.ee_poses.get(self.pick_params[picked].carry_pose)
@@ -172,29 +207,28 @@ class SpotSkillsExecutor:
 
         self.spot_arm.execute_motion_plan(carry_ee_pose, "body")
 
-    def look(self, height: str = "high", missing_objects: list = []) -> list[str]:
+    def look(self, height: str = "auto", missing_objects: list = []) -> list[str]:
         """Look into a container of the given height."""
+        if height == "auto":
+            print("----------looking at:---------")
+            print(self.robot_location)
+            height = self.look_container_dict[self.robot_location]
         look_ee_pose = self.ee_poses.get(height)
         if look_ee_pose is None:
             rospy.logwarn(f"Height '{height}' had no corresponding 'Look' pose.")
             exit()
 
         pose_b_look = TransformManager.convert_to_frame(look_ee_pose, "body")
-        self.spot_arm.execute_motion_plan(pose_b_look, "body")
-
-        self.spot_arm.open_gripper()
-
-        # Take photo!
-        time.sleep(3)
+        execute_look(manipulator=self.spot_arm, lookpose=pose_b_look)
+        self.looking=True
 
         found_objects = []
         for obj in missing_objects:
             pose = TransformManager.lookup_transform(source_frame=obj, target_frame="body", timeout_s=0.3)
             if pose is not None:
                 found_objects.append(obj)
-        if len(found_objects) == 0:
-            self.spot_arm.close_gripper()
-            trigger_service("spot/stow_arm")
+        # if len(found_objects) == 0:
+        # self.retract()
         return found_objects
 
         # rgbd_getter = ServiceCaller[GetRGBDPairsRequest, GetRGBDPairsResponse](
@@ -203,8 +237,10 @@ class SpotSkillsExecutor:
         # )
 
     def retract(self) -> None:
-        self.spot_arm.close_gripper()
         trigger_service("spot/stow_arm")
+        self.spot_arm.close_gripper()
+
+        self.looking = False
 
 
     def place(self, object: Pickable) -> None:
@@ -214,8 +250,7 @@ class SpotSkillsExecutor:
             self.motion_plan_to_pose(ee)
 
         self.spot_arm.open_gripper()
-        trigger_service("spot/stow_arm")
-        self.spot_arm.close_gripper()
+        self.retract()
 
     def motion_plan_to_pose(self, ee_pose_name: str) -> None:
         """Motion plan to a pre-defined end effector pose."""
@@ -232,10 +267,18 @@ class SpotSkillsExecutor:
         :param container_name: _description_
         :return: _description_
         """
+        if self.looking:
+            self.retract()
+            time.sleep(1)
+
+
         rospy.wait_for_service("/spot/navigation/to_waypoint")
+        self.robot_location = container_name
+
         try:
             move_to_waypoint = rospy.ServiceProxy("/spot/navigation/to_waypoint", NameService)
             response = move_to_waypoint(name=container_name)
+            self.robot_location = container_name
             return response.success
         except rospy.ServiceException as e:
             rospy.logerr("Failed to call /spot/navigation/to_waypoint: %s", e)
@@ -245,6 +288,7 @@ class SpotSkillsExecutor:
         while True:
             print("""
             Options:
+            (l)auto-look
             (1)look trash
             (2)look high
             (3)look medium
