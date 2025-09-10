@@ -74,10 +74,10 @@ class TrajectoryReplayer:
         :param yaml_path: Path to a YAML file to be imported
         :return: Imported relative trajectory as a list of 3D poses
         """
-        yaml_data: list[dict] = load_yaml_data(yaml_path)
+        poses_data: list[dict] = load_yaml_data(yaml_path, {"transforms"})["transforms"]
 
         # These poses track the end-effector frame relative to its initial pose
-        relative_poses = [Pose3D.from_yaml_data(pose_dict) for pose_dict in yaml_data]
+        relative_poses = [Pose3D.from_yaml_data(pose_dict) for pose_dict in poses_data]
 
         curr_pose_b_ee = self.get_end_effector_pose()
         if curr_pose_b_ee is None:
