@@ -97,7 +97,7 @@ class TrajectoryReplayer:
         (plan, fraction) = self.move_group.compute_cartesian_path(
             waypoints,
             eef_step=self.config.ee_step_resolution_m,
-            avoid_collisions=True,
+            avoid_collisions=False,
         )
 
         # Display the generated trajectory in RViz

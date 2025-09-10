@@ -7,20 +7,12 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from robotics_utils.io.logging import log_info
+from robotics_utils.world_models.simulators import ObjectModel
 
 if TYPE_CHECKING:
     from robotics_utils.collision_models import CollisionModel
     from robotics_utils.kinematics import Pose3D
     from robotics_utils.kinematics.kinematic_tree import KinematicTree
-
-
-@dataclass(frozen=True)
-class ObjectModel:
-    """A physical object in the environment."""
-
-    name: str
-    pose: Pose3D
-    collision_model: CollisionModel
 
 
 class ContainerState(Enum):

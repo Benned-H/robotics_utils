@@ -5,6 +5,7 @@ from pathlib import Path
 
 import rospy
 
+from robotics_utils.ros.robots.manipulator import Manipulator
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.ros.transform_recorder import TransformRecorder
 
@@ -19,6 +20,9 @@ def record(output_path: Path, overwrite: bool, reference_frame: str, tracked_fra
 
     TransformManager.init_node("tf_transform_recorder")
 
+    arm = Manipulator(move_group="arm", base_link="body", gripper=None)
+    config_before = arm.get_configuration()
+
     recorder = TransformRecorder(reference_frame, tracked_frame)
 
     rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
@@ -29,7 +33,8 @@ def record(output_path: Path, overwrite: bool, reference_frame: str, tracked_fra
     except rospy.ROSInterruptException:
         pass
     finally:
-        recorder.save_to_file(output_path)
+        config_after = arm.get_configuration()
+        recorder.save_to_file(output_path, config_before, config_after)
 
 
 if __name__ == "__main__":

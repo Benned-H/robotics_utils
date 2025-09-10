@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 import rospy
@@ -92,7 +93,6 @@ class TransformManager:
         """Look up the transform to convert from one frame to another using /tf.
 
         Frame notation: Relative pose of some data (d), source frame (s), target frame (t).
-
         Say our input data originates in the source frame: pose_s_d ("data w.r.t. source frame").
         This function outputs transform_t_s ("source relative to target"), which lets us compute:
 
@@ -147,13 +147,18 @@ class TransformManager:
         return pose_t_s
 
     @staticmethod
-    def convert_to_frame(pose_c_p: Pose3D | Pose2D, target_frame: str) -> Pose3D:
+    def convert_to_frame(
+        pose_c_p: Pose3D | Pose2D,
+        target_frame: str,
+        timeout_s: float = 5.0,
+    ) -> Pose3D:
         """Convert the given pose into the target reference frame.
 
         Frames: Frame implied by the pose (p), current ref. frame (c), target ref. frame (t)
 
         :param pose_c_p: Pose (frame p) w.r.t. its current reference frame (frame c)
         :param target_frame: Target reference frame (frame t) of the output pose
+        :param timeout_s: Duration (seconds) after which the conversion times out (defaults to 5 s)
         :return: Pose3D relative to the target reference frame (i.e., pose_t_p)
         """
         if isinstance(pose_c_p, Pose2D):
@@ -163,7 +168,11 @@ class TransformManager:
         if current_frame == target_frame:
             return pose_c_p
 
-        pose_t_c = TransformManager.lookup_transform(current_frame, target_frame, None, 10.0)
+        pose_t_c = None
+        end_time = time.time() + timeout_s
+        while pose_t_c is None and time.time() < end_time:
+            pose_t_c = TransformManager.lookup_transform(current_frame, target_frame, timeout_s=1)
+
         if pose_t_c is None:
             raise RuntimeError(f"Lookup from frame '{current_frame}' to '{target_frame}' failed")
 
