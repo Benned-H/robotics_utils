@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
+
+StateT = TypeVar("StateT")
+"""Represents a low-level environment state."""
 
 if TYPE_CHECKING:
-    from robotics_utils.classical_planning.predicates import PredicateInstance
+    from robotics_utils.abstractions.predicates import Predicate, PredicateInstance
 
 
 @dataclass(frozen=True)
@@ -30,12 +33,24 @@ class AbstractState:
         return f"(and\n\t{all_facts}\n)"
 
 
-@dataclass(frozen=True)
-class GoalCondition:
-    """Specifies a desired abstract state of the world for a planning problem.
+class AbstractStateSpace(Generic[StateT]):
+    """An abstract state space specifies all possible predicate instances in the abstract state."""
 
-    TODO: Handle general first-order logic expressions as goal conditions.
-    """
+    def __init__(self, predicates: set[Predicate], objects: set[object]) -> None:
+        """Initialize the abstract state space using all valid groundings of the given predicates.
 
-    positive: set[PredicateInstance]  # Conditions that must be true
-    negative: set[PredicateInstance]  # Conditions that must be false
+        :param predicates: Set of predicates defining possible abstract relations between objects
+        :param objects: Collection of Python objects in the environment
+        """
+        self.possible_facts: set[PredicateInstance] = set()
+        for predicate in predicates:
+            all_instances = predicate.compute_all_groundings(objects)
+            self.possible_facts.update(all_instances)
+
+    def abstract(self, state: StateT) -> AbstractState:
+        """Compute the abstract state for the given low-level state.
+
+        :param state: Low-level state of the environment
+        :return: Computed abstract state (i.e., all facts that are true in the low-level state)
+        """
+        return AbstractState({fact for fact in self.possible_facts if fact.holds_in(state)})
