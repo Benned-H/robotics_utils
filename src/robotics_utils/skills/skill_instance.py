@@ -1,30 +1,42 @@
+"""Define a class to represent instantiations of object-parameterized skills."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Mapping
+
+if TYPE_CHECKING:
+    from robotics_utils.skills.skill import Skill
+    from robotics_utils.skills.skills_inventory import SkillsInventory, SkillsProtocol
+
+
 @dataclass(frozen=True)
 class SkillInstance:
-    """A skill instantiated using particular concrete objects."""
+    """A skill instantiated using particular concrete arguments."""
 
     skill: Skill
     """Specifies the skill instance's parameter signature."""
 
-    bindings: Bindings
-    """Maps each skill parameter name to the name of its bound object."""
+    bindings: dict[str, object]
+    """Maps each skill parameter name to its bound argument."""
 
     def __str__(self) -> str:
         """Return a readable string representation of the skill instance."""
-        args_string = ", ".join(self.bindings[p.name] for p in self.skill.parameters)
-        return f"{self.skill.name}({args_string})"
+        return f"{self.skill.name}({', '.join(map(str, self.arguments))})"
 
     @classmethod
     def from_string(
         cls,
         string: str,
         available_skills: SkillsInventory,
-        objects: Objects,
+        universe: Mapping[str, object],
     ) -> SkillInstance:
         """Construct a SkillInstance from the given string.
 
         :param string: String description of a skill instance
         :param available_skills: Inventory specifying the available skills
-        :param objects: Collection of all objects in the environment
+        :param universe: Maps object names to object instances in the domain of discourse
         :return: Constructed SkillInstance instance
         """
         match = re.match(r"^(\w+)\(([^)]*)\)$", string.strip())
@@ -37,28 +49,35 @@ class SkillInstance:
         skill = available_skills.skills[skill_name]
 
         args_string = match.group(2).strip()
-        args = [arg.strip() for arg in args_string.split(",")] if args_string else []
+        args_names = [arg.strip() for arg in args_string.split(",")] if args_string else []
 
-        if len(skill.parameters) != len(args):
+        if len(skill.parameters) != len(args_names):
             len_param = len(skill.parameters)
-            raise ValueError(f"Skill '{skill_name}' expects {len_param} args, not {len(args)}.")
+            raise ValueError(
+                f"Skill '{skill_name}' expects {len_param} args, not {len(args_names)}.",
+            )
 
-        bindings: Bindings = {}
-        for bound_object, param in zip(args, skill.parameters, strict=True):
-            if bound_object not in objects:
-                raise ValueError(f"Object '{bound_object}' not found in the environment.")
+        bindings: dict[str, object] = {}
+        for bound_arg_name, param in zip(args_names, skill.parameters, strict=True):
+            if bound_arg_name not in universe:
+                raise ValueError(f"Argument '{bound_arg_name}' not found in the universe.")
 
-            obj_types = objects.get_types_of(bound_object)
-
-            if param.object_type not in obj_types:
-                raise ValueError(
+            bound_arg = universe[bound_arg_name]
+            if not isinstance(bound_arg, param.type_):
+                raise TypeError(
                     f"Cannot parse skill instance from '{string}' because skill parameter "
-                    f"'{param.name}' expects type {param.object_type} but the provided "
-                    f"argument object '{bound_object}' only has type(s) {obj_types}.",
+                    f"'{param.name}' expects type {param.type_} but the provided "
+                    f"argument '{bound_arg_name}' has type {type(bound_arg)}: {bound_arg}.",
                 )
-            bindings[param.name] = bound_object
+
+            bindings[param.name] = bound_arg
 
         return SkillInstance(skill, bindings)
+
+    @property
+    def arguments(self) -> tuple[object, ...]:
+        """Retrieve the arguments of the skill instance in parameter order."""
+        return tuple(self.bindings[param.name] for param in self.skill.parameters)
 
     def execute(self, executor: SkillsProtocol) -> object | None:
         """Execute this skill instance."""
