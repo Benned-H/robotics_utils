@@ -6,8 +6,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from robotics_utils.classical_planning.operators import Operator
-    from robotics_utils.classical_planning.predicates import Predicate
+    from robotics_utils.abstractions.operators import Operator
+    from robotics_utils.abstractions.predicates import Predicate
+
+    # TODO: Replace or review the TypeHierarchy class
     from robotics_utils.classical_planning.type_hierarchy import TypeHierarchy
 
 
