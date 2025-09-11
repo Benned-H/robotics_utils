@@ -1,3 +1,15 @@
+"""Define classes to represent the preconditions (both lifted and grounded) of abstract actions."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Mapping
+
+if TYPE_CHECKING:
+    from robotics_utils.abstractions import AbstractState
+    from robotics_utils.abstractions.predicates import Predicate, PredicateInstance
+
+
 @dataclass(frozen=True)
 class Preconditions:
     """A collection of predicates defining positive and negative preconditions."""
@@ -12,11 +24,11 @@ class Preconditions:
 
         return f":precondition (and\n\t{positive_pre}\n\t{negative_pre}\n)"
 
-    def ground_with(self, bindings: Bindings) -> GroundedPreconditions:
+    def ground_with(self, bindings: Mapping[str, Any]) -> GroundedPreconditions:
         """Ground the preconditions using the given parameter bindings."""
         return GroundedPreconditions(
-            positive={p.ground_with(bindings) for p in self.positive},
-            negative={p.ground_with(bindings) for p in self.negative},
+            positive={p.fully_ground(bindings) for p in self.positive},
+            negative={p.fully_ground(bindings) for p in self.negative},
         )
 
 

@@ -1,3 +1,16 @@
+"""Define classes to represent the effects (both lifted and grounded) of abstract actions."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Mapping
+
+from robotics_utils.abstractions import AbstractState
+
+if TYPE_CHECKING:
+    from robotics_utils.abstractions.predicates import Predicate, PredicateInstance
+
+
 @dataclass(frozen=True)
 class Effects:
     """A collection of predicates defining add and delete effects of an operator."""
@@ -12,11 +25,11 @@ class Effects:
 
         return f":effect (and\n\t{add_eff}\n\t{delete_eff}\n)"
 
-    def ground_with(self, bindings: Bindings) -> GroundedEffects:
+    def ground_with(self, bindings: Mapping[str, Any]) -> GroundedEffects:
         """Ground the effects using the given parameter bindings."""
         return GroundedEffects(
-            add={p.ground_with(bindings) for p in self.add},
-            delete={p.ground_with(bindings) for p in self.delete},
+            add={p.fully_ground(bindings) for p in self.add},
+            delete={p.fully_ground(bindings) for p in self.delete},
         )
 
 
