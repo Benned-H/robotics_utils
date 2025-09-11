@@ -1,44 +1,37 @@
-"""Define classes to represent object-typed discrete parameters."""
+"""Define a class to represent Python-typed symbolic parameters."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, TypeVar
 
-ObjectT = TypeVar("ObjectT")
-"""Represents a concrete object in the environment."""
+from robotics_utils.abstractions.predicates.dataclass_type import DataclassT, DataclassType
 
 
 @dataclass(frozen=True)
-class DiscreteParameter:
-    """An object-typed discrete parameter (e.g., of a predicate or operator)."""
+class Parameter:
+    """A Python-typed symbolic parameter (e.g., of a predicate or operator)."""
 
-    name: str  # Name of the lifted parameter
-    object_type: str  # Object type expected by the parameter
-    semantics: str | None = None  # Optional NL description of the parameter's meaning
+    name: str
+    """Name of the lifted parameter."""
+
+    type_: type
+    """Python type expected by the parameter."""
+
+    semantics: str | None = None
+    """Optional natural language description of the parameter's meaning."""
 
     def __str__(self) -> str:
-        """Create a readable string representation of the discrete parameter."""
-        semantics_str = f": {self.semantics}" if self.semantics else ""
-        return f"{self.name} (Type {self.object_type}){semantics_str}"
+        """Create a readable string representation of the parameter."""
+        semantics = f": {self.semantics}" if self.semantics else ""
+        return f"{self.name} (type {self.type_}){semantics}"
 
     @classmethod
-    def from_yaml_data(cls, param_name: str, param_data: dict[str, Any]) -> DiscreteParameter:
-        """Import a DiscreteParameter instance from YAML data."""
-        return DiscreteParameter(param_name, param_data["type"], param_data.get("semantics"))
+    def tuple_from_dataclass(cls, dataclass_t: type[DataclassT]) -> tuple[Parameter, ...]:
+        """Construct a tuple of Parameter instances from a Python dataclass type."""
+        dataclass_type = DataclassType(dataclass_t)
+        docstrings = dataclass_type.get_docstrings()
 
-    @classmethod
-    def tuple_from_yaml_data(cls, params_data: dict[str, Any]) -> tuple[DiscreteParameter, ...]:
-        """Import a tuple of DiscreteParameter instances from a dictionary of YAML data."""
-        return tuple(cls.from_yaml_data(name, data) for name, data in params_data.items())
-
-    def to_yaml_data(self) -> dict[str, Any]:
-        """Convert the discrete parameter into a dictionary of data to be exported to YAML."""
-        yaml_data = {"type": self.object_type}
-        if self.semantics is not None:
-            yaml_data["semantics"] = self.semantics
-        return {self.name: yaml_data}
-
-
-Bindings = dict[str, ObjectT]
-"""A mapping from parameter names to their bound concrete objects."""
+        return tuple(
+            Parameter(f_name, f_type, docstrings[f_name])
+            for f_name, f_type in dataclass_type.field_types.items()
+        )
