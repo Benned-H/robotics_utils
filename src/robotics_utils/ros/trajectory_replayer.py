@@ -12,12 +12,26 @@ from moveit_commander import MoveGroupCommander, RobotCommander, roscpp_initiali
 from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
 
 from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.kinematics import Pose3D
+from robotics_utils.kinematics import Configuration, Pose3D
+from robotics_utils.math.distances import euclidean_distance_3d_m
+from robotics_utils.motion_planning import MotionPlanningQuery
+from robotics_utils.robots import GripperAngleLimits
+from robotics_utils.ros.moveit_motion_planner import MoveItMotionPlanner
 from robotics_utils.ros.msg_conversion import pose_to_msg
+from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
+from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.transform_manager import TransformManager
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+@dataclass(frozen=True)
+class IKSolution:
+    """An IK solution specifies an arm configuration to reach a target end-effector pose."""
+
+    q: Configuration
+    pose: Pose3D
 
 
 @dataclass(frozen=True)
@@ -52,6 +66,13 @@ class TrajectoryReplayer:
         )
 
         self.robot = RobotCommander()
+        self.spot_gripper = ROSAngularGripper(
+            limits=GripperAngleLimits(open_rad=-1.5707, closed_rad=0.0),
+            grasping_group="gripper",
+            action_name="gripper_controller/gripper_action",
+        )
+        self.spot_arm = MoveItManipulator(name="arm", base_frame="body", gripper=self.spot_gripper)
+        self.moveit_planner = MoveItMotionPlanner(self.spot_arm, PlanningSceneManager("body"))
 
     def get_end_effector_pose(self) -> Pose3D | None:
         """Find the current end-effector pose w.r.t. the body frame (None if /tf lookup fails)."""
@@ -111,3 +132,44 @@ class TrajectoryReplayer:
             return None
 
         return plan
+
+    def compute_ik_sequence(self, poses: list[Pose3D]) -> list[IKSolution] | None:
+        """Compute a sequence of IK solutions to recreate the given poses."""
+        threshold_distance_m = 0.03
+
+        ik_solutions: list[IKSolution] = []
+        skipped = 0
+        failed = 0
+        for i, pose_i in enumerate(poses):
+            rospy.loginfo(f"Computing IK solution {i + 1}/{len(poses)}...")
+
+            # Skip this pose if it's within 3 cm of the most recent pose
+            if (
+                ik_solutions
+                and euclidean_distance_3d_m(ik_solutions[-1].pose, pose_i, change_frames=False)
+                < threshold_distance_m
+            ):
+                rospy.loginfo(f"Skipping pose {i}; too close to last solved pose.")
+                skipped += 1
+                continue
+
+            q_i = self.spot_arm.compute_ik(pose_i)
+            if q_i is None:
+                rospy.loginfo(f"Could not compute IK solution for pose {i}: {pose_i}.")
+                failed += 1
+            else:
+                ik_solutions.append(IKSolution(q_i, pose_i))
+
+        rospy.loginfo(
+            f"Found {len(ik_solutions)} IK solutions, skipped {skipped}, "
+            f"and failed {failed} out of {len(poses)} target poses.",
+        )
+
+        return ik_solutions
+
+    def go_to(self, config: Configuration) -> None:
+        """Bring Spot's arm to the given configuration."""
+        query = MotionPlanningQuery(config)
+        plan = self.moveit_planner.compute_motion_plan(query)
+        if plan is not None:
+            self.spot_arm.execute_motion_plan(plan)

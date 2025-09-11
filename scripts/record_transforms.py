@@ -1,6 +1,7 @@
 """Record a relative trajectory from /tf and save it to file."""
 
 import argparse
+import time
 from pathlib import Path
 
 import rospy
@@ -19,6 +20,8 @@ def record(output_path: Path, overwrite: bool, reference_frame: str, tracked_fra
         raise FileExistsError(f"Cannot overwrite existing output path: {output_path}")
 
     TransformManager.init_node("tf_transform_recorder")
+    rospy.loginfo("Waiting 5 seconds to allow /tf buffer to populate...")
+    rospy.sleep(5)
 
     manipulator = MoveItManipulator(name="arm", base_frame="body", gripper=None)
     config_before = manipulator.configuration
