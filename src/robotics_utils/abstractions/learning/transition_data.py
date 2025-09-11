@@ -80,7 +80,7 @@ class AbstractTransition:
 
 
 AbstractTrace = List[AbstractTransition]
-"""A sequence of abstracted attempted skill transitions."""
+"""A sequence of abstracted attempted skill executions."""
 
 
 @dataclass(frozen=True)
