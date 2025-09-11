@@ -12,8 +12,6 @@ from robotics_utils.abstractions.predicates.low_level_state import StateT
 if TYPE_CHECKING:
     from robotics_utils.abstractions.predicates.predicate import Predicate
 
-# TODO: Ensure Predicate type and DataclassT type are hashable!
-
 
 @dataclass(frozen=True)
 class PredicateInstance(Generic[DataclassT, StateT], Hashable):
@@ -21,6 +19,14 @@ class PredicateInstance(Generic[DataclassT, StateT], Hashable):
 
     predicate: Predicate[DataclassT, StateT]
     arguments: DataclassT
+
+    def __key(self) -> tuple:
+        """Define a hash key to uniquely identify the PredicateInstance."""
+        return (self.predicate, self.arguments)
+
+    def __hash__(self) -> int:
+        """Compute a hash value for the predicate instance."""
+        return hash(self.__key())
 
     def __str__(self) -> str:
         """Return a readable string representation of the predicate instance."""
@@ -38,7 +44,7 @@ class PredicateInstance(Generic[DataclassT, StateT], Hashable):
 
     def to_pddl(self) -> str:
         """Return a PDDL string representation of the predicate instance."""
-        return f"({self.predicate.name} {' '.join(map(str, self.args_tuple))})"
+        return f"({self.name} {' '.join(map(str, self.args_tuple))})"
 
     def holds_in(self, state: StateT) -> bool:
         """Evaluate whether the predicate instance holds in the given state."""

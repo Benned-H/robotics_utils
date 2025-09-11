@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from itertools import product
-from typing import Any, Callable, Generic, Mapping
+from typing import Callable, Generic, Hashable, Iterable, Mapping
 
 from robotics_utils.abstractions.predicates.atom import Atom
 from robotics_utils.abstractions.predicates.dataclass_type import DataclassT, DataclassType
@@ -16,7 +16,7 @@ Relation = Callable[[DataclassT, StateT], bool]
 """Classifier for a relationship between dataclass-structured arguments in a low-level state."""
 
 
-class Predicate(Generic[DataclassT, StateT]):
+class Predicate(Generic[DataclassT, StateT], Hashable):
     """A symbolic predicate with typed parameters."""
 
     def __init__(
@@ -32,7 +32,6 @@ class Predicate(Generic[DataclassT, StateT]):
         :param dataclass_t: Dataclass type defining the structure of the predicate parameters
         :param relation: Classifier for the predicate's relation
         :param semantics: Optional natural language description of the predicate's meaning
-        :return: Constructed Predicate instance
         """
         self.name = name
         self._dataclass_type = DataclassType(dataclass_t)
@@ -43,6 +42,14 @@ class Predicate(Generic[DataclassT, StateT]):
 
         self.semantics = semantics
         """Optional natural language description of the predicate's meaning."""
+
+    def __key(self) -> tuple:
+        """Define a hash key to uniquely identify the Predicate."""
+        return (self.name, self._dataclass_type, self.parameters, self.relation, self.semantics)
+
+    def __hash__(self) -> int:
+        """Compute a hash value for the predicate."""
+        return hash(self.__key())
 
     def __str__(self) -> str:
         """Return a readable string representation of the predicate."""
@@ -57,11 +64,12 @@ class Predicate(Generic[DataclassT, StateT]):
             params_per_type[p.type_].append(lifted_param_name)  # PDDL parameter names begin with ?
 
         groups = [f"{' '.join(params)} - {t_name}" for t_name, params in params_per_type.items()]
-        return f"({self.name}{' ' + ' '.join(groups) if groups else ''})"
+        return f"({self.name}{(' ' + ' '.join(groups)) if groups else ''})"
 
     def get_parameter_type(self, param_name: str) -> type:
         """Retrieve the expected type of a predicate parameter.
 
+        :param param_name: Name of a predicate parameter
         :return: Python type expected by the named parameter
         :raises KeyError: If an unknown parameter name is given
         """
@@ -77,11 +85,11 @@ class Predicate(Generic[DataclassT, StateT]):
         """Ground the predicate using the given dataclass of arguments."""
         return PredicateInstance(self, args)
 
-    def fully_ground(self, bindings: Mapping[str, Any]) -> PredicateInstance:
+    def fully_bind(self, bindings: Mapping[str, object]) -> PredicateInstance:
         """Create a fully grounded predicate instance using the given parameter bindings."""
-        return self.as_atom(bindings).as_instance()
+        return self.bind(bindings).as_instance()
 
-    def as_atom(self, bindings: Mapping[str, Any] | None = None) -> Atom[DataclassT, StateT]:
+    def bind(self, bindings: Mapping[str, object] | None = None) -> Atom[DataclassT, StateT]:
         """Create an atomic formula using the given (possibly partial) parameter bindings.
 
         :param bindings: Optional parameter bindings (defaults to None)
@@ -89,7 +97,10 @@ class Predicate(Generic[DataclassT, StateT]):
         """
         return Atom(self, dict(bindings) if bindings else {})
 
-    def compute_all_groundings(self, objects: set[object]) -> set[PredicateInstance]:
+    def compute_all_groundings(
+        self,
+        objects: Iterable[object],
+    ) -> set[PredicateInstance[DataclassT, StateT]]:
         """Compute all valid groundings of the predicate using the given Python objects.
 
         :param objects: Collection of Python object instances
@@ -100,11 +111,11 @@ class Predicate(Generic[DataclassT, StateT]):
         )
 
         # Find all valid tuples of concrete args using a Cartesian product
-        all_valid_groundings = product(*objects_per_param_type)
+        all_valid_args = product(*objects_per_param_type)
         all_bindings = (
             {p.name: obj}
-            for grounding in all_valid_groundings
-            for p, obj in zip(self.parameters, grounding, strict=True)
+            for args in all_valid_args
+            for p, obj in zip(self.parameters, args, strict=True)
         )
 
-        return {self.fully_ground(bindings) for bindings in all_bindings}
+        return {self.fully_bind(bindings) for bindings in all_bindings}

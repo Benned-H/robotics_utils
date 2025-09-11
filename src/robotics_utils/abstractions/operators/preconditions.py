@@ -27,14 +27,14 @@ class Preconditions:
     def ground_with(self, bindings: Mapping[str, Any]) -> GroundedPreconditions:
         """Ground the preconditions using the given parameter bindings."""
         return GroundedPreconditions(
-            positive={p.fully_ground(bindings) for p in self.positive},
-            negative={p.fully_ground(bindings) for p in self.negative},
+            positive={p.fully_bind(bindings) for p in self.positive},
+            negative={p.fully_bind(bindings) for p in self.negative},
         )
 
 
 @dataclass(frozen=True)
 class GroundedPreconditions:
-    """A collection of grounded preconditions to applying an operator."""
+    """A collection of grounded preconditions for applying an operator."""
 
     positive: set[PredicateInstance]  # Grounded predicates that must hold to apply an operator
     negative: set[PredicateInstance]  # Grounded predicates that must be false to apply an operator

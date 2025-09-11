@@ -13,10 +13,13 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Effects:
-    """A collection of predicates defining add and delete effects of an operator."""
+    """A collection of predicates defining add and delete effects of an operator.
 
-    add: set[Predicate]  # Predicates added to the abstract state by the operator
-    delete: set[Predicate]  # Predicates removed from the abstract state by the operator
+    Note: Uses frozen sets to ensure that an effects signature is hashable.
+    """
+
+    add: frozenset[Predicate]  # Predicates added to the abstract state by the operator
+    delete: frozenset[Predicate]  # Predicates removed from the abstract state by the operator
 
     def to_pddl(self) -> str:
         """Return a PDDL string representation of the effects."""
@@ -28,8 +31,8 @@ class Effects:
     def ground_with(self, bindings: Mapping[str, Any]) -> GroundedEffects:
         """Ground the effects using the given parameter bindings."""
         return GroundedEffects(
-            add={p.fully_ground(bindings) for p in self.add},
-            delete={p.fully_ground(bindings) for p in self.delete},
+            add={p.fully_bind(bindings) for p in self.add},
+            delete={p.fully_bind(bindings) for p in self.delete},
         )
 
 

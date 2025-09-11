@@ -1,4 +1,4 @@
-"""Import classes and definitions used to structure symbolic operators (i.e., abstract actions)."""
+"""Import classes used to structure symbolic operators (i.e., abstract actions)."""
 
 from .effects import Effects as Effects
 from .effects import GroundedEffects as GroundedEffects

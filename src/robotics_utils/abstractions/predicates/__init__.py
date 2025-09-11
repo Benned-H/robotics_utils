@@ -7,5 +7,3 @@ from .predicate import Predicate as Predicate
 from .predicate import Relation as Relation
 from .predicate import StateT as StateT
 from .predicate_instance import PredicateInstance as PredicateInstance
-
-# TODO: Replace all uses of Any for arguments with an ArgT type (requires string-able)

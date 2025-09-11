@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from dataclasses import fields, is_dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Generic, Iterator, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Hashable, Iterator, TypeVar
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
 
-DataclassT = TypeVar("DataclassT")
+DataclassT = TypeVar("DataclassT", bound=Hashable)
+"""A type variable representing any hashable dataclass type."""
 
 
 class DataclassType(Generic[DataclassT]):
@@ -36,6 +37,6 @@ class DataclassType(Generic[DataclassT]):
         """Retrieve a mapping from field names to metadata docstrings, if any (else None)."""
         return {f.name: f.metadata.get("doc") for f in fields(self._dataclass_t)}
 
-    def new(self, **kwargs: Any) -> DataclassT:
+    def new(self, **kwargs: object) -> DataclassT:
         """Construct an instance of the stored dataclass type."""
         return self._dataclass_t(**kwargs)

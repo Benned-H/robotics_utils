@@ -16,8 +16,9 @@ class OperatorInstance:
         """Initialize the operator instance using an operator and parameter bindings."""
         self.operator = operator
         self.bindings = dict(bindings)
+        """Maps object names to object instances."""
 
-        # Ground the operator instance's preconditions and effects
+        # Ground the preconditions and effects of the operator instance
         self.ground_preconditions = self.operator.preconditions.ground_with(bindings)
         self.ground_effects = self.operator.effects.ground_with(bindings)
 
@@ -37,6 +38,6 @@ class OperatorInstance:
     def apply(self, abstract_state: AbstractState) -> AbstractState:
         """Apply the operator instance to transition from the given abstract state."""
         if not self.is_applicable(abstract_state):
-            raise ValueError(f"Cannot apply {self} in the abstract state: {abstract_state}")
+            raise ValueError(f"Cannot apply {self} in the abstract state: {abstract_state}.")
 
         return self.ground_effects.apply(abstract_state)

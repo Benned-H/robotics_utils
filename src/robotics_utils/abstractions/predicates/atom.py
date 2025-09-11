@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Generic
+from typing import TYPE_CHECKING, Generic
 
 from robotics_utils.abstractions.predicates.dataclass_type import DataclassT
 from robotics_utils.abstractions.predicates.low_level_state import StateT
@@ -50,11 +50,11 @@ class Atom(Generic[DataclassT, StateT]):
         """
         if not allow_missing and not self.is_grounded:
             unbound = ", ".join(p.name for p in self.unbound_params)
-            raise ValueError(f"{self.name} not fully grounded; missing parameters: {unbound}.")
+            raise ValueError(f"{self.name} is not fully grounded; missing parameters: {unbound}.")
 
         return tuple(self.bindings.get(p.name) for p in self.predicate.parameters)
 
-    def bind(self, **kwargs: Any) -> Atom[DataclassT, StateT]:
+    def bind(self, **kwargs: object) -> Atom[DataclassT, StateT]:
         """Return a new atom with updated bindings."""
         for param_name, bound_value in kwargs.items():
             param_type = self.predicate.get_parameter_type(param_name)  # Raises on unknown param
@@ -76,7 +76,7 @@ class Atom(Generic[DataclassT, StateT]):
         """Convert the atomic formula into a fully grounded predicate instance."""
         if not self.is_grounded:
             unbound = ", ".join(p.name for p in self.unbound_params)
-            raise ValueError(f"{self.name} not fully grounded; missing parameters: {unbound}.")
+            raise ValueError(f"{self.name} is not fully grounded; missing parameters: {unbound}.")
 
         args_dataclass = self.predicate.construct_arguments(self.bindings)
         return PredicateInstance(self.predicate, args_dataclass)

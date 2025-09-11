@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic
+from typing import TYPE_CHECKING, Generic, List
 
 from robotics_utils.abstractions.predicates import StateT
 
@@ -26,7 +26,7 @@ class SkillTransition(Generic[StateT]):
     """Was the skill execution successful?"""
 
     state_after: StateT | None
-    """State after the skill executed, if execution succeeded (else None)."""
+    """State after the skill execution, if successful (else None)."""
 
     def __post_init__(self) -> None:
         """Verify that the constructed skill transition is valid.
@@ -42,10 +42,10 @@ class SkillTransition(Generic[StateT]):
         return self.skill_instance.skill.name
 
 
-SkillsTrace = list[SkillTransition[StateT]]
+SkillsTrace = List[SkillTransition[StateT]]
 """A sequence of attempted skill executions."""
 
-Dataset = list[SkillsTrace[StateT]]
+Dataset = List[SkillsTrace[StateT]]
 """A collection of skill execution traces."""
 
 
@@ -63,7 +63,7 @@ class AbstractTransition:
     """Was the skill execution successful?"""
 
     abstract_after: AbstractState | None
-    """Abstract state after the skill executed, or None if execution failed."""
+    """Abstract state after the skill execution, if successful (else None)."""
 
     def __post_init__(self) -> None:
         """Verify that the constructed abstract transition is valid.
@@ -79,8 +79,8 @@ class AbstractTransition:
         return self.skill_instance.skill.name
 
 
-AbstractTrace = list[AbstractTransition]
-"""A sequence of abstracted skill transitions."""
+AbstractTrace = List[AbstractTransition]
+"""A sequence of abstracted attempted skill transitions."""
 
 
 @dataclass(frozen=True)
@@ -89,15 +89,15 @@ class AbstractDataset:
 
     abstract_traces: list[AbstractTrace]
 
-    def get_abstract_transitions_for_skill(self, skill: Skill) -> set[AbstractTransition]:
+    def get_skill_data(self, skill: Skill) -> list[AbstractTransition]:
         """Extract only the abstract transitions involving the given skill.
 
-        :param skill: The skill executed in the extracted abstract transitions
-        :return: Set of abstract transitions involving the skill
+        :param skill: Skill executed in the extracted abstract transitions
+        :return: List of abstract transitions involving the skill
         """
-        return {
+        return [
             transition
             for trace in self.abstract_traces
             for transition in trace
             if transition.skill_instance.skill == skill
-        }
+        ]
