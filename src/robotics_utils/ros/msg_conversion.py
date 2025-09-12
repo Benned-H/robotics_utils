@@ -192,8 +192,11 @@ def make_collision_object_msg(
 
     msg.primitives = [primitive_shape_to_msg(ps) for ps in object_model.collision_model.primitives]
 
-    # TODO: Frames used to be shifted to bottom of objects
-    msg.primitive_poses = [identity_pose_msg] * len(msg.primitives)
+    # Find the pose of each primitive shape w.r.t. the object frame
+    ps_aabbs = [ps.aabb for ps in object_model.collision_model.primitives]
+    ps_z_dims = [aabb.max_xyz.z - aabb.min_xyz.z for aabb in ps_aabbs]
+    ps_poses = [Pose3D.from_xyz_rpy(z=h_m / 2, ref_frame=object_model.name) for h_m in ps_z_dims]
+    msg.primitive_poses = [pose_to_msg(pose) for pose in ps_poses]
 
     msg.operation = CollisionObject.ADD
     return msg

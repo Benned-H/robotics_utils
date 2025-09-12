@@ -4,28 +4,31 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import rospy
 from moveit_commander import PlanningSceneInterface
 from moveit_msgs.msg import CollisionObject
 
-from robotics_utils.motion_planning import MotionPlanningQuery
+from robotics_utils.kinematics.kinematic_tree import KinematicTree
 from robotics_utils.ros.msg_conversion import make_collision_object_msg, pose_from_msg, pose_to_msg
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.world_models.simulators import ObjectModel, Simulator
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from robotics_utils.collision_models.collision_model import CollisionModel
-    from robotics_utils.kinematics.kinematic_tree import KinematicTree
     from robotics_utils.kinematics.poses import Pose3D
+    from robotics_utils.motion_planning import MotionPlanningQuery
     from robotics_utils.robots.manipulator import Manipulator
 
 
 class PlanningSceneManager(Simulator):
     """A manager to update the state of the MoveIt planning scene."""
 
-    def __init__(self, body_frame: str) -> None:
+    def __init__(self, body_frame: str = "body") -> None:
         """Initialize the manager's interface with the MoveIt planning scene."""
         self.planning_scene = PlanningSceneInterface()
         rospy.sleep(3)  # Allow time for the scene to initialize
@@ -40,6 +43,19 @@ class PlanningSceneManager(Simulator):
 
         self._attached_objects: dict[str, set[str]] = defaultdict(set)
         """Maps each robot name to the names of objects attached to that robot."""
+
+    @classmethod
+    def populate_from_yaml(cls, yaml_path: Path) -> tuple[bool, str]:
+        """Populate the MoveIt planning scene by loading from the given YAML file."""
+        tree = KinematicTree.from_yaml(yaml_path)
+        scene = PlanningSceneManager()
+        success = scene.synchronize_state(tree)
+        message = (
+            f"Loaded MoveIt planning scene from YAML file: {yaml_path}."
+            if success
+            else f"Could not fully load planning scene from the YAML file: {yaml_path}."
+        )
+        return success, message
 
     def add_object(self, obj_model: ObjectModel) -> bool:
         """Add an object to the MoveIt planning scene.
@@ -196,8 +212,9 @@ class PlanningSceneManager(Simulator):
 
         self.add_object(object_model)
 
-    def synchronize_state(self, tree: KinematicTree, attempts_per_obj: int = 3) -> None:
+    def synchronize_state(self, tree: KinematicTree, attempts_per_obj: int = 3) -> bool:
         """Update the MoveIt planning scene to reflect the given environment state."""
+        all_added = True
         for object_model in tree.object_models.values():
             object_added = self.add_object(object_model)
             attempts_left = attempts_per_obj - 1
@@ -205,6 +222,10 @@ class PlanningSceneManager(Simulator):
             while (attempts_left > 0) and not object_added:
                 object_added = self.add_object(object_model)
                 attempts_left -= 1
+
+            all_added = all_added and object_added
+
+        return all_added
 
     def wait_until_object_exists(self, name: str, timeout_s: float = 10.0) -> bool:
         """Wait until the MoveIt planning scene contains the named object.
