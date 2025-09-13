@@ -92,9 +92,9 @@ def test_predicate_to_pddl(available: Predicate, lifting: Predicate, on: Predica
     assert on_pddl == "(on ?c - Crate ?s - StorageArea)"
 
 
-def test_predicate_fully_grounded(lifting: Predicate) -> None:
+def test_predicate_instantiation(lifting: Predicate) -> None:
     """Verify that a Predicate can be fully grounded using parameter bindings."""
-    # Arrange - Define bindings for the two parameters of the `lifting` predicate
+    # Arrange - Define bindings for the two parameters of the predicate
     blue_crate = Crate("blue_crate")
     red_hoist = Hoist("red_hoist")
 
