@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Mapping, get_type_hints
+from itertools import product
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, get_type_hints
 
 from robotics_utils.abstractions.predicates import Parameter
 from robotics_utils.io.process_python import parse_docstring_params
 from robotics_utils.io.string_utils import is_pascal_case, pascal_to_snake, snake_to_pascal
+from robotics_utils.skills.skill_instance import SkillInstance
 
 if TYPE_CHECKING:
     from robotics_utils.skills.skills_inventory import SkillsProtocol
@@ -36,7 +38,7 @@ class Skill:
 
     def __str__(self) -> str:
         """Return a readable string representation of the skill."""
-        params = ", ".join(f"{p.name}: {p.type_}" for p in self.parameters)
+        params = ", ".join(f"{p.name}: {p.type_.__name__}" for p in self.parameters)
         return f"{self.name}({params})"
 
     @classmethod
@@ -90,3 +92,24 @@ class Skill:
         skill_method = getattr(executor, self.method_name)
         args = [bindings[param.name] for param in self.parameters]
         return skill_method(executor, *args)
+
+    def create_all_instances(self, objects: list[object]) -> list[SkillInstance]:
+        """Compute all valid instantiations of the skill using the given Python objects.
+
+        :param objects: Collection of Python object instances
+        :return: Lift of all valid instances of the skill
+        """
+        objects_per_param_type = [
+            [obj for obj in objects if isinstance(obj, param.type_)] for param in self.parameters
+        ]
+
+        # Find all valid tuples of concrete args using a Cartesian product
+        all_valid_args = product(*objects_per_param_type)
+
+        return [
+            SkillInstance(
+                self,
+                bindings={p.name: obj for p, obj in zip(self.parameters, args, strict=True)},
+            )
+            for args in all_valid_args
+        ]

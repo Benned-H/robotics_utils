@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Iterator
+
 from robotics_utils.skills.skill import Skill
 
 SkillsProtocol = object
@@ -41,6 +43,10 @@ class SkillsInventory:
         if isinstance(other, SkillsInventory):
             return self.__key() == other.__key()
         return NotImplemented
+
+    def __iter__(self) -> Iterator[Skill]:
+        """Provide an iterator over the skills in the inventory."""
+        yield from self.skills.values()
 
     @classmethod
     def from_protocol(cls, protocol: SkillsProtocol) -> SkillsInventory:
