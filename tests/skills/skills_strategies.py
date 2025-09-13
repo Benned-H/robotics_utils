@@ -4,32 +4,31 @@ from __future__ import annotations
 
 import hypothesis.strategies as st
 
-from robotics_utils.classical_planning.parameters import DiscreteParameter
-from robotics_utils.skills.skills import Skill
-from robotics_utils.skills.skills_inventory import SkillsInventory
+from robotics_utils.abstractions.predicates import Parameter
+from robotics_utils.skills import Skill, SkillsInventory
 
 from ..common_strategies import pascal_case_strings
 
 
 @st.composite
-def generate_parameters(draw: st.DrawFn) -> DiscreteParameter:
-    """Generate random object-typed discrete parameters."""
+def generate_parameters(draw: st.DrawFn) -> Parameter:
+    """Generate random Python-typed parameters."""
     name = draw(st.text(min_size=1))
-    object_type = draw(st.text(min_size=1))
+    param_type = draw(st.one_of([st.just(str), st.just(int), st.just(float), st.just(bool)]))
     semantics = draw(st.one_of(st.none(), st.text()))
-    return DiscreteParameter(name, object_type, semantics)
+    return Parameter(name, param_type, semantics)
 
 
 @st.composite
-def generate_parameters_tuple(draw: st.DrawFn) -> tuple[DiscreteParameter, ...]:
-    """Generate a tuple of DiscreteParameters with unique names."""
+def generate_parameters_tuple(draw: st.DrawFn) -> tuple[Parameter, ...]:
+    """Generate a tuple of Parameters with unique names."""
     parameter_names = draw(st.lists(st.text(min_size=1), unique=True))
 
     parameters = []
     for p_name in parameter_names:
-        p_object_type = draw(st.text(min_size=1))
+        p_type = draw(st.one_of([st.just(str), st.just(int), st.just(float), st.just(bool)]))
         p_semantics = draw(st.one_of(st.none(), st.text()))
-        parameters.append(DiscreteParameter(p_name, p_object_type, p_semantics))
+        parameters.append(Parameter(p_name, p_type, p_semantics))
 
     return tuple(parameters)
 

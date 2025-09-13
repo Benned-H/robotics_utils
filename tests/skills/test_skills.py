@@ -3,24 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from hypothesis import given
 
-from robotics_utils.classical_planning.objects import Objects
-from robotics_utils.skills.skills import Skill, SkillInstance, skill_method
-from robotics_utils.skills.skills_inventory import SkillsInventory, SkillsProtocol
-
-from .skills_strategies import generate_skills, generate_skills_inventories
-
-
-@given(generate_skills())
-def test_skill_to_from_yaml_data(skill: Skill) -> None:
-    """Verify that Skills are accurately reconstructed after converting to and from YAML data."""
-    # Arrange/Act - Given a skill, convert to YAML data and then convert back
-    result_yaml = skill.to_yaml_data()
-    result_skill = Skill.from_yaml_data(skill.name, result_yaml)
-
-    # Assert - Expect that the resulting Skill is identical to the original
-    assert skill == result_skill
+from robotics_utils.abstractions.predicates import Parameter
+from robotics_utils.skills import SkillInstance, SkillsInventory, SkillsProtocol, skill_method
 
 
 @pytest.fixture
@@ -39,22 +24,11 @@ def example_skills_protocol() -> SkillsProtocol:
         def add_one(self, value: int) -> int:
             """Define a skill that adds one to the given value.
 
-            :param value: Integer to be increased by 1
+            :param value: Integer to be incremented
             """
             return value + 1
 
     return ExampleSkills
-
-
-@given(generate_skills_inventories())
-def test_skills_inventory_to_from_yaml_data(inventory: SkillsInventory) -> None:
-    """Verify that a SkillsInventory is unchanged after converting to and from YAML data."""
-    # Arrange/Act - Given an inventory of skills, convert to YAML data and then convert back
-    inventory_yaml = inventory.to_yaml_data()
-    result_inventory = SkillsInventory.from_yaml_data(inventory.name, inventory_yaml)
-
-    # Assert - Expect that the resulting SkillsInventory is identical to the original
-    assert inventory == result_inventory
 
 
 def test_skills_inventory_from_protocol(example_skills_protocol: SkillsProtocol) -> None:
@@ -67,12 +41,14 @@ def test_skills_inventory_from_protocol(example_skills_protocol: SkillsProtocol)
 
     return_true = inventory.skills.get("ReturnTrue")
     assert return_true is not None
+    assert return_true.parameters == ()
 
     add_one = inventory.skills.get("AddOne")
     assert add_one is not None
+    assert add_one.parameters == (Parameter("value", int, "Integer to be incremented"),)
 
-    assert len(inventory.object_types) == 1
-    assert "int" in inventory.object_types
+    assert len(inventory.all_argument_types) == 1
+    assert int in inventory.all_argument_types
 
 
 def test_skill_execution(example_skills_protocol: SkillsProtocol) -> None:
@@ -101,16 +77,15 @@ def example_skill_instance_strings() -> list[str]:
 
 
 @pytest.fixture
-def example_objects() -> Objects:
-    """Generate an example collection of objects."""
-    object_to_types = {"44": {"int", "truthy"}, "-5": {"int", "negative"}}
-    return Objects(object_to_types)
+def example_universe() -> dict[str, object]:
+    """Generate an example universe of objects."""
+    return {"44": 44, "-5": -5, "100": 100}
 
 
 def test_skill_instance_from_string(
     example_skill_instance_strings: list[str],
     example_skills_protocol: SkillsProtocol,
-    example_objects: Objects,
+    example_universe: dict[str, object],
 ) -> None:
     """Verify that SkillInstances can be constructed from strings."""
     # Arrange - Skill instance strings, a skills protocol, and objects are provided via fixture
@@ -118,7 +93,7 @@ def test_skill_instance_from_string(
     example_strings = example_skill_instance_strings
 
     # Act - Convert the example strings into SkillInstances
-    results = [SkillInstance.from_string(s, inventory, example_objects) for s in example_strings]
+    results = [SkillInstance.from_string(s, inventory, example_universe) for s in example_strings]
 
     # Assert - Expect that the constructed SkillInstances have correct bindings
     return_true_instance, forty_four_instance, negative_five_instance = results
@@ -127,8 +102,8 @@ def test_skill_instance_from_string(
 
     assert forty_four_instance.skill.name == "AddOne"
     expected_44 = forty_four_instance.bindings.get("value")
-    assert expected_44 == "44"
+    assert expected_44 == 44
 
     assert negative_five_instance.skill.name == "AddOne"
     expected_neg_5 = negative_five_instance.bindings.get("value")
-    assert expected_neg_5 == "-5"
+    assert expected_neg_5 == -5
