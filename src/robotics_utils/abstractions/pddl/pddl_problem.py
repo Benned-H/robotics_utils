@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from robotics_utils.abstractions import AbstractState
+    from robotics_utils.abstractions.objects import ObjectCentricState
     from robotics_utils.abstractions.predicates import PredicateInstance
-    from robotics_utils.objects import ObjectCentricState
 
 
 @dataclass(frozen=True)

@@ -59,3 +59,9 @@ class SkillsInventory:
         skills = [Skill.from_method(method) for method in methods if hasattr(method, "_is_skill")]
 
         return SkillsInventory(name=protocol.__name__, skills=skills)
+
+    def get_skill(self, skill_name: str) -> Skill:
+        """Retrieve the named skill from the inventory."""
+        if skill_name not in self.skills:
+            raise KeyError(f"Cannot retrieve skill with unknown name: '{skill_name}'.")
+        return self.skills[skill_name]

@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from dataclasses import dataclass
 from itertools import product
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, get_type_hints
+from typing import TYPE_CHECKING, Any, Callable, Mapping, get_type_hints
 
 from robotics_utils.abstractions.predicates import Parameter
 from robotics_utils.io.process_python import parse_docstring_params
@@ -97,7 +97,7 @@ class Skill:
         """Compute all valid instantiations of the skill using the given Python objects.
 
         :param objects: Collection of Python object instances
-        :return: Lift of all valid instances of the skill
+        :return: List of all valid instances of the skill
         """
         objects_per_param_type = [
             [obj for obj in objects if isinstance(obj, param.type_)] for param in self.parameters

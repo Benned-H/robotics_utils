@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterable
 
 
 @dataclass
@@ -15,3 +16,12 @@ class BaseObjectType:
     def __str__(self) -> str:
         """Return a readable string representation of the object."""
         return f"{type(self).__name__}({self.name})"
+
+
+class ObjectTypes:
+    """The set of known object types in a PDDL domain."""
+
+    def __init__(self, objects: Iterable[object]) -> None:
+        """Initialize the type hierarchy using the given collection of objects."""
+        self._types: set[type] = {type(obj) for obj in objects}
+        """The set of all types in the domain."""
