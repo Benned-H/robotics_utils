@@ -63,7 +63,7 @@ class Predicate(Generic[DataclassT, StateT], Hashable):
             lifted_param_name = p.name if p.name.startswith("?") else f"?{p.name}"
             params_per_type[p.type_].append(lifted_param_name)  # PDDL parameter names begin with ?
 
-        groups = [f"{' '.join(params)} - {t_name}" for t_name, params in params_per_type.items()]
+        groups = [f"{' '.join(params)} - {t.__name__}" for t, params in params_per_type.items()]
         return f"({self.name}{(' ' + ' '.join(groups)) if groups else ''})"
 
     def get_parameter_type(self, param_name: str) -> type:

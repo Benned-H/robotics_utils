@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import fields, is_dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Generic, Hashable, Iterator, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Hashable, Iterator, TypeVar, get_type_hints
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
@@ -29,9 +29,10 @@ class DataclassType(Generic[DataclassT]):
             yield field.name
 
     @cached_property
-    def field_types(self) -> dict[str, Any]:
+    def field_types(self) -> dict[str, type]:
         """Retrieve a mapping from dataclass field names to the corresponding types."""
-        return {f.name: f.type for f in fields(self._dataclass_t)}
+        type_hints = get_type_hints(self._dataclass_t)
+        return {f.name: type_hints[f.name] for f in fields(self._dataclass_t)}
 
     def get_docstrings(self) -> dict[str, str | None]:
         """Retrieve a mapping from field names to metadata docstrings, if any (else None)."""
