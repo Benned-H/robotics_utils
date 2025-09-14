@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from robotics_utils.classical_planning.operators import Operator
-    from robotics_utils.classical_planning.predicates import Predicate
-    from robotics_utils.classical_planning.type_hierarchy import TypeHierarchy
+    from robotics_utils.abstractions.objects import ObjectTypes
+    from robotics_utils.abstractions.operators import Operator
+    from robotics_utils.abstractions.predicates import Predicate
 
 
 @dataclass(frozen=True)
@@ -21,8 +21,8 @@ class PDDLDomain:
     requirements: set[str]
     """Additional PDDL features required by the domain (e.g., `:typing`)."""
 
-    types: TypeHierarchy
-    """A hierarchy of the object types used in the domain."""
+    types: ObjectTypes
+    """The set of object types used in the domain."""
 
     predicates: set[Predicate]
     """The set of predicates (i.e., lifted Boolean state classifiers) in the domain."""
