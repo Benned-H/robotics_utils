@@ -20,6 +20,23 @@ class Parameter:
     semantics: str | None = None
     """Optional natural language description of the parameter's meaning."""
 
+    def __post_init__(self) -> None:
+        """Verify required properties for any constructed Parameter instance."""
+        if not isinstance(self.type_, type):
+            raise TypeError(f"{self.name}: type_ must be a class or type, not {self.type_!r}.")
+
+        try:
+            isinstance(None, self.type_)
+        except TypeError as err:
+            raise TypeError(
+                f"{self.name}: type_ {self.type_!r} doesn't support isinstance() checks.",
+            ) from err
+
+        try:
+            hash(self.type_)
+        except TypeError as err:
+            raise TypeError(f"{self.name}: type_ {self.type_!r} doesn't support hashing.") from err
+
     def __str__(self) -> str:
         """Create a readable string representation of the parameter."""
         semantics = f": {self.semantics}" if self.semantics else ""

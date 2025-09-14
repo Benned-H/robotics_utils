@@ -6,16 +6,17 @@ from dataclasses import dataclass
 
 import pytest
 
+from robotics_utils.abstractions.objects import BaseObjectType
 from robotics_utils.abstractions.predicates import Predicate
 
 
-class Hoist(str): ...
+class Hoist(BaseObjectType): ...
 
 
-class Crate(str): ...
+class Crate(BaseObjectType): ...
 
 
-class StorageArea(str): ...
+class StorageArea(BaseObjectType): ...
 
 
 StringState = str  # Stands in for an actual state representation
