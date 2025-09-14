@@ -22,6 +22,6 @@ class ObjectTypes:
     """The set of known object types in a PDDL domain."""
 
     def __init__(self, objects: Iterable[object]) -> None:
-        """Initialize the type hierarchy using the given collection of objects."""
+        """Initialize the set of known object types using the given objects."""
         self._types: set[type] = {type(obj) for obj in objects}
         """The set of all types in the domain."""

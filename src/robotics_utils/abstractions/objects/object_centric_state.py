@@ -10,4 +10,4 @@ class ObjectCentricState:
     """The state of an object-centric environment."""
 
     objects: dict[str, object]
-    """Map from object names ot object instances in the environment."""
+    """Map from object names to object instances in the environment."""
