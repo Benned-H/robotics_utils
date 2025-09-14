@@ -53,7 +53,7 @@ class Predicate(Generic[DataclassT, StateT], Hashable):
 
     def __str__(self) -> str:
         """Return a readable string representation of the predicate."""
-        params = ", ".join(f"{p.name}: {p.type_}" for p in self.parameters)
+        params = ", ".join(f"{p.name}: {p.type_name}" for p in self.parameters)
         return f"{self.name}({params})"
 
     def to_pddl(self) -> str:

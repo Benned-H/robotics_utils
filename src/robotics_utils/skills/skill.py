@@ -38,7 +38,7 @@ class Skill:
 
     def __str__(self) -> str:
         """Return a readable string representation of the skill."""
-        params = ", ".join(f"{p.name}: {p.type_.__name__}" for p in self.parameters)
+        params = ", ".join(f"{p.name}: {p.type_name}" for p in self.parameters)
         return f"{self.name}({params})"
 
     @classmethod

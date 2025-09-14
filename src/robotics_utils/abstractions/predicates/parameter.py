@@ -23,7 +23,7 @@ class Parameter:
     def __str__(self) -> str:
         """Create a readable string representation of the parameter."""
         semantics = f": {self.semantics}" if self.semantics else ""
-        return f"{self.name} (type {self.type_}){semantics}"
+        return f"{self.name} (type {self.type_name}){semantics}"
 
     @classmethod
     def tuple_from_dataclass(cls, dataclass_t: type[DataclassT]) -> tuple[Parameter, ...]:
@@ -35,3 +35,8 @@ class Parameter:
             Parameter(f_name, f_type, docstrings[f_name])
             for f_name, f_type in dataclass_type.field_types.items()
         )
+
+    @property
+    def type_name(self) -> str:
+        """Retrieve a human-readable string name for the parameter's type."""
+        return self.type_.__name__

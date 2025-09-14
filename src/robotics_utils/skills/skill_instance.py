@@ -66,7 +66,7 @@ class SkillInstance:
             if not isinstance(bound_arg, param.type_):
                 raise TypeError(
                     f"Cannot parse skill instance from '{string}' because skill parameter "
-                    f"'{param.name}' expects type {param.type_} but the provided "
+                    f"'{param.name}' expects type {param.type_name} but the provided "
                     f"argument '{bound_arg_name}' has type {type(bound_arg)}: {bound_arg}.",
                 )
 
