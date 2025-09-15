@@ -73,6 +73,8 @@ def build_cli(protocol: SkillsProtocol[SkillResult], skills_ui: SkillsUI) -> cli
     def cli(yes: bool) -> None:
         """Create an interactive CLI for invoking skills with typed parameters."""
         while True:
+            protocol.spin_once()
+
             console.print(_render_inventory_table(inventory))
             choice = Prompt.ask("Select a skill number (or 'q' to quit)").strip().lower()
             if choice in {"q", "quit", "exit"}:

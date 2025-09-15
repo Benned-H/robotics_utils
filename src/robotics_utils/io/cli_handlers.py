@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.prompt import FloatPrompt, Prompt
 
 from robotics_utils.kinematics import Pose3D
+from robotics_utils.skills.skill_templates import PickTemplate
 
 InputT = TypeVar("InputT")
 """An input type being requested via CLI."""
@@ -97,3 +98,39 @@ def handle_pose(ui: ParamUI[Pose3D], console: Console) -> Pose3D:
     ref_frame = handle_string(ref_frame_ui, console)
 
     return Pose3D.from_list([x, y, z, r, p, yaw], ref_frame=ref_frame)
+
+
+def handle_pick_template(ui: ParamUI[PickTemplate], console: Console) -> PickTemplate:
+    """Prompt the user for a template for a 'Pick' skill using the CLI."""
+    console.print(f"[cyan]{ui.label}[/cyan]")
+
+    pose_o_g = handle_pose(
+        ParamUI(
+            "Grasp pose of the end-effector w.r.t. the object to be picked.",
+            default=None if ui.default is None else ui.default.pose_o_g,
+        ),
+        console,
+    )
+    pre_grasp_x_m = handle_float(
+        ParamUI(
+            "Offset (m) of the pre-grasp pose 'back' (-x) from the grasp pose.",
+            default=None if ui.default is None else ui.default.pre_grasp_x_m,
+        ),
+        console,
+    )
+    post_grasp_lift_m = handle_float(
+        ParamUI(
+            "Offset (m) of the post-grasp pose 'up' (+z) from the grasp pose in the world frame.",
+            default=None if ui.default is None else ui.default.post_grasp_lift_m,
+        ),
+        console,
+    )
+    carry_pose = handle_pose(
+        ParamUI(
+            "End-effector pose (w.r.t. body frame) used to carry the object.",
+            default=None if ui.default is None else ui.default.pose_b_carry,
+        ),
+        console,
+    )
+
+    return PickTemplate(pose_o_g, abs(pre_grasp_x_m), abs(post_grasp_lift_m), carry_pose)

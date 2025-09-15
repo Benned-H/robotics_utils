@@ -13,6 +13,9 @@ SkillOutputT = TypeVar("SkillOutputT")
 class SkillsProtocol(Generic[SkillOutputT]):
     """An arbitrary protocol defining skills for a particular domain."""
 
+    def spin_once(self, duration_s: float = 0.1) -> None:
+        """Sleep for the given duration to allow background processing."""
+
 
 class SkillsInventory:
     """An inventory of skills available to an agent."""

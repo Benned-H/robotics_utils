@@ -62,6 +62,17 @@ class PoseEstimateAverager:
         """Lock the named frame's estimate as its current value (it will ignore future updates)."""
         self._locked.add(frame_name)
 
+    def unlock(self, frame_name: str) -> bool:
+        """Unlock the named frame for pose estimation updates.
+
+        :return: True if the frame is unlocked, else False if it was already unlocked
+        """
+        if frame_name not in self._locked:
+            return False
+
+        self._locked.remove(frame_name)
+        return True
+
     def compute_all_averages(self) -> dict[str, Pose3D | None]:
         """Compute and return a map from each frame name to its averaged pose estimate."""
         return {frame: self.get(frame) for frame in self._estimates}

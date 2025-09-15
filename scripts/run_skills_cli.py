@@ -16,7 +16,7 @@ from robotics_utils.io.cli_handlers import (
 from robotics_utils.io.skills_cli import build_cli
 from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros import TransformManager
-from robotics_utils.skills.protocols.spot_skills import SpotSkillsProtocol
+from robotics_utils.skills.protocols.spot_skills import SpotSkillsConfig, SpotSkillsProtocol
 
 
 def yaml_filepath_exists(path: Path) -> str | None:
@@ -60,13 +60,18 @@ def main() -> None:
 
     spot_skills_ui = SkillsUI(input_handlers, param_overrides)
 
-    env_yaml = Path(
-        "/docker/spot_skills/src/spot_skills/domains/environments/OpenBlackDresserDrawer.yaml",
-    )
-    if not env_yaml.exists():
-        raise FileNotFoundError(f"YAML file does not exist: {env_yaml}")
+    spot_skills_catkin_pkg = Path("/docker/spot_skills/src/spot_skills")
 
-    spot_skills_executor = SpotSkillsProtocol(env_yaml, Console(), take_control=True)
+    config = SpotSkillsConfig(
+        env_yaml=spot_skills_catkin_pkg / "domains/environments/OpenBlackDresserDrawer.yaml",
+        console=Console(),
+        markers_yaml=spot_skills_catkin_pkg / "config/markers.yaml",
+        marker_topic_prefix="/ar_markers",  # TODO: Is this correct?
+        known_poses_yaml=spot_skills_catkin_pkg / "config/known_poses.yaml",
+        take_control=True,
+    )
+
+    spot_skills_executor = SpotSkillsProtocol(config)
 
     cli = build_cli(spot_skills_executor, spot_skills_ui)
     cli()
