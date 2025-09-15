@@ -1,8 +1,6 @@
-"""Define a CLI generator to allow executing skills from a skills inventory."""
+"""Define a command-line interface for executing skills from a skills inventory."""
 
 from __future__ import annotations
-
-from typing import Callable, Mapping, TypeVar
 
 import click
 from rich.console import Console
@@ -11,12 +9,9 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from robotics_utils.abstractions.predicates import Parameter
+from robotics_utils.io.cli_handlers import ParamUI, SkillsUI
 from robotics_utils.skills import Skill, SkillsInventory, SkillsProtocol
-
-InputT = TypeVar("InputT")
-
-InputHandler = Callable[[Parameter, Console], InputT]
+from robotics_utils.skills.protocols.spot_skills import SkillResult
 
 
 def _render_inventory_table(inv: SkillsInventory) -> Table:
@@ -32,37 +27,34 @@ def _render_inventory_table(inv: SkillsInventory) -> Table:
     return table
 
 
-def _prompt_for_bindings(
-    console: Console,
-    skill: Skill,
-    handlers: Mapping[type, InputHandler],
-) -> dict[str, object]:
-    """Prompt the user for each parameter of the given skill using the provided handlers.
+def _prompt_for_bindings(console: Console, skill: Skill, skills_ui: SkillsUI) -> dict[str, object]:
+    """Prompt the user for each parameter of the given skill.
 
     :return: Map from skill parameter names to bound objects
     :raises KeyError: If a skill parameter type is missing an input handler
     """
-    console.print(
-        Panel.fit(f"[bold]{skill.name}[/bold]", subtitle="Provide arguments", border_style="green"),
-    )
+    console.print(Panel.fit(f"[bold]{skill.name}[/bold]", border_style="green"))
     bindings: dict[str, object] = {}
 
     for p in skill.parameters:
-        handler = handlers.get(p.type_)
+        handler = skills_ui.handlers.get(p.type_)
         if handler is None:
             raise KeyError(
                 f"No input handler registered for type {p.type_name} (parameter '{p.name}').",
             )
-        bindings[p.name] = handler(p, console)
+
+        p_label = p.name if p.semantics is None else f"{p.name}: {p.semantics}"
+        ui = skills_ui.param_overrides.get((skill.name, p.name), ParamUI(label=p_label))
+        bindings[p.name] = handler(ui, console)
 
     return bindings
 
 
-def build_cli(protocol: SkillsProtocol, handlers: Mapping[type, InputHandler]) -> click.Command:
+def build_cli(protocol: SkillsProtocol[SkillResult], skills_ui: SkillsUI) -> click.Command:
     """Create a Click command that exposes a Rich-driven interactive CLI for a skills inventory.
 
     :param protocol: Class with methods defining the structure of available skills
-    :param handlers: Maps Python types to functions that prompt a user for an object of that type
+    :param skills_ui: User interface used to create the CLI for the skills
     :return: A Click command that can be used as an entry point or subcommand
     """
     inventory = SkillsInventory.from_protocol(protocol)
@@ -71,9 +63,10 @@ def build_cli(protocol: SkillsProtocol, handlers: Mapping[type, InputHandler]) -
     console = Console()
 
     # We don't fail here; only error once we actually try to run a skill missing a type handler
-    unhandled_types = inventory.all_argument_types - set(handlers.keys())
+    unhandled_types = inventory.all_argument_types - set(skills_ui.handlers.keys())
     unhandled_type_names = ", ".join(t.__name__ for t in unhandled_types)
-    console.print(f"[yellow]Types missing input handlers: {unhandled_type_names}.[/yellow]")
+    if unhandled_type_names:
+        console.print(f"[yellow]Types missing input handlers: {unhandled_type_names}.[/yellow]")
 
     @click.command(context_settings={"help_option_names": ["-h", "--help"]})
     @click.option("--yes", is_flag=True, help="Skip confirmation prompts.")
@@ -97,17 +90,21 @@ def build_cli(protocol: SkillsProtocol, handlers: Mapping[type, InputHandler]) -
 
             skill = idx_to_skill[idx]
             try:
-                bindings = _prompt_for_bindings(console, skill, handlers)
+                bindings = _prompt_for_bindings(console, skill, skills_ui)
             except KeyError as err:
                 console.print(f"[red]{err}[/red]")
                 continue
 
             console.print(Padding(f"Bindings: {bindings}", (0, 1)))
             if yes or Confirm.ask(f"[bold]Execute {skill.name}?[/]"):
-                skill.execute(protocol, bindings)
-                console.print("[green]Done.[/green]")
+                result: SkillResult = skill.execute(protocol, bindings)
+                success, message = result
+                if success:
+                    console.print(f"[green]{message}[/green]")
+                else:
+                    console.print(f"[red]{message}[/red]")
 
-            if not Confirm.ask("Invoke another skill?"):
+            if not Confirm.ask("Invoke another skill?", default=True):
                 console.print("[dim]Bye.[/dim]")
                 break
 

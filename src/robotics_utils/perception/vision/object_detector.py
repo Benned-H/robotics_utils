@@ -132,5 +132,5 @@ class ObjectDetector:
                 score,
                 BoundingBox.from_ratios(box_data, image.data.shape),
             )
-            for score, query_idx, box_data in zip(scores, labels, boxes, strict=True)
+            for score, query_idx, box_data in zip(scores, labels, boxes)
         ]

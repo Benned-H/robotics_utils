@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from robotics_utils.classical_planning.objects import Objects
+from robotics_utils.abstractions.objects.objects import Objects
 from robotics_utils.collision_models import CollisionModel
 from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME, Configuration

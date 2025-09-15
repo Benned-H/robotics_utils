@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from dataclasses import dataclass
 from itertools import product
-from typing import TYPE_CHECKING, Any, Callable, Mapping, get_type_hints
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Tuple, get_type_hints
 
 from robotics_utils.abstractions.predicates import Parameter
 from robotics_utils.io.process_python import parse_docstring_params
@@ -20,6 +20,10 @@ def skill_method(m: Callable) -> Callable:
     """Mark a method as implementing a skill."""
     m._is_skill = True
     return m
+
+
+SkillResult = Tuple[bool, str]
+"""A Boolean success and a message describing the outcome of a skill execution."""
 
 
 @dataclass(frozen=True)
@@ -80,18 +84,20 @@ class Skill:
         """Retrieve the method name corresponding to this skill."""
         return pascal_to_snake(self.name)  # PascalCase skill name -> snake_case method name
 
-    def execute(self, executor: SkillsProtocol, bindings: Mapping[str, object]) -> object | None:
+    def execute(self, executor: SkillsProtocol, bindings: Mapping[str, object]) -> SkillResult:
         """Execute this skill under the given parameter bindings.
 
         :param executor: Protocol defining an interface for skill execution
         :param bindings: Map from parameter names to bound arguments
         """
-        if not hasattr(executor, self.method_name):
-            raise NotImplementedError(f"Skills protocol has no method: {self.method_name}.")
+        skill_method = getattr(executor, self.method_name, None)
+        if skill_method is None:  # Check for hidden methods as a backup
+            skill_method = getattr(executor, f"_{self.method_name}", None)
+            if skill_method is None:
+                raise NotImplementedError(f"Skills protocol has no method: {self.method_name}.")
 
-        skill_method = getattr(executor, self.method_name)
         args = [bindings[param.name] for param in self.parameters]
-        return skill_method(executor, *args)
+        return skill_method(*args)
 
     def create_all_instances(self, objects: list[object]) -> list[SkillInstance]:
         """Compute all valid instantiations of the skill using the given Python objects.
@@ -109,7 +115,7 @@ class Skill:
         return [
             SkillInstance(
                 self,
-                bindings={p.name: obj for p, obj in zip(self.parameters, args, strict=True)},
+                bindings={p.name: obj for p, obj in zip(self.parameters, args)},
             )
             for args in all_valid_args
         ]

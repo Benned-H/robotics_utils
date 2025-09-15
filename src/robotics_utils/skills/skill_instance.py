@@ -57,8 +57,8 @@ class SkillInstance:
                 f"Skill '{skill_name}' expects {len_param} args, not {len(args_names)}.",
             )
 
-        bindings: dict[str, object] = {}
-        for bound_arg_name, param in zip(args_names, skill.parameters, strict=True):
+        bindings: dict[str, object] = {}  # Omit strict=True to support older Python versions
+        for bound_arg_name, param in zip(args_names, skill.parameters):
             if bound_arg_name not in universe:
                 raise ValueError(f"Argument '{bound_arg_name}' not found in the universe.")
 
