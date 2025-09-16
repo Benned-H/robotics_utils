@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from contextlib import suppress
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -87,7 +88,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         self._waypoints = Waypoints.from_yaml(config.env_yaml)
         self._console = config.console
 
-        # Construct a fiducial tracker used to update/ock object pose estimates
+        # Construct a fiducial tracker used to update object pose estimates
         known_poses = None
         if config.known_poses_yaml is not None:
             known_poses = Pose3D.load_named_poses(config.known_poses_yaml, "known_poses")
@@ -116,6 +117,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         self._unlock_arm_srv_name = "spot/unlock_arm"
         self._stow_arm_srv_name = "spot/stow_arm"
         self._erase_board_srv_name = "spot/erase_board"
+        self._dock_srv_name = "spot/dock"
 
         self._gripper = ROSAngularGripper(
             limits=GripperAngleLimits(open_rad=-1.5707, closed_rad=0.0),
@@ -175,7 +177,19 @@ class SpotSkillsProtocol(SkillsProtocol):
     def stow_arm(self) -> SkillResult:
         """Stow Spot's arm."""
         success = trigger_service(self._stow_arm_srv_name)
+        if success:
+            self._gripper.close()
         message = "Spot's arm was stowed." if success else "Could not stow Spot's arm."
+        return success, message
+
+    @skill_method
+    def dock(self, dock_id: int) -> SkillResult:
+        """Command Spot to dock at the specified dock.
+
+        :param dock_id: ID of the dock Spot should dock at
+        """
+        success = trigger_service(self._dock_srv_name)  # TODO: Use the dock ID in the service call
+        message = "Spot successfully docked." if success else "Spot failed to dock."
         return success, message
 
     @skill_method  # TODO: Args to specify which drawer
@@ -198,7 +212,6 @@ class SpotSkillsProtocol(SkillsProtocol):
         self._gripper.close()
         time.sleep(3)  # Wait 3 seconds for the gripper to settle
 
-        pull_pose = Pose3D.from_xyz_rpy(x=0.65, z=0.51, yaw_rad=3.14159, ref_frame="black_dresser")
         pull_success, pull_outcome = self._move_ee_to_pose(pull_pose, "pull_drawer_pose")
         if not pull_success:
             return False, pull_outcome
@@ -224,12 +237,16 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         self._gripper.open()
 
+        with suppress(KeyError):
+            self._fiducial_tracker.known_frames.remove(object_name)
+
         was_locked = self._fiducial_tracker.pose_averager.unlock(object_name)
+        self._console.print(f"Object frame {object_name} was previously locked: {was_locked}.")
 
         rospy.sleep(duration_s)
 
-        if was_locked:
-            self._fiducial_tracker.pose_averager.lock(object_name)
+        # if was_locked:
+        #     self._fiducial_tracker.pose_averager.lock(object_name)
 
         self._gripper.close()
         return self.stow_arm()

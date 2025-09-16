@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Callable, Generic, Mapping, Optional, Tuple, TypeVar
 
 from rich.console import Console
-from rich.prompt import FloatPrompt, Prompt
+from rich.prompt import FloatPrompt, IntPrompt, Prompt
 
 from robotics_utils.kinematics import Pose3D
 from robotics_utils.skills.skill_templates import PickTemplate
@@ -46,6 +46,27 @@ class SkillsUI:
     """Maps (skill name, param name) tuples to override UIs with parameter-specific configs."""
 
 
+def validate(value: InputT, validators: list[Validator[InputT]] | None, console: Console) -> bool:
+    """Validate the given value using the given validators.
+
+    :param value: Value to be validated
+    :param validators: Optional list of validators specifying conditions for the value
+    :param console: Command-line interface
+    :return: True if the value is valid, else False
+    """
+    if validators is None:
+        return True
+
+    valid = True
+    for v in validators:
+        error_message = v(value)
+        if error_message is not None:
+            console.print(f"[red]{error_message}[/]: {value}")
+            valid = False
+
+    return valid
+
+
 def handle_string(ui: ParamUI[str], console: Console) -> str:
     """Prompt the user for a string using the CLI."""
     if ui.default is None:
@@ -62,29 +83,33 @@ def handle_float(ui: ParamUI[float], console: Console) -> float:
     return FloatPrompt.ask(ui.label, default=ui.default)
 
 
+def handle_int(ui: ParamUI[int], console: Console) -> int:
+    """Prompt the user for an integer using the CLI."""
+    while True:
+        if ui.default is None:
+            value = IntPrompt.ask(ui.label)
+        else:
+            value = IntPrompt.ask(ui.label, default=ui.default)
+
+        if validate(value, ui.validators, console):
+            return value
+
+
 def handle_filepath(ui: ParamUI[Path], console: Console) -> Path:
     """Prompt the user for a filepath using the CLI."""
     while True:
         raw = Prompt.ask(f"{ui.label} (absolute or relative)")
         p = Path(raw).expanduser().resolve()
 
-        valid = True
-        if ui.validators is not None:
-            for validate in ui.validators:
-                err = validate(p)
-                if err is not None:
-                    console.print(f"[red]{err}[/]: {p}")
-                    valid = False
-
-        if not valid:
-            continue
-
-        console.print(f"[cyan]Using filepath:[/] {p}")
-        return p
+        if validate(p, ui.validators, console):
+            console.print(f"[cyan]Using filepath:[/] {p}")
+            return p
 
 
 def handle_pose(ui: ParamUI[Pose3D], console: Console) -> Pose3D:
     """Prompt the user for a 3D pose using the CLI."""
+    console.print(f"[cyan]{ui.label}[/]")
+
     x = handle_float(ParamUI("x (m)", 0 if ui.default is None else ui.default.position.x), console)
     y = handle_float(ParamUI("y (m)", 0 if ui.default is None else ui.default.position.y), console)
     z = handle_float(ParamUI("z (m)", 0 if ui.default is None else ui.default.position.z), console)

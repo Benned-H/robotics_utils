@@ -10,6 +10,8 @@ from robotics_utils.io.cli_handlers import (
     ParamUI,
     SkillsUI,
     handle_filepath,
+    handle_float,
+    handle_int,
     handle_pose,
     handle_string,
 )
@@ -36,6 +38,8 @@ def main() -> None:
         str: handle_string,
         Path: handle_filepath,
         Pose3D: handle_pose,
+        float: handle_float,
+        int: handle_int,
     }
 
     param_overrides = {
@@ -45,16 +49,26 @@ def main() -> None:
         ),
         ("OpenDrawer", "grasp_pose"): ParamUI(
             label="End-effector pose used to grasp the dresser drawer handle",
-            default=Pose3D.from_xyz_rpy(
-                x=0.471,
-                z=0.476,
-                yaw_rad=3.14159,
-                ref_frame="black_dresser",
-            ),
+            default=Pose3D.from_xyz_rpy(x=0.46, z=0.56, yaw_rad=3.1416, ref_frame="black_dresser"),
         ),
         ("OpenDrawer", "pull_pose"): ParamUI(
             label="End-effector pose at the end of pulling the drawer open",
-            default=Pose3D.from_xyz_rpy(x=0.65, z=0.51, yaw_rad=3.14159, ref_frame="black_dresser"),
+            default=Pose3D.from_xyz_rpy(x=0.68, z=0.63, yaw_rad=3.1416, ref_frame="black_dresser"),
+        ),
+        ("LookForObject", "object_name"): ParamUI(
+            label="Name of the object looked for",
+            default="black_dresser",
+        ),
+        ("LookForObject", "ee_pose"): ParamUI(
+            label="Pose of the end-effector when looking",
+            default=Pose3D.from_xyz_rpy(
+                x=0.77,
+                y=0.2,
+                z=0.65,
+                pitch_rad=0.78,
+                yaw_rad=0.5,
+                ref_frame="body",
+            ),
         ),
     }
 
@@ -66,7 +80,7 @@ def main() -> None:
         env_yaml=spot_skills_catkin_pkg / "domains/environments/OpenBlackDresserDrawer.yaml",
         console=Console(),
         markers_yaml=spot_skills_catkin_pkg / "config/markers.yaml",
-        marker_topic_prefix="/ar_markers",  # TODO: Is this correct?
+        marker_topic_prefix="/ar_pose_marker",
         known_poses_yaml=spot_skills_catkin_pkg / "config/known_poses.yaml",
         take_control=True,
     )

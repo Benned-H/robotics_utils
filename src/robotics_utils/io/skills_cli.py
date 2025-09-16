@@ -14,6 +14,16 @@ from robotics_utils.skills import Skill, SkillsInventory, SkillsProtocol
 from robotics_utils.skills.protocols.spot_skills import SkillResult
 
 
+def _idx_to_skill(inventory: SkillsInventory) -> dict[int, Skill]:
+    """Construct a map from indices to skills."""
+    sorted_skill_names = sorted(skill.name for skill in inventory)
+
+    return {
+        idx: inventory.get_skill(skill_name)
+        for idx, skill_name in enumerate(sorted_skill_names, start=1)
+    }
+
+
 def _render_inventory_table(inv: SkillsInventory) -> Table:
     """Render a numbered skills table for skill selection."""
     table = Table(title=f"Skills Inventory: {inv.name}", show_lines=False)
@@ -21,7 +31,7 @@ def _render_inventory_table(inv: SkillsInventory) -> Table:
     table.add_column("Skill", style="bold")
     table.add_column("Parameters", style="magenta")
 
-    for idx, skill in enumerate(inv, start=1):
+    for idx, skill in _idx_to_skill(inv).items():
         params = ", ".join(f"{p.name}: {p.type_name}" for p in skill.parameters)
         table.add_row(str(idx), skill.name, params or "—")
     return table
@@ -58,7 +68,7 @@ def build_cli(protocol: SkillsProtocol[SkillResult], skills_ui: SkillsUI) -> cli
     :return: A Click command that can be used as an entry point or subcommand
     """
     inventory = SkillsInventory.from_protocol(protocol)
-    idx_to_skill: dict[int, Skill] = dict(enumerate(inventory, start=1))
+    idx_to_skill = _idx_to_skill(inventory)
 
     console = Console()
 
