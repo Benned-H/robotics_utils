@@ -47,9 +47,13 @@ def main() -> None:
             label="YAML file specifying a relative end-effector trajectory",
             validators=[yaml_filepath_exists],
         ),
+        ("OpenDrawer", "pre_pose"): ParamUI(
+            label="Intermediate end-effector pose target before the grasp pose",
+            default=Pose3D.from_xyz_rpy(x=0.68, z=0.56, yaw_rad=3.1416, ref_frame="black_dresser"),
+        ),
         ("OpenDrawer", "grasp_pose"): ParamUI(
             label="End-effector pose used to grasp the dresser drawer handle",
-            default=Pose3D.from_xyz_rpy(x=0.46, z=0.56, yaw_rad=3.1416, ref_frame="black_dresser"),
+            default=Pose3D.from_xyz_rpy(x=0.47, z=0.56, yaw_rad=3.1416, ref_frame="black_dresser"),
         ),
         ("OpenDrawer", "pull_pose"): ParamUI(
             label="End-effector pose at the end of pulling the drawer open",
@@ -70,6 +74,14 @@ def main() -> None:
                 ref_frame="body",
             ),
         ),
+        ("LookForObject", "duration_s"): ParamUI(
+            label="Duration (seconds) to wait during pose estimation",
+            default=5.0,
+        ),
+        ("EraseBoard", "whiteboard_x_m"): ParamUI(
+            label="x-coordinate of the whiteboard in Spot's body frame",
+            default=1.2,
+        ),
     }
 
     spot_skills_ui = SkillsUI(input_handlers, param_overrides)
@@ -77,11 +89,10 @@ def main() -> None:
     spot_skills_catkin_pkg = Path("/docker/spot_skills/src/spot_skills")
 
     config = SpotSkillsConfig(
-        env_yaml=spot_skills_catkin_pkg / "domains/environments/OpenBlackDresserDrawer.yaml",
+        env_yaml=spot_skills_catkin_pkg / "config/icra_video/env.yaml",
         console=Console(),
-        markers_yaml=spot_skills_catkin_pkg / "config/markers.yaml",
+        markers_yaml=spot_skills_catkin_pkg / "config/icra_video/markers.yaml",
         marker_topic_prefix="/ar_pose_marker",
-        known_poses_yaml=spot_skills_catkin_pkg / "config/known_poses.yaml",
         take_control=True,
     )
 

@@ -14,7 +14,7 @@ from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
 from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D
 from robotics_utils.perception.pose_estimation import FiducialSystem, PoseEstimateAverager
-from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
+from robotics_utils.ros.msg_conversion import pose_from_msg
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
 
@@ -46,12 +46,7 @@ class FiducialTracker:
         self.system = system
         self.pose_averager = PoseEstimateAverager(window_size)
 
-        if known_poses:
-            for frame_name, pose in known_poses.items():
-                self.pose_averager.update(frame_name, pose)
-                self.pose_averager.lock(frame_name)  # Prevent the stored pose from being updated
-
-        self.known_frames: set[str] = set(known_poses.keys()) if known_poses else set()
+        self.known_poses = known_poses or {}
 
         self.marker_subs: list[rospy.Subscriber] = []
         for camera_name in self.system.cameras:
@@ -80,6 +75,10 @@ class FiducialTracker:
             rospy.logwarn(f"Unrecognized camera name: '{args.camera_name}'.")
             return
 
+        if markers_msg.markers is None:
+            rospy.logwarn("Markers message had 'None' in place of markers messages.")
+            return
+
         for marker_msg in markers_msg.markers:
             if marker_msg.id not in self.system.markers:
                 rospy.logwarn(f"Unrecognized marker ID: {marker_msg.id}.")
@@ -95,6 +94,50 @@ class FiducialTracker:
             marker = self.system.markers[marker_msg.id]
             self.pose_averager.update(marker.frame_name, marker_pose)
 
+    def reestimate(self, frame_name: str, duration_s: float = 10.0) -> Pose3D | None:
+        """Re-estimate the pose of the named frame, then store its updated estimate as 'known'.
+
+        :param frame_name: Name of the frame (i.e., marker or object) to be pose-estimated
+        :param duration_s: Duration (seconds) to wait for new pose estimates, defaults to 10.0
+        :return: Updated pose estimate, if one was found, else None
+        """
+        # If the frame refers to an object, update its parent marker's pose estimate
+        if frame_name in self.system.object_names:
+            rospy.loginfo(f"Processing frame '{frame_name}' as an object frame...")
+
+            parent_marker = self.system.parent_marker.get(frame_name)
+            if parent_marker is None:
+                return None
+
+            pose_w_m = self.reestimate(parent_marker.frame_name, duration_s)
+            if pose_w_m is None:
+                rospy.logwarn(f"Unable to re-estimate the pose of marker {parent_marker.id}.")
+                return None
+
+            pose_m_o = parent_marker.relative_frames.get(frame_name)
+            if pose_m_o is None:
+                rospy.logwarn(
+                    f"Couldn't find pose for '{frame_name}' w.r.t. {parent_marker.frame_name}.",
+                )
+                return None
+
+            self.known_poses[frame_name] = pose_w_m @ pose_m_o
+
+        else:
+            rospy.loginfo(f"Processing frame '{frame_name}' as a marker frame...")
+
+            prev_average = self.pose_averager.reset_frame(frame_name)
+
+            rospy.sleep(duration_s)
+
+            new_average = self.pose_averager.get(frame_name)
+            if new_average is not None:
+                self.known_poses[frame_name] = new_average
+            elif prev_average is not None:  # Restore previous average if we didn't get a new one
+                self.pose_averager.update(frame_name, prev_average)
+
+        return self.known_poses.get(frame_name)
+
     def handle_output_to_yaml(self, _: TriggerRequest) -> TriggerResponse:
         """Dump the current pose estimates to YAML.
 
@@ -104,18 +147,24 @@ class FiducialTracker:
         if yaml_path.suffix not in {".yaml", ".yml"}:
             return TriggerResponse(success=False, message=f"Invalid YAML file suffix: {yaml_path}")
 
-        poses_data: dict[str, list[float]] = {}
+        marker_poses_data: dict[int, list[float]] = {}
+        object_poses_data: dict[str, list[float]] = {}
 
         for marker in self.system.markers.values():
             pose_w_m = self.pose_averager.get(marker.frame_name)
             if pose_w_m is None:
                 continue
 
+            marker_poses_data[marker.id] = pose_w_m.to_list()
+
             for obj_name, pose_m_o in marker.relative_frames.items():
                 pose_w_o = pose_w_m @ pose_m_o
-                poses_data[obj_name] = pose_w_o.to_list()
+                object_poses_data[obj_name] = pose_w_o.to_list()
 
-        yaml_data = {"object_poses": poses_data, "default_frame": DEFAULT_FRAME}
+        yaml_data = {
+            "marker_poses": marker_poses_data,
+            "object_poses": object_poses_data,
+        }
 
         yaml_string = yaml.dump(yaml_data, sort_keys=True, default_flow_style=True)
         with yaml_path.open("w") as yaml_file:
@@ -129,27 +178,24 @@ class FiducialTracker:
         """Continually broadcast averaged marker and object frames to /tf."""
         rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
         try:
-            pose_estimate_msg = PoseEstimate()
             while not rospy.is_shutdown():
+                # Publish all pose estimates available from the pose averager
+                curr_pose_averages = self.pose_averager.compute_all_averages()
+                for frame_name, pose_avg in curr_pose_averages.items():
+                    if pose_avg is None or frame_name in self.known_poses:
+                        continue
+                    TransformManager.broadcast_transform(frame_name, pose_avg)
+
+                # Publish all marker-relative poses in the visual fiducial system
                 for marker in self.system.markers.values():
-                    marker_pose = self.pose_averager.get(marker.frame_name)
-                    if marker_pose is not None:
-                        TransformManager.broadcast_transform(marker.frame_name, marker_pose)
+                    for obj_name, rel_pose in marker.relative_frames.items():
+                        if obj_name in self.known_poses:
+                            continue
+                        TransformManager.broadcast_transform(obj_name, rel_pose)
 
-                        for obj_name, rel_pose in marker.relative_frames.items():
-                            TransformManager.broadcast_transform(obj_name, rel_pose)
-
-                            pose_estimate_msg.object_name = obj_name
-                            pose_estimate_msg.pose = pose_to_stamped_msg(rel_pose)
-                            pose_estimate_msg.confidence = 0.0
-
-                            self.pose_pub.publish(pose_estimate_msg)
-
-                # Ensure that all frames with known poses are also broadcast
-                for frame_name in self.known_frames:
-                    pose = self.pose_averager.get(frame_name)
-                    if pose is not None:
-                        TransformManager.broadcast_transform(frame_name, pose)
+                # Publish all known poses as stored
+                for frame_name, known_pose in self.known_poses.items():
+                    TransformManager.broadcast_transform(frame_name, known_pose)
 
                 rate_hz.sleep()
 

@@ -11,6 +11,9 @@ from pathlib import Path
 import rospy
 from rich.console import Console
 from spot_skills.srv import (
+    Float64Service,
+    Float64ServiceRequest,
+    Float64ServiceResponse,
     NameService,
     NameServiceRequest,
     NameServiceResponse,
@@ -22,6 +25,7 @@ from spot_skills.srv import (
     PoseLookupResponse,
 )
 
+from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D, Waypoints
 from robotics_utils.motion_planning import MotionPlanningQuery
 from robotics_utils.perception.pose_estimation import FiducialSystem
@@ -59,9 +63,6 @@ class SpotSkillsConfig:
     pose_estimate_window_size: int = 10
     """Number of poses used in the rolling average estimate for each frame."""
 
-    known_poses_yaml: Path | None = None
-    """Optional path to a YAML file specifying objects or frames with known, fixed poses."""
-
     take_control: bool = False
     """Whether or not to immediately take control of Spot."""
 
@@ -72,9 +73,6 @@ class SpotSkillsConfig:
 
         if not self.markers_yaml.exists():
             raise FileNotFoundError(f"YAML file does not exist: {self.markers_yaml}")
-
-        if self.known_poses_yaml is not None and not self.known_poses_yaml.exists():
-            raise FileNotFoundError(f"YAML file does not exist: {self.known_poses_yaml}")
 
 
 class SpotSkillsProtocol(SkillsProtocol):
@@ -89,9 +87,11 @@ class SpotSkillsProtocol(SkillsProtocol):
         self._console = config.console
 
         # Construct a fiducial tracker used to update object pose estimates
+        env_data = load_yaml_data(config.env_yaml)
+
         known_poses = None
-        if config.known_poses_yaml is not None:
-            known_poses = Pose3D.load_named_poses(config.known_poses_yaml, "known_poses")
+        if "object_poses" in env_data:
+            known_poses = Pose3D.load_named_poses(config.env_yaml, "object_poses")
 
         self._fiducial_tracker = FiducialTracker(
             FiducialSystem.from_yaml(config.markers_yaml),
@@ -99,6 +99,7 @@ class SpotSkillsProtocol(SkillsProtocol):
             config.pose_estimate_window_size,
             known_poses,
         )
+        self._console.print(f"Fiducial markers loaded from YAML: {self._fiducial_tracker.system}")
 
         self._nav_to_waypoint_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
             "/spot/navigation/to_waypoint",
@@ -112,11 +113,15 @@ class SpotSkillsProtocol(SkillsProtocol):
             PlaybackTrajectoryRequest,
             PlaybackTrajectoryResponse,
         ]("spot/playback_trajectory", PlaybackTrajectory)
+        self._erase_board_caller = ServiceCaller[Float64ServiceRequest, Float64ServiceResponse](
+            "spot/erase_board",
+            Float64Service,
+        )
+
         self._open_door_srv_name = "spot/open_door"
         self._take_control_srv_name = "spot/take_control"
         self._unlock_arm_srv_name = "spot/unlock_arm"
         self._stow_arm_srv_name = "spot/stow_arm"
-        self._erase_board_srv_name = "spot/erase_board"
         self._dock_srv_name = "spot/dock"
 
         self._gripper = ROSAngularGripper(
@@ -167,11 +172,18 @@ class SpotSkillsProtocol(SkillsProtocol):
         return success, message
 
     @skill_method
-    def erase_board(self) -> SkillResult:  # TODO: Should take args
-        """Erase a whiteboard using a force-controlled trajectory."""
-        success = trigger_service(self._erase_board_srv_name)
-        message = "Erased the board." if success else "Could not erase the board."
-        return success, message
+    def erase_board(self, whiteboard_x_m: float) -> SkillResult:  # TODO: Should take args
+        """Erase a whiteboard using a force-controlled trajectory.
+
+        :param whiteboard_x_m: x-coordinate of the whiteboard in Spot's body frame
+        :return: Tuple containing a Boolean skill success and outcome message
+        """
+        request = Float64ServiceRequest(value=whiteboard_x_m)
+        response = self._erase_board_caller(request)
+        if response is None:
+            return False, "EraseBoard service response was None."
+
+        return response.success, response.message
 
     @skill_method
     def stow_arm(self) -> SkillResult:
@@ -193,30 +205,47 @@ class SpotSkillsProtocol(SkillsProtocol):
         return success, message
 
     @skill_method  # TODO: Args to specify which drawer
-    def open_drawer(self, grasp_pose: Pose3D, pull_pose: Pose3D) -> SkillResult:
+    def open_drawer(self, pre_pose: Pose3D, grasp_pose: Pose3D, pull_pose: Pose3D) -> SkillResult:
         """Open a drawer using Spot's gripper.
 
+        :param pre_pose: Intermediate end-effector pose target before the grasp pose
         :param grasp_pose: End-effector pose used to grasp the dresser drawer handle
         :param pull_pose: End-effector pose after initially pulling the drawer open
         """
-        nav_success, nav_outcome = self.go_to("open_black_dresser")
+        nav_success, nav_outcome = self.go_to("open_drawer")
         if not nav_success:
             return False, nav_outcome
 
         self._gripper.open()  # Open Spot's gripper before approaching the dresser
 
-        grasp_success, grasp_outcome = self._move_ee_to_pose(grasp_pose, "grasp_drawer_pose")
+        pre_success, pre_outcome = self._move_ee_to_pose(pre_pose, "pre_grasp_drawer")
+        if not pre_success:
+            return False, pre_outcome
+
+        grasp_success, grasp_outcome = self._move_ee_to_pose(grasp_pose, "grasp_drawer")
         if not grasp_success:
             return False, grasp_outcome
 
         self._gripper.close()
         time.sleep(3)  # Wait 3 seconds for the gripper to settle
 
-        pull_success, pull_outcome = self._move_ee_to_pose(pull_pose, "pull_drawer_pose")
+        pull_success, pull_outcome = self._move_ee_to_pose(pull_pose, "pull_drawer")
         if not pull_success:
             return False, pull_outcome
 
         self._gripper.open()
+
+        # After letting go, pull the gripper back (+10 cm x) and then stow the arm
+        post_pull_pose = deepcopy(pull_pose)
+        post_pull_pose.position.x += 0.1
+
+        post_success, post_outcome = self._move_ee_to_pose(post_pull_pose, "post_pull_drawer")
+        if not post_success:
+            return False, post_outcome
+
+        stow_success, stow_msg = self.stow_arm()
+        if not stow_success:
+            return False, stow_msg
 
         # TODO: Finish the skill!
 
@@ -237,19 +266,16 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         self._gripper.open()
 
-        with suppress(KeyError):
-            self._fiducial_tracker.known_frames.remove(object_name)
-
-        was_locked = self._fiducial_tracker.pose_averager.unlock(object_name)
-        self._console.print(f"Object frame {object_name} was previously locked: {was_locked}.")
-
-        rospy.sleep(duration_s)
-
-        # if was_locked:
-        #     self._fiducial_tracker.pose_averager.lock(object_name)
+        object_pose_estimate = self._fiducial_tracker.reestimate(object_name, duration_s)
+        if object_pose_estimate is None:
+            return False, f"Could not find an updated pose estimate for object '{object_name}'."
 
         self._gripper.close()
-        return self.stow_arm()
+        stow_ok, stow_msg = self.stow_arm()
+        if not stow_ok:
+            return False, stow_msg
+
+        return True, f"Updated object pose estimate: {object_pose_estimate}."
 
     @skill_method
     def pick(self, object_name: str, template: PickTemplate) -> SkillResult:
