@@ -17,6 +17,9 @@ from spot_skills.srv import (
     NameService,
     NameServiceRequest,
     NameServiceResponse,
+    NavigateToPose,
+    NavigateToPoseRequest,
+    NavigateToPoseResponse,
     PlaybackTrajectory,
     PlaybackTrajectoryRequest,
     PlaybackTrajectoryResponse,
@@ -36,10 +39,11 @@ from robotics_utils.ros import (
     PlanningSceneManager,
     TransformManager,
 )
-from robotics_utils.ros.msg_conversion import pose_from_msg
+from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
 from robotics_utils.ros.pose_broadcast_thread import PoseBroadcastThread
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.ros.services import ServiceCaller, trigger_service
+from robotics_utils.ros.transform_recorder import TransformRecorder
 from robotics_utils.skills import SkillsProtocol, skill_method
 from robotics_utils.skills.skill import SkillResult
 from robotics_utils.skills.skill_templates import PickTemplate, PlaceTemplate
@@ -105,6 +109,10 @@ class SpotSkillsProtocol(SkillsProtocol):
             "/spot/navigation/to_waypoint",
             NameService,
         )
+        self._nav_to_pose_caller = ServiceCaller[NavigateToPoseRequest, NavigateToPoseResponse](
+            "/spot/navigation/to_pose",
+            NavigateToPose,
+        )
         self._pose_lookup_caller = ServiceCaller[PoseLookupRequest, PoseLookupResponse](
             "pose_lookup",
             PoseLookup,
@@ -134,8 +142,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         self._motion_planner = MoveItMotionPlanner(self._arm, self._scene)
 
         if config.take_control:
-            trigger_service(self._take_control_srv_name)
-            trigger_service(self._unlock_arm_srv_name)
+            self._take_control()
 
         self._pose_broadcaster = PoseBroadcastThread()
 
@@ -144,7 +151,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         rospy.sleep(duration_s)
 
     @skill_method
-    def go_to(self, waypoint: str) -> SkillResult:
+    def go_to_waypoint(self, waypoint: str) -> SkillResult:
         """Navigate to the named waypoint.
 
         :param waypoint: Name of a navigation waypoint
@@ -160,7 +167,22 @@ class SpotSkillsProtocol(SkillsProtocol):
         response = self._nav_to_waypoint_caller(request)
 
         if response is None:
-            return False, "Navigation service response was None."
+            return False, "NavigateToWaypoint service response was None."
+
+        return response.success, response.message
+
+    @skill_method
+    def go_to_pose(self, base_pose: Pose3D) -> SkillResult:
+        """Navigate to the given base pose.
+
+        :param base_pose: Target base pose for the robot
+        :return: Tuple containing a Boolean skill success and outcome message
+        """
+        request = NavigateToPoseRequest(target_base_pose=pose_to_stamped_msg(base_pose))
+        response = self._nav_to_pose_caller(request)
+
+        if response is None:
+            return False, "NavigateToPose service response was None."
 
         return response.success, response.message
 
@@ -205,14 +227,21 @@ class SpotSkillsProtocol(SkillsProtocol):
         return success, message
 
     @skill_method  # TODO: Args to specify which drawer
-    def open_drawer(self, pre_pose: Pose3D, grasp_pose: Pose3D, pull_pose: Pose3D) -> SkillResult:
+    def open_drawer(
+        self,
+        pre_pose: Pose3D,
+        grasp_pose: Pose3D,
+        pull_pose: Pose3D,
+        traj_yaml: Path,
+    ) -> SkillResult:
         """Open a drawer using Spot's gripper.
 
         :param pre_pose: Intermediate end-effector pose target before the grasp pose
         :param grasp_pose: End-effector pose used to grasp the dresser drawer handle
         :param pull_pose: End-effector pose after initially pulling the drawer open
+        :param traj_yaml: Path to a YAML file containing the skill's final trajectory
         """
-        nav_success, nav_outcome = self.go_to("open_drawer")
+        nav_success, nav_outcome = self.go_to_waypoint("open_drawer")
         if not nav_success:
             return False, nav_outcome
 
@@ -247,17 +276,31 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not stow_success:
             return False, stow_msg
 
-        # TODO: Finish the skill!
+        # Next, play the recorded trajectory that finishes opening the drawer
+        traj_success, traj_msg = self._playback_trajectory(traj_yaml)
+        if not traj_success:
+            return False, traj_msg
+
+        stow_success, stow_msg = self.stow_arm()
+        if not stow_success:
+            return False, stow_msg
 
         return True, "Successfully opened the drawer."
 
     @skill_method
-    def look_for_object(self, ee_pose: Pose3D, object_name: str, duration_s: float) -> SkillResult:
+    def look_for_object(
+        self,
+        ee_pose: Pose3D,
+        object_name: str,
+        duration_s: float,
+        stow_after: bool,
+    ) -> SkillResult:
         """Look for the named object using the gripper camera, then stow Spot's arm.
 
         :param ee_pose: Pose of the end-effector when looking
         :param object_name: Name of the object looked for
         :param duration_s: Duration (seconds) to wait during pose estimation
+        :param stow_after: If True, stow Spot's arm at the end of the skill
         :return: Tuple containing a Boolean skill success and outcome message
         """
         move_ee_ok, move_ee_msg = self._move_ee_to_pose(ee_pose, f"look_for_{object_name}")
@@ -271,9 +314,11 @@ class SpotSkillsProtocol(SkillsProtocol):
             return False, f"Could not find an updated pose estimate for object '{object_name}'."
 
         self._gripper.close()
-        stow_ok, stow_msg = self.stow_arm()
-        if not stow_ok:
-            return False, stow_msg
+
+        if stow_after:
+            stow_ok, stow_msg = self.stow_arm()
+            if not stow_ok:
+                return False, stow_msg
 
         return True, f"Updated object pose estimate: {object_pose_estimate}."
 
@@ -339,6 +384,15 @@ class SpotSkillsProtocol(SkillsProtocol):
         # TODO
 
     @skill_method
+    def _take_control(self) -> SkillResult:
+        """Take control of the Spot robot (and unlock its arm, if necessary)."""
+        if not trigger_service(self._take_control_srv_name):
+            return False, "Unable to take control of Spot."
+        if not trigger_service(self._unlock_arm_srv_name):
+            return False, "Unable to unlock Spot's arm."
+        return True, "Successfully took control of Spot and unlocked Spot's arm."
+
+    @skill_method
     def _lookup_pose(self, frame: str, ref_frame: str) -> SkillResult:
         """Look up the pose of a frame w.r.t. a reference frame.
 
@@ -361,13 +415,49 @@ class SpotSkillsProtocol(SkillsProtocol):
         return response.success, response.message
 
     @skill_method
+    def _record_trajectory(
+        self,
+        outpath: Path,
+        overwrite: bool,
+        ref_frame: str,
+        tracked_frame: str,
+    ) -> SkillResult:
+        """Record an end-effector relative trajectory and save it to YAML.
+
+        :param outpath: Output path where the YAML file is created
+        :param overwrite: Whether to allow overwriting the output path
+        :param ref_frame: Reference frame used for the initial relative pose
+        :param tracked_frame: Frame tracked during the recording
+        :return: Tuple containing a Boolean skill success and outcome message
+        """
+        if not overwrite and outpath.exists():
+            return False, f"Cannot overwrite existing output path: {outpath}"
+
+        config_before = self._arm.configuration
+
+        recorder = TransformRecorder(ref_frame, tracked_frame)
+
+        rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
+        try:
+            while not rospy.is_shutdown():
+                recorder.update()
+                rate_hz.sleep()
+        except rospy.ROSInterruptException as ros_exc:
+            return False, f"{ros_exc}"
+        finally:
+            config_after = self._arm.configuration
+            recorder.save_to_file(outpath, config_before, config_after)
+
+        return True, f"Saved to YAML file: {outpath}."
+
+    @skill_method
     def _playback_trajectory(self, yaml_path: Path) -> SkillResult:
         """Play back a relative end-effector trajectory loaded from file.
 
         :param yaml_path: YAML file specifying a relative end-effector trajectory
         :return: Tuple containing a Boolean skill success and outcome message
         """
-        request = PlaybackTrajectoryRequest(yaml_path)
+        request = PlaybackTrajectoryRequest(str(yaml_path))
         response = self._traj_playback_caller(request)
         if response is None:
             return False, "Trajectory playback service response was None."

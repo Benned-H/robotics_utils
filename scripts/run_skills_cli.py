@@ -6,15 +6,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from robotics_utils.io.cli_handlers import (
-    ParamUI,
-    SkillsUI,
-    handle_filepath,
-    handle_float,
-    handle_int,
-    handle_pose,
-    handle_string,
-)
+from robotics_utils.io.cli_handlers import INPUT_HANDLERS, ParamUI, SkillsUI
 from robotics_utils.io.skills_cli import build_cli
 from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros import TransformManager
@@ -34,14 +26,6 @@ def main() -> None:
     """Enter a CLI loop where the user can select skills to execute."""
     TransformManager.init_node("skills_cli")
 
-    input_handlers = {
-        str: handle_string,
-        Path: handle_filepath,
-        Pose3D: handle_pose,
-        float: handle_float,
-        int: handle_int,
-    }
-
     param_overrides = {
         ("PlaybackTrajectory", "yaml_path"): ParamUI(
             label="YAML file specifying a relative end-effector trajectory",
@@ -58,6 +42,10 @@ def main() -> None:
         ("OpenDrawer", "pull_pose"): ParamUI(
             label="End-effector pose at the end of pulling the drawer open",
             default=Pose3D.from_xyz_rpy(x=0.68, z=0.63, yaw_rad=3.1416, ref_frame="black_dresser"),
+        ),
+        ("OpenDrawer", "traj_yaml"): ParamUI(
+            label="Path to a YAML file containing the skill's final trajectory",
+            default=Path("/docker/spot_skills/drawer.yaml"),
         ),
         ("LookForObject", "object_name"): ParamUI(
             label="Name of the object looked for",
@@ -82,9 +70,21 @@ def main() -> None:
             label="x-coordinate of the whiteboard in Spot's body frame",
             default=1.2,
         ),
+        ("RecordTrajectory", "outpath"): ParamUI(
+            label="Output path where the recorded trajectory is saved",
+            default=Path("/docker/spot_skills/recorded_traj.yaml"),
+        ),
+        ("RecordTrajectory", "ref_frame"): ParamUI(
+            label="Reference frame used for the initial relative pose",
+            default="black_dresser",
+        ),
+        ("RecordTrajectory", "tracked_frame"): ParamUI(
+            label="Frame tracked during the recording",
+            default="arm_link_wr1",
+        ),
     }
 
-    spot_skills_ui = SkillsUI(input_handlers, param_overrides)
+    spot_skills_ui = SkillsUI(INPUT_HANDLERS, param_overrides)
 
     spot_skills_catkin_pkg = Path("/docker/spot_skills/src/spot_skills")
 
@@ -93,7 +93,6 @@ def main() -> None:
         console=Console(),
         markers_yaml=spot_skills_catkin_pkg / "config/icra_video/markers.yaml",
         marker_topic_prefix="/ar_pose_marker",
-        take_control=True,
     )
 
     spot_skills_executor = SpotSkillsProtocol(config)

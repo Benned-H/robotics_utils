@@ -52,7 +52,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--reference-frame",
         type=str,
-        default="filing_cabinet1",
+        default="black_dresser",
         help="Reference frame for the initial tracked pose",
     )
     parser.add_argument(

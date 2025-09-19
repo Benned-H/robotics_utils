@@ -116,8 +116,4 @@ def build_cli(protocol: SkillsProtocol[SkillResult], skills_ui: SkillsUI) -> cli
                 else:
                     console.print(f"[red]{message}[/red]")
 
-            if not Confirm.ask("Invoke another skill?", default=True):
-                console.print("[dim]Bye.[/dim]")
-                break
-
     return cli

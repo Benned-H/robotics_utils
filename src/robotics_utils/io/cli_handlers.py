@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Generic, Mapping, Optional, Tuple, TypeVar
 
+import click
 from rich.console import Console
 from rich.prompt import FloatPrompt, IntPrompt, Prompt
 
@@ -46,14 +47,21 @@ class SkillsUI:
     """Maps (skill name, param name) tuples to override UIs with parameter-specific configs."""
 
 
-def validate(value: InputT, validators: list[Validator[InputT]] | None, console: Console) -> bool:
+def validate(
+    value: InputT | None,
+    validators: list[Validator[InputT]] | None,
+    console: Console,
+) -> bool:
     """Validate the given value using the given validators.
 
-    :param value: Value to be validated
+    :param value: Value to be validated (or None)
     :param validators: Optional list of validators specifying conditions for the value
     :param console: Command-line interface
     :return: True if the value is valid, else False
     """
+    if value is None:
+        return False
+
     if validators is None:
         return True
 
@@ -65,6 +73,11 @@ def validate(value: InputT, validators: list[Validator[InputT]] | None, console:
             valid = False
 
     return valid
+
+
+def handle_bool(ui: ParamUI[bool], console: Console) -> bool:
+    """Prompt the user for a Boolean value using the CLI."""
+    return click.confirm(text=ui.label, default=ui.default)
 
 
 def handle_string(ui: ParamUI[str], console: Console) -> str:
@@ -97,13 +110,14 @@ def handle_int(ui: ParamUI[int], console: Console) -> int:
 
 def handle_filepath(ui: ParamUI[Path], console: Console) -> Path:
     """Prompt the user for a filepath using the CLI."""
-    while True:
+    p = None if ui.default is None else Path(ui.default).expanduser().resolve()
+
+    while p is None or not validate(p, ui.validators, console):
         raw = Prompt.ask(f"{ui.label} (absolute or relative)")
         p = Path(raw).expanduser().resolve()
 
-        if validate(p, ui.validators, console):
-            console.print(f"[cyan]Using filepath:[/] {p}")
-            return p
+    console.print(f"[cyan]Using filepath:[/] {p}")
+    return p
 
 
 def handle_pose(ui: ParamUI[Pose3D], console: Console) -> Pose3D:
@@ -159,3 +173,14 @@ def handle_pick_template(ui: ParamUI[PickTemplate], console: Console) -> PickTem
     )
 
     return PickTemplate(pose_o_g, abs(pre_grasp_x_m), abs(post_grasp_lift_m), carry_pose)
+
+
+INPUT_HANDLERS = {
+    bool: handle_bool,
+    str: handle_string,
+    int: handle_int,
+    float: handle_float,
+    Path: handle_filepath,
+    Pose3D: handle_pose,
+    PickTemplate: handle_pick_template,
+}
