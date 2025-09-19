@@ -14,12 +14,18 @@ from spot_skills.srv import (
     Float64Service,
     Float64ServiceRequest,
     Float64ServiceResponse,
+    GetRGBImages,
+    GetRGBImagesRequest,
+    GetRGBImagesResponse,
     NameService,
     NameServiceRequest,
     NameServiceResponse,
     NavigateToPose,
     NavigateToPoseRequest,
     NavigateToPoseResponse,
+    OpenDoor,
+    OpenDoorRequest,
+    OpenDoorResponse,
     PlaybackTrajectory,
     PlaybackTrajectoryRequest,
     PlaybackTrajectoryResponse,
@@ -125,8 +131,15 @@ class SpotSkillsProtocol(SkillsProtocol):
             "spot/erase_board",
             Float64Service,
         )
+        self._rgb_images_caller = ServiceCaller[GetRGBImagesRequest, GetRGBImagesResponse](
+            "spot/get_rgb_images",
+            GetRGBImages,
+        )
+        self._open_door_caller = ServiceCaller[OpenDoorRequest, OpenDoorResponse](
+            "spot/open_door",
+            OpenDoor,
+        )
 
-        self._open_door_srv_name = "spot/open_door"
         self._take_control_srv_name = "spot/take_control"
         self._unlock_arm_srv_name = "spot/unlock_arm"
         self._stow_arm_srv_name = "spot/stow_arm"
@@ -187,11 +200,18 @@ class SpotSkillsProtocol(SkillsProtocol):
         return response.success, response.message
 
     @skill_method
-    def open_door(self) -> SkillResult:  # TODO: Should take arguments!
-        """Open a door using Spot's built-in skill."""
-        success = trigger_service(self._open_door_srv_name)
-        message = "Door has been opened!" if success else "Could not open the door."
-        return success, message
+    def open_door(self, is_pull: bool, hinge_on_left: bool) -> SkillResult:
+        """Open a door using Spot's built-in skill.
+
+        :param is_pull: Whether the door opens by pulling toward Spot
+        "param hinge_on_left: Whether the door's hinge is on the left, from Spot's perspective
+        """
+        request = OpenDoorRequest(is_pull=is_pull, hinge_on_left=hinge_on_left)
+        response = self._open_door_caller(request)
+        if response is None:
+            return False, "OpenDoor service response was None."
+
+        return response.success, response.message
 
     @skill_method
     def erase_board(self, whiteboard_x_m: float) -> SkillResult:  # TODO: Should take args
@@ -391,6 +411,15 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not trigger_service(self._unlock_arm_srv_name):
             return False, "Unable to unlock Spot's arm."
         return True, "Successfully took control of Spot and unlocked Spot's arm."
+
+    @skill_method
+    def _get_rgb_images(self, camera_names: list[str], output_dir: Path) -> SkillResult:
+        """Take RGB images using the named cameras on Spot and save them to the given path.
+
+        :param camera_names: List of camera names
+        :param output_dir: Directory into which the captured images are saved
+        :return: Tuple containing a Boolean skill success and outcome message
+        """
 
     @skill_method
     def _lookup_pose(self, frame: str, ref_frame: str) -> SkillResult:
