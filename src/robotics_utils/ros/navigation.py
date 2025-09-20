@@ -1,55 +1,39 @@
 """Define ROS-dependent utilities for managing robot navigation."""
 
-import time
-from dataclasses import dataclass
+from __future__ import annotations
 
 import rospy
+from nav_msgs.srv import GetPlan, GetPlanRequest, GetPlanResponse
 
-from robotics_utils.kinematics import Pose2D
-from robotics_utils.math.distances import angle_difference_rad, euclidean_distance_2d_m
-from robotics_utils.ros.transform_manager import TransformManager
-
-
-@dataclass(frozen=True)
-class GoalReachedThresholds:
-    """Thresholds specifying when a robot is considered to have reached a goal pose."""
-
-    distance_m: float  # Distance (meters) from the goal base pose
-    abs_angle_rad: float  # Absolute angle (radians) from the yaw of the base pose
+from robotics_utils.kinematics import Pose3D
+from robotics_utils.math.polyline import Polyline2D
+from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
+from robotics_utils.ros.services import ServiceCaller
 
 
-def check_reached_goal(
-    target_pose_2d: Pose2D,
-    thresholds: GoalReachedThresholds,
-    pose_lookup_timeout_s: float = 5.0,
-) -> bool:
-    """Check whether the robot is considered to have reached a goal pose.
+def compute_navigation_plan(
+    start: Pose3D,
+    goal: Pose3D,
+    tolerance_m: float = 0.1,
+    planner_service: str = "/move_base/make_plan",
+) -> Polyline2D | None:
+    """Compute a 2D path from the given start pose to the given goal pose.
 
-    :param target_pose_2d: Target base pose for a mobile robot
-    :param thresholds: Thresholds specifying when the robot is considered to have reached a goal pose
-    :param pose_lookup_timeout_s: Duration (sec) after which pose lookup times out (defaults to 5)
-    :return: True if the robot is sufficiently close to the target pose, else False
+    :param start: Initial pose in the planning problem
+    :param goal: Goal pose in the planning problem
+    :param tolerance_m: Max. distance (m) to relax the (x,y) constraint, if goal is obstructed
+    :param planner_service: Name of a ROS service with the service type `nav_msgs/GetPlan`
+    :return: Polyline of 2D points in the found path, or None if no plan is found
     """
-    pose_lookup_end_time = time.time() + pose_lookup_timeout_s
-    target_frame = target_pose_2d.ref_frame
+    move_base_caller = ServiceCaller[GetPlanRequest, GetPlanResponse](planner_service, GetPlan)
 
-    curr_pose = None
-    while curr_pose is None and time.time() < pose_lookup_end_time:
-        curr_pose = TransformManager.lookup_transform("body", target_frame, timeout_s=0.1)
+    request = GetPlanRequest(pose_to_stamped_msg(start), pose_to_stamped_msg(goal), tolerance_m)
+    response = move_base_caller(request)
+    if response is None:
+        rospy.logwarn("GetPlan service response was None; navigation failed.")
+        return None
 
-    if curr_pose is None:
-        rospy.logfatal(f"Could not look up body pose in frame '{target_pose_2d.ref_frame}'.")
-        return False
+    plan: list[Pose3D] = [pose_from_msg(ps) for ps in response.plan.poses]
+    # TODO: How do we know when the service failed? Detect and exit here
 
-    distance_2d_m = euclidean_distance_2d_m(target_pose_2d, curr_pose.to_2d(), change_frames=True)
-    angle_error_rad = angle_difference_rad(target_pose_2d.yaw_rad, curr_pose.yaw_rad)
-
-    distance_reached = distance_2d_m < thresholds.distance_m
-    angle_reached = angle_error_rad < thresholds.abs_angle_rad
-    result = distance_reached and angle_reached
-
-    rospy.loginfo(f"Current Euclidean distance to target pose: {distance_2d_m} m")
-    rospy.loginfo(f"Current absolute angular error from target pose: {angle_error_rad} rad")
-    rospy.loginfo(f"Ending navigation? {result}")
-
-    return result
+    return Polyline2D.from_poses(plan)

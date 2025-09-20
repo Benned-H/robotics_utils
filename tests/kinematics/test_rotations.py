@@ -4,8 +4,7 @@ import numpy as np
 import pytest
 from hypothesis import given
 
-from robotics_utils.kinematics.point3d import Point3D
-from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
+from robotics_utils.kinematics import EulerRPY, Point3D, Quaternion
 from robotics_utils.math.angles import normalize_angle
 
 from .kinematics_strategies import angles_rad, euler_rpys, positions, quaternions
