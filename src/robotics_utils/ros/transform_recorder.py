@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import rospy
 
 from robotics_utils.io.yaml_utils import export_yaml_data
-from robotics_utils.kinematics.poses import Pose3D
+from robotics_utils.kinematics import Configuration, Pose3D
 from robotics_utils.ros.transform_manager import TransformManager
 
 if TYPE_CHECKING:
@@ -54,8 +54,23 @@ class TransformRecorder:
         if relative_pose is not None:
             self.tracked_relative_poses.append(relative_pose)
 
-    def save_to_file(self, output_path: Path) -> None:
-        """Save the recorded relative transforms to file."""
-        yaml_dicts = [pose.to_yaml_data() for pose in self.tracked_relative_poses]
-        export_yaml_data(yaml_dicts, output_path)
+    def save_to_file(
+        self,
+        output_path: Path,
+        config_before: Configuration,
+        config_after: Configuration,
+    ) -> None:
+        """Save the recorded relative transforms to file.
+
+        :param output_path: Path to the output YAML file for the recorded transforms
+        :param config_before: Arm configuration before the recording
+        :param config_after: Arm configuration after the recording
+        """
+        yaml_data: dict[str, Any] = {
+            "transforms": [pose.to_yaml_data() for pose in self.tracked_relative_poses],
+            "config_before": config_before,
+            "config_after": config_after,
+        }
+
+        export_yaml_data(yaml_data, output_path)
         rospy.loginfo(f"Saved {len(self.tracked_relative_poses)} poses to {output_path}")

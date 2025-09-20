@@ -4,7 +4,7 @@ from robotics_utils.io.logging import log_info
 from robotics_utils.perception.sensors.cameras import D455_SPEC
 from robotics_utils.perception.sensors.realsense import RealSense
 from robotics_utils.perception.vision import Pointcloud
-from robotics_utils.visualization import PointcloudVisualizer, display_image
+from robotics_utils.visualization import PointcloudVisualizer, display
 
 
 def main() -> None:
@@ -12,7 +12,7 @@ def main() -> None:
     with RealSense(depth_spec=D455_SPEC) as sensor, PointcloudVisualizer() as vis:
         while True:
             rgbd = sensor.get_rgbd(timeout_ms=5000)
-            if not display_image(rgbd, "RGB-D Image (press 'q' to exit)", wait_for_input=False):
+            if not display(rgbd, "RGB-D Image (press 'q' to exit)", wait_for_input=False):
                 break
 
             log_info(f"Min depth: {rgbd.depth.min_depth_m} Max depth: {rgbd.depth.max_depth_m}")

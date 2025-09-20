@@ -9,14 +9,21 @@ description = "General-purpose robotics utilities"
 requires-python = ">=3.8"
 
 # Core dependencies - Always installed
-dependencies = ["click", "rich", "numpy", "trimesh"]
+dependencies = ["click", "rich", "numpy", "trimesh", "pyquaternion"]
 
 # Optional dependencies support optional user features
 # Reference: https://pydevtools.com/handbook/explanation/what-are-optional-dependencies-and-dependency-groups/
 [project.optional-dependencies]
 
 # Optional dependencies to support computer vision applications
-vision = ["torch", "torchvision", "transformers", "pillow", "opencv-python"]
+vision = [
+    "torch",
+    "torchvision",
+    "transformers>=4.46.3",
+    "pillow",
+    "opencv-python",
+]
+
 
 # Optional dependencies to support Intel RealSense sensors
 realsense = ["robotics-utils[vision]", "pyrealsense2", "open3d"]

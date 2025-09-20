@@ -7,12 +7,13 @@ from typing import TYPE_CHECKING
 import rospy
 from geometry_msgs.msg import Point, Pose, PoseStamped, Transform, TransformStamped, Vector3
 from geometry_msgs.msg import Quaternion as QuaternionMsg
-from moveit_msgs.msg import CollisionObject
 from sensor_msgs.msg import JointState
 from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
-from robotics_utils.collision_models import Box, CollisionModel, Cylinder, PrimitiveShape, Sphere
+from robotics_utils.collision_models import Box, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.kinematics import DEFAULT_FRAME, Configuration, Point3D, Pose3D, Quaternion
+from robotics_utils.motion_planning import Trajectory, TrajectoryPoint
 
 if TYPE_CHECKING:
     import trimesh
@@ -168,27 +169,37 @@ def primitive_shape_to_msg(shape: PrimitiveShape) -> SolidPrimitive:
     return msg
 
 
-def make_collision_object_msg(
-    object_name: str,
-    object_type: str,
-    object_pose: Pose3D,
-    collision_model: CollisionModel,
-) -> CollisionObject:
-    """Construct a moveit_msgs/CollisionObject message using the given data."""
-    msg = CollisionObject()
-    msg.header.frame_id = object_pose.ref_frame
-    msg.pose = pose_to_msg(object_pose)
-
-    msg.id = object_name
-    msg.type.key = object_type  # Ignore 'db' field of message
-
-    msg.meshes = [trimesh_to_msg(mesh) for mesh in collision_model.meshes]
-    msg.mesh_poses = [Pose() for _ in collision_model.meshes]
-
-    msg.primitives = [primitive_shape_to_msg(shape) for shape in collision_model.primitives]
-
-    # TODO: Frames used to be shifted to bottom of objects
-    msg.primitive_poses = [Pose() for _ in collision_model.primitives]
-
-    msg.operation = CollisionObject.ADD
+def trajectory_point_to_msg(point: TrajectoryPoint) -> JointTrajectoryPoint:
+    """Convert a trajectory point into a trajectory_msgs/JointTrajectoryPoint message."""
+    msg = JointTrajectoryPoint()
+    msg.positions = [point.position[j] for j in point.joint_names]
+    msg.velocities = [point.velocities[j] for j in point.joint_names]
+    msg.time_from_start = rospy.Duration.from_sec(point.time_s)
     return msg
+
+
+def trajectory_to_msg(trajectory: Trajectory) -> JointTrajectory:
+    """Convert a trajectory of points into a trajectory_msgs/JointTrajectory message."""
+    msg = JointTrajectory()
+    msg.joint_names = trajectory.joint_names
+    msg.points = [trajectory_point_to_msg(p) for p in trajectory.points]
+    return msg
+
+
+def trajectory_point_from_msg(
+    msg: JointTrajectoryPoint,
+    joint_names: list[str],
+) -> TrajectoryPoint:
+    """Construct a TrajectoryPoint from a trajectory_msgs/JointTrajectoryPoint message."""
+    return TrajectoryPoint(
+        time_s=msg.time_from_start.to_sec(),
+        position=dict(zip(joint_names, msg.positions)),
+        velocities=dict(zip(joint_names, msg.velocities)),
+    )
+
+
+def trajectory_from_msg(traj_msg: JointTrajectory) -> Trajectory:
+    """Construct a Trajectory from a trajectory_msgs/JointTrajectory message."""
+    joint_names = traj_msg.joint_names
+    traj_msg.points = traj_msg.points or []
+    return Trajectory([trajectory_point_from_msg(p_msg, joint_names) for p_msg in traj_msg.points])

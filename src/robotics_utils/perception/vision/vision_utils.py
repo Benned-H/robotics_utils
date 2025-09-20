@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import platform
+from typing import Tuple
 
 import torch
 
-RGB = tuple[int, int, int]
+RGB = Tuple[int, int, int]
 """A tuple of (red, green, blue) integer values between 0 and 255."""
 
 

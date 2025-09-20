@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import cv2
+import numpy as np
 import torch
 from PIL import Image
-from transformers import OwlViTForObjectDetection, OwlViTImageProcessorFast, OwlViTProcessor
+from transformers import OwlViTForObjectDetection, OwlViTProcessor
 
 from robotics_utils.perception.vision.bounding_box import BoundingBox
+from robotics_utils.perception.vision.images import PixelXY
 from robotics_utils.perception.vision.vision_utils import RGB, determine_pytorch_device
+from robotics_utils.visualization.display_images import Displayable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from numpy.typing import NDArray
 
     from robotics_utils.perception.vision.images import RGBImage
 
@@ -85,6 +91,33 @@ class ObjectDetection:
         cv2.putText(image.data, label, text_xy, cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
 
+@dataclass(frozen=True)
+class ObjectDetections(Displayable):
+    """A collection of successful object detections from text queries."""
+
+    detections: list[ObjectDetection]
+    image: RGBImage
+    """Image in which the detections were found."""
+
+    @property
+    def queries(self) -> set[str]:
+        """Retrieve the set of text queries describing the detected object(s)."""
+        return {d.query for d in self.detections}
+
+    def convert_for_visualization(self) -> NDArray[np.uint8]:
+        """Convert the object detections into a form that can be visualized."""
+        rng = np.random.default_rng()
+
+        q_colors = {q: tuple(int(n) for n in rng.integers(0, 255, size=3)) for q in self.queries}
+
+        vis_image = deepcopy(self.image)
+        for detection in self.detections:
+            color = RGB(q_colors[detection.query])
+            detection.draw(vis_image, color)
+
+        return vis_image.data
+
+
 class ObjectDetector:
     """Detect objects in images using the OWL-ViT model."""
 
@@ -94,43 +127,43 @@ class ObjectDetector:
         self.model = OwlViTForObjectDetection.from_pretrained(model_name).to(self.device)
         self.model.eval()  # Set the model into evaluation mode
         self.processor = OwlViTProcessor.from_pretrained(model_name)
-        self.fast_image_processor = OwlViTImageProcessorFast()
 
-    def detect(self, image: RGBImage, queries: list[str] | TextQueries) -> list[ObjectDetection]:
+    def detect(self, image: RGBImage, queries: list[str] | TextQueries) -> ObjectDetections:
         """Detect objects matching text queries in the given image.
 
         :param image: RGB image to detect objects within
         :param queries: Text queries describing the object(s) to be detected
-        :return: List of all successful object detections for the queries
+        :return: Collection of all successful object detections for the queries
         """
         if isinstance(queries, TextQueries):
             queries = list(queries)
 
-        pil_image = Image.fromarray(image.data)
+        pil_image = Image.fromarray(image.data).convert("RGB")
 
-        # Process all text queries at once
-        inputs = self.processor(
-            text=queries,
-            images=pil_image,
-            return_tensors="pt",  # Return PyTorch tensors
-        ).to(self.device)
+        # Process all text queries at once ("pt" = return PyTorch tensors)
+        inputs = self.processor(text=queries, images=pil_image, return_tensors="pt").to(self.device)
 
         with torch.no_grad():
             raw_outputs = self.model(**inputs)  # Single forward pass
 
-        outputs: list[dict] = self.fast_image_processor.post_process_object_detection(
-            raw_outputs,
+        # Post-process by providing the (H, W) per image
+        results = self.processor.post_process_object_detection(
+            outputs=raw_outputs,
+            target_sizes=torch.tensor([pil_image.size[::-1]], device=self.device),
             threshold=0.1,
         )[0]  # Index 0 because we only provided one image
-        scores = outputs["scores"].tolist()
-        labels = outputs["labels"].tolist()  # Integer class labels (indices into `queries`)
-        boxes = outputs["boxes"].tolist()
 
-        return [
+        scores = results["scores"].tolist()
+        labels = results["labels"].tolist()  # Integer class labels (indices into `queries`)
+        boxes = results["boxes"].tolist()  # (top left x, then y, bottom right x, then y)
+
+        detections = [
             ObjectDetection(
                 queries[query_idx],
                 score,
-                BoundingBox.from_ratios(box_data, image.data.shape),
+                BoundingBox(top_left=PixelXY(box_data[:2]), bottom_right=PixelXY(box_data[2:])),
             )
-            for score, query_idx, box_data in zip(scores, labels, boxes, strict=True)
+            for score, query_idx, box_data in zip(scores, labels, boxes)
         ]
+
+        return ObjectDetections(detections, image)

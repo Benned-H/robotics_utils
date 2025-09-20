@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from math import isclose
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterable
 
 from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics import Pose3D
@@ -21,6 +21,11 @@ class FiducialMarker:
     id: int  # Unique ID of the fiducial
     size_cm: float  # Size (centimeters) of one side of the marker's black square
     relative_frames: dict[str, Pose3D]  # Object frames w.r.t. the marker
+
+    def __str__(self) -> str:
+        """Return a human-readable string representation of the fiducial marker."""
+        child_frames = ", ".join(self.relative_frames.keys())
+        return f"{self.frame_name} ({self.size_cm} cm) has child frames: {child_frames}"
 
     @classmethod
     def from_yaml_data(cls, marker_name: str, data: dict[str, Any]) -> FiducialMarker:
@@ -50,12 +55,19 @@ class FiducialMarker:
         return f"marker_{self.id}"
 
 
+FiducialMarkers = Iterable[FiducialMarker]
+
+
 @dataclass(frozen=True)
 class FiducialCamera:
     """A camera that detects visual fiducial markers."""
 
     name: str
     recognized_sizes_cm: frozenset[float]  # Sizes (cm) of AR markers detected by the camera
+
+    def __str__(self) -> str:
+        """Return a human-readable string representation of the fiducial-detecting camera."""
+        return f"Camera({self.name}, sizes_cm: {', '.join(map(str, self.recognized_sizes_cm))})"
 
     @classmethod
     def from_yaml_data(cls, camera_name: str, camera_data: dict[str, Any]) -> FiducialCamera:
@@ -76,13 +88,40 @@ class FiducialCamera:
         return any(isclose(fiducial.size_cm, size_cm) for size_cm in self.recognized_sizes_cm)
 
 
-@dataclass(frozen=True)
+FiducialCameras = Iterable[FiducialCamera]
+
+
 class FiducialSystem:
     """A system of known visual fiducial markers and fiducial-detecting cameras."""
 
-    markers: dict[int, FiducialMarker]  # Map marker IDs to FiducialMarker instances
-    cameras: dict[str, FiducialCamera]  # Map camera names to FiducialCamera instances
-    camera_detects: dict[str, set[int]]  # Map camera names to markers they can detect
+    def __init__(self, markers: FiducialMarkers, cameras: FiducialCameras) -> None:
+        """Initialize the system of fiducial markers using its markers and cameras.
+
+        :param markers: Collection of visual fiducial markers
+        :param cameras: Fiducial-detecting cameras in the system
+        """
+        self.markers = {marker.id: marker for marker in markers}
+        self.cameras = {c.name: c for c in cameras}  # Map camera names to FiducialCamera instances
+
+        self.camera_detects = {
+            c.name: {m.id for m in markers if c.can_recognize(m)} for c in cameras
+        }  # Map camera names to the IDs of markers they can detect
+
+        self.object_names = {obj_name for m in markers for obj_name in m.relative_frames}
+
+        # Map frame names to their parent markers
+        self.parent_marker: dict[str, FiducialMarker] = {}
+        for marker in markers:
+            for child_frame in marker.relative_frames:
+                if child_frame in self.parent_marker:
+                    raise ValueError(f"Child frame '{child_frame}' has two parent frames.")
+                self.parent_marker[child_frame] = marker
+
+    def __str__(self) -> str:
+        """Return a readable string representation of the fiducial system."""
+        markers_str = "\n\t".join(map(str, self.markers.values()))
+        cameras_str = "\n\t".join(map(str, self.cameras.values()))
+        return f"Markers:\n\t{markers_str}\nCameras:\n\t{cameras_str}"
 
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> FiducialSystem:
@@ -99,12 +138,4 @@ class FiducialSystem:
             for camera_name, data in yaml_data["cameras"].items()
         }
 
-        camera_detects_markers = {
-            c.name: {m.id for m in markers if c.can_recognize(m)} for c in cameras
-        }
-
-        return FiducialSystem(
-            markers={m.id: m for m in markers},
-            cameras={c.name: c for c in cameras},
-            camera_detects=camera_detects_markers,
-        )
+        return FiducialSystem(markers, cameras)

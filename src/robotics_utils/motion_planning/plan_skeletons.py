@@ -10,15 +10,6 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class ManipulationPlanSkeleton:
-    """A skeleton for an object-relative manipulation plan to be recomputed online."""
-
-    robot_name: str  # Name of the robot to be used to execute the plan
-    manipulator_name: str  # Name of the relevant manipulator
-    target_o_ee: Pose3D  # Target end-effector pose w.r.t. object
-
-
-@dataclass(frozen=True)
 class NavigationPlanSkeleton:
     """A skeleton for a navigation plan to be recomputed online."""
 

@@ -45,7 +45,7 @@ def is_pascal_case(string: str) -> bool:
     if string[0].lower() == string[0]:
         return False  # Any PascalCase string must begin with an uppercase letter
 
-    for c_prev, c_next in zip(string[:-1], string[1:], strict=True):
+    for c_prev, c_next in zip(string[:-1], string[1:]):
         # Ensure that a lowercase letter never follows a digit
         if c_prev.isnumeric() and c_next.isalpha() and c_next.lower() == c_next:
             return False
