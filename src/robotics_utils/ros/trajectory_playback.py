@@ -75,7 +75,10 @@ class TrajectoryPlayback:
             action_name="gripper_controller/gripper_action",
         )
         self.spot_arm = MoveItManipulator(name="arm", base_frame="body", gripper=self.spot_gripper)
-        self.moveit_planner = MoveItMotionPlanner(self.spot_arm, PlanningSceneManager("body"))
+        self.moveit_planner = MoveItMotionPlanner(
+            self.spot_arm,
+            PlanningSceneManager(move_group_name=self.spot_arm.name),
+        )
 
     def get_end_effector_pose(self) -> Pose3D | None:
         """Find the current end-effector pose w.r.t. the body frame (None if /tf lookup fails)."""

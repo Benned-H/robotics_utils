@@ -100,12 +100,12 @@ class TransformManager:
 
         :param source_frame: Frame where the data originated
         :param target_frame: Frame to which the data will be transformed
-        :param when: Timestamp for which the relative transform is found (if None, uses 'now')
+        :param when: Timestamp for which the relative transform is found (if None, use latest data)
         :param timeout_s: Duration (seconds) after which to abandon the lookup (defaults to 5)
         :return: Pose3D representing transform (i.e., transform_t_s) or None (if lookup failed)
         """
         if when is None:
-            when = rospy.Time.now()
+            when = rospy.Time(0)
 
         rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
         rate_hz.sleep()

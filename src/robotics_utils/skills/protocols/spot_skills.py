@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-from contextlib import suppress
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -36,6 +35,7 @@ from spot_skills.srv import (
 
 from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D, Waypoints
+from robotics_utils.kinematics.kinematic_tree import KinematicTree
 from robotics_utils.motion_planning import MotionPlanningQuery
 from robotics_utils.perception.pose_estimation import FiducialSystem
 from robotics_utils.robots import GripperAngleLimits
@@ -151,13 +151,15 @@ class SpotSkillsProtocol(SkillsProtocol):
             action_name="gripper_controller/gripper_action",
         )
         self._arm = MoveItManipulator(name="arm", base_frame="body", gripper=self._gripper)
-        self._scene = PlanningSceneManager(body_frame=self._arm.base_frame)
+        self._scene = PlanningSceneManager(move_group_name=self._arm.name)
         self._motion_planner = MoveItMotionPlanner(self._arm, self._scene)
 
         if config.take_control:
             self._take_control()
 
         self._pose_broadcaster = PoseBroadcastThread()
+
+        self._kinematic_tree = KinematicTree.from_yaml(config.env_yaml)
 
     def spin_once(self, duration_s: float = 0.1) -> None:
         """Sleep for the given duration to allow background processing."""
@@ -204,7 +206,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         """Open a door using Spot's built-in skill.
 
         :param is_pull: Whether the door opens by pulling toward Spot
-        "param hinge_on_left: Whether the door's hinge is on the left, from Spot's perspective
+        :param hinge_on_left: Whether the door's hinge is on the left, from Spot's perspective
         """
         request = OpenDoorRequest(is_pull=is_pull, hinge_on_left=hinge_on_left)
         response = self._open_door_caller(request)
@@ -308,37 +310,18 @@ class SpotSkillsProtocol(SkillsProtocol):
         return True, "Successfully opened the drawer."
 
     @skill_method
-    def look_for_object(
-        self,
-        ee_pose: Pose3D,
-        object_name: str,
-        duration_s: float,
-        stow_after: bool,
-    ) -> SkillResult:
-        """Look for the named object using the gripper camera, then stow Spot's arm.
+    def look_for_object(self, object_name: str, duration_s: float) -> SkillResult:
+        """Look for the named object using Spot's gripper camera.
 
-        :param ee_pose: Pose of the end-effector when looking
         :param object_name: Name of the object looked for
         :param duration_s: Duration (seconds) to wait during pose estimation
-        :param stow_after: If True, stow Spot's arm at the end of the skill
         :return: Tuple containing a Boolean skill success and outcome message
         """
-        move_ee_ok, move_ee_msg = self._move_ee_to_pose(ee_pose, f"look_for_{object_name}")
-        if not move_ee_ok:
-            return False, move_ee_msg
-
         self._gripper.open()
 
         object_pose_estimate = self._fiducial_tracker.reestimate(object_name, duration_s)
         if object_pose_estimate is None:
             return False, f"Could not find an updated pose estimate for object '{object_name}'."
-
-        self._gripper.close()
-
-        if stow_after:
-            stow_ok, stow_msg = self.stow_arm()
-            if not stow_ok:
-                return False, stow_msg
 
         return True, f"Updated object pose estimate: {object_pose_estimate}."
 
@@ -356,6 +339,21 @@ class SpotSkillsProtocol(SkillsProtocol):
             fixed_pose_o_g = TransformManager.convert_to_frame(template.pose_o_g, object_name)
             template = replace(template, pose_o_g=fixed_pose_o_g)
 
+        # Before trying to pick, see if we can update our pose estimate for the object
+        self.look_for_object(object_name, duration_s=5.0)
+
+        # Check if we should "flip" the grasp pose to account for which side Spot is on
+        pose_o_spot = TransformManager.lookup_transform("body", object_name)
+        need_to_flip = pose_o_spot.position.y < 0
+        if need_to_flip:
+            self._console.print("Flipping grasp pose due to Spot's body location...")
+
+            flipped_pose_o_g = template.pose_o_g @ Pose3D.from_xyz_rpy(roll_rad=3.14159)
+            self._pose_broadcaster.poses["flipped_pose_o_g"] = flipped_pose_o_g
+            self._pose_broadcaster.poses["pose_o_g"] = template.pose_o_g
+
+            template = replace(template, pose_o_g=flipped_pose_o_g)
+
         # Compute the pre-grasp pose
         pose_g_pregrasp = Pose3D.from_xyz_rpy(x=-template.pre_grasp_x_m)
         pose_o_pregrasp = template.pose_o_g @ pose_g_pregrasp
@@ -364,6 +362,10 @@ class SpotSkillsProtocol(SkillsProtocol):
         pose_w_g = TransformManager.convert_to_frame(template.pose_o_g, target_frame=DEFAULT_FRAME)
         pose_w_postg = deepcopy(pose_w_g)
         pose_w_postg.position.z += template.post_grasp_lift_m
+
+        self._pose_broadcaster.poses[f"pre_grasp_{object_name}"] = pose_o_pregrasp
+        self._pose_broadcaster.poses[f"grasp_wrt_{object_name}"] = pose_w_g
+        self._pose_broadcaster.poses[f"post_grasp_{object_name}"] = pose_w_postg
 
         self._gripper.open()
 
@@ -381,9 +383,18 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not post_ok:
             return False, post_msg
 
-        carry_ok, carry_msg = self._move_ee_to_pose(template.pose_b_carry, f"carry_{object_name}")
-        if not carry_ok:
-            return False, carry_msg
+        if template.stow_carry:
+            stow_ok, stow_msg = self.stow_arm()
+            if not stow_ok:
+                return False, stow_msg
+
+        else:
+            carry_ok, carry_msg = self._move_ee_to_pose(
+                template.pose_b_carry,
+                f"carry_{object_name}",
+            )
+            if not carry_ok:
+                return False, carry_msg
 
         return True, f"Successfully picked object '{object_name}'."
 
@@ -413,11 +424,11 @@ class SpotSkillsProtocol(SkillsProtocol):
         return True, "Successfully took control of Spot and unlocked Spot's arm."
 
     @skill_method
-    def _get_rgb_images(self, camera_names: list[str], output_dir: Path) -> SkillResult:
-        """Take RGB images using the named cameras on Spot and save them to the given path.
+    def _get_rgb_image(self, camera_name: str, output_dir: Path) -> SkillResult:
+        """Take an RGB image using the named camera on Spot and save it to the given path.
 
-        :param camera_names: List of camera names
-        :param output_dir: Directory into which the captured images are saved
+        :param camera_name: Name of a robot camera
+        :param output_dir: Directory into which the captured image is saved
         :return: Tuple containing a Boolean skill success and outcome message
         """
 
@@ -494,6 +505,18 @@ class SpotSkillsProtocol(SkillsProtocol):
         return response.success, response.message
 
     @skill_method
+    def open_gripper(self) -> SkillResult:
+        """Open Spot's gripper."""
+        self._gripper.open()
+        return True, "Successfully opened Spot's gripper."
+
+    @skill_method
+    def close_gripper(self) -> SkillResult:
+        """Close Spot's gripper."""
+        self._gripper.close()
+        return True, "Successfully closed Spot's gripper."
+
+    @skill_method
     def _move_ee_to_pose(self, ee_target: Pose3D, label: str) -> SkillResult:
         """Move Spot's end-effector to the specified pose.
 
@@ -513,3 +536,29 @@ class SpotSkillsProtocol(SkillsProtocol):
             self._arm.execute_motion_plan(traj)
 
         return True, "✅ Reached target pose."  # TODO: Doesn't actually check to verify
+
+    @skill_method
+    def _load_planning_scene(self, env_yaml: Path) -> SkillResult:
+        """Update the MoveIt planning scene based on a YAML file.
+
+        :param env_yaml: Path to a YAML file specifying an environment state
+        :return: Tuple containing a Boolean skill success and outcome message
+        """
+        tree = KinematicTree.from_yaml(env_yaml)
+
+        # 0) Update the fiducial tracker's "known poses" to the updated state
+        for object_name, object_pose in tree.object_poses.items():
+            self._fiducial_tracker.known_poses[object_name] = object_pose
+
+        # 1) Ensure that all object poses are updated in /tf
+        for object_name, object_pose in tree.object_poses.items():
+            TransformManager.broadcast_transform(object_name, object_pose)
+
+        # 2) Synchronize the planning scene with the kinematic tree
+        success = self._scene.synchronize_state(tree)
+        message = (
+            "Planning scene has been updated."
+            if success
+            else "Unable to update the planning scene."
+        )
+        return success, message

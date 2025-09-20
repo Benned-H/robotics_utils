@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 import rospy
 from geometry_msgs.msg import Point, Pose, PoseStamped, Transform, TransformStamped, Vector3
 from geometry_msgs.msg import Quaternion as QuaternionMsg
-from moveit_msgs.msg import CollisionObject
 from sensor_msgs.msg import JointState
 from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -18,8 +17,6 @@ from robotics_utils.motion_planning import Trajectory, TrajectoryPoint
 
 if TYPE_CHECKING:
     import trimesh
-
-    from robotics_utils.world_models.simulators import ObjectModel
 
 
 def point_to_msg(point: Point3D) -> Point:
@@ -169,36 +166,6 @@ def primitive_shape_to_msg(shape: PrimitiveShape) -> SolidPrimitive:
     msg = SolidPrimitive()
     msg.type = primitive_shape_type_to_integer(shape)
     msg.dimensions = shape.to_dimensions()
-    return msg
-
-
-def make_collision_object_msg(
-    object_model: ObjectModel,
-    object_type: str | None = None,
-) -> CollisionObject:
-    """Construct a moveit_msgs/CollisionObject message using the given data."""
-    msg = CollisionObject()
-    msg.header.frame_id = object_model.pose.ref_frame
-    msg.pose = pose_to_msg(object_model.pose)
-
-    msg.id = object_model.name
-    if object_type is not None:
-        msg.type.key = object_type  # Ignore 'db' field of message
-
-    identity_pose_msg = pose_to_msg(Pose3D.identity(ref_frame=object_model.name))
-
-    msg.meshes = [trimesh_to_msg(mesh) for mesh in object_model.collision_model.meshes]
-    msg.mesh_poses = [identity_pose_msg] * len(msg.meshes)
-
-    msg.primitives = [primitive_shape_to_msg(ps) for ps in object_model.collision_model.primitives]
-
-    # Find the pose of each primitive shape w.r.t. the object frame
-    ps_aabbs = [ps.aabb for ps in object_model.collision_model.primitives]
-    ps_z_dims = [aabb.max_xyz.z - aabb.min_xyz.z for aabb in ps_aabbs]
-    ps_poses = [Pose3D.from_xyz_rpy(z=h_m / 2, ref_frame=object_model.name) for h_m in ps_z_dims]
-    msg.primitive_poses = [pose_to_msg(pose) for pose in ps_poses]
-
-    msg.operation = CollisionObject.ADD
     return msg
 
 

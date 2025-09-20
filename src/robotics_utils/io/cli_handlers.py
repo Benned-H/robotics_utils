@@ -171,8 +171,21 @@ def handle_pick_template(ui: ParamUI[PickTemplate], console: Console) -> PickTem
         ),
         console,
     )
+    stow_carry = handle_bool(
+        ParamUI(
+            "Should the arm be stowed instead of specifying a carry pose?",
+            default=None if ui.default is None else ui.default.stow_carry,
+        ),
+        console,
+    )
 
-    return PickTemplate(pose_o_g, abs(pre_grasp_x_m), abs(post_grasp_lift_m), carry_pose)
+    return PickTemplate(
+        pose_o_g,
+        abs(pre_grasp_x_m),
+        abs(post_grasp_lift_m),
+        carry_pose,
+        stow_carry,
+    )
 
 
 INPUT_HANDLERS = {

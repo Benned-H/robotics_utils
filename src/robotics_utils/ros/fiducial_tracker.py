@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,6 +25,7 @@ class MarkersCallbackArgs:
     """Organizes arguments to the FiducialTracker.markers_callback() method."""
 
     camera_name: str  # Name of the camera source of a detection
+    size_cm: float  # Size (cm) of tag detections on this ROS topic
 
 
 class FiducialTracker:
@@ -49,16 +51,19 @@ class FiducialTracker:
         self.known_poses = known_poses or {}
 
         self.marker_subs: list[rospy.Subscriber] = []
-        for camera_name in self.system.cameras:
-            self.marker_subs.append(
-                rospy.Subscriber(
-                    f"{prefix}/{camera_name}",
-                    AlvarMarkers,
-                    callback=self.markers_callback,
-                    callback_args=MarkersCallbackArgs(camera_name),
-                    queue_size=5,
-                ),
-            )
+        for camera in self.system.cameras.values():
+            for size_cm in camera.recognized_sizes_cm:
+                size_mm = round(10 * float(size_cm))
+
+                self.marker_subs.append(
+                    rospy.Subscriber(
+                        f"{prefix}/{camera.name}/{size_mm}",
+                        AlvarMarkers,
+                        callback=self.markers_callback,
+                        callback_args=MarkersCallbackArgs(camera.name, size_cm),
+                        queue_size=5,
+                    ),
+                )
 
         self.pose_pub = rospy.Publisher("~object_pose_estimates", PoseEstimate, queue_size=10)
 
@@ -80,18 +85,21 @@ class FiducialTracker:
             return
 
         for marker_msg in markers_msg.markers:
-            if marker_msg.id not in self.system.markers:
+            marker = self.system.markers.get(marker_msg.id)
+            if marker is None:
                 rospy.logwarn(f"Unrecognized marker ID: {marker_msg.id}.")
                 continue
 
             if marker_msg.id not in camera_detects:
                 continue  # This camera doesn't detect this marker; move to the next detection
 
+            if marker.size_cm != args.size_cm:
+                continue  # Data should be processed as another marker size
+
             raw_pose = pose_from_msg(marker_msg.pose)
             raw_pose.ref_frame = marker_msg.header.frame_id
             marker_pose = TransformManager.convert_to_frame(raw_pose, DEFAULT_FRAME)
 
-            marker = self.system.markers[marker_msg.id]
             self.pose_averager.update(marker.frame_name, marker_pose)
 
     def reestimate(self, frame_name: str, duration_s: float = 10.0) -> Pose3D | None:
@@ -193,8 +201,8 @@ class FiducialTracker:
                             continue
                         TransformManager.broadcast_transform(obj_name, rel_pose)
 
-                # Publish all known poses as stored
-                for frame_name, known_pose in self.known_poses.items():
+                # Publish all known poses as currently stored
+                for frame_name, known_pose in deepcopy(self.known_poses).items():
                     TransformManager.broadcast_transform(frame_name, known_pose)
 
                 rate_hz.sleep()

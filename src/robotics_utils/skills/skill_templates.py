@@ -30,6 +30,9 @@ class PickTemplate:
     pose_b_carry: Pose3D
     """End-effector pose (w.r.t. body frame) used to carry the object."""
 
+    stow_carry: bool
+    """If True, stow the arm instead of carrying based on `pose_b_carry`."""
+
 
 @dataclass(frozen=True)
 class PlaceTemplate:

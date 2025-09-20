@@ -11,6 +11,7 @@ from robotics_utils.io.skills_cli import build_cli
 from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros import TransformManager
 from robotics_utils.skills.protocols.spot_skills import SpotSkillsConfig, SpotSkillsProtocol
+from robotics_utils.skills.skill_templates import PickTemplate
 
 
 def yaml_filepath_exists(path: Path) -> str | None:
@@ -25,6 +26,9 @@ def yaml_filepath_exists(path: Path) -> str | None:
 def main() -> None:
     """Enter a CLI loop where the user can select skills to execute."""
     TransformManager.init_node("skills_cli")
+
+    spot_skills_catkin_pkg = Path("/docker/spot_skills/src/spot_skills")
+    env_yaml = spot_skills_catkin_pkg / "config/icra_video/env.yaml"
 
     param_overrides = {
         ("PlaybackTrajectory", "yaml_path"): ParamUI(
@@ -49,19 +53,19 @@ def main() -> None:
         ),
         ("LookForObject", "object_name"): ParamUI(
             label="Name of the object looked for",
-            default="black_dresser",
+            default="eraser1",
         ),
-        ("LookForObject", "ee_pose"): ParamUI(
-            label="Pose of the end-effector when looking",
-            default=Pose3D.from_xyz_rpy(
-                x=0.77,
-                y=0.2,
-                z=0.65,
-                pitch_rad=0.78,
-                yaw_rad=0.5,
-                ref_frame="body",
-            ),
-        ),
+        # ("LookForObject", "ee_pose"): ParamUI(
+        #     label="Pose of the end-effector when looking",
+        #     default=Pose3D.from_xyz_rpy(
+        #         x=0.77,
+        #         y=0.2,
+        #         z=0.65,
+        #         pitch_rad=0.78,
+        #         yaw_rad=0.5,
+        #         ref_frame="body",
+        #     ),
+        # ),
         ("LookForObject", "duration_s"): ParamUI(
             label="Duration (seconds) to wait during pose estimation",
             default=5.0,
@@ -82,6 +86,29 @@ def main() -> None:
             label="Frame tracked during the recording",
             default="arm_link_wr1",
         ),
+        ("Pick", "object_name"): ParamUI(
+            label="Name of the object to be picked",
+            default="eraser1",
+        ),
+        ("Pick", "template"): ParamUI(
+            label="Template for a 'Pick' skill",
+            default=PickTemplate(
+                pose_o_g=Pose3D.from_xyz_rpy(
+                    z=0.36,
+                    pitch_rad=1.5708,
+                    yaw_rad=-1.5708,
+                    ref_frame="eraser1",
+                ),
+                pre_grasp_x_m=0.05,
+                post_grasp_lift_m=0.03,
+                pose_b_carry=Pose3D.identity(),
+                stow_carry=True,
+            ),
+        ),
+        ("LoadPlanningScene", "env_yaml"): ParamUI(
+            label="Path to a YAML file specifying an environment state",
+            default=env_yaml,
+        ),
     }
 
     spot_skills_ui = SkillsUI(INPUT_HANDLERS, param_overrides)
@@ -89,7 +116,7 @@ def main() -> None:
     spot_skills_catkin_pkg = Path("/docker/spot_skills/src/spot_skills")
 
     config = SpotSkillsConfig(
-        env_yaml=spot_skills_catkin_pkg / "config/icra_video/env.yaml",
+        env_yaml=env_yaml,
         console=Console(),
         markers_yaml=spot_skills_catkin_pkg / "config/icra_video/markers.yaml",
         marker_topic_prefix="/ar_pose_marker",
