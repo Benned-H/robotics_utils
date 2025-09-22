@@ -6,7 +6,7 @@ from typing import Iterable
 
 import numpy as np
 
-from robotics_utils.kinematics import Point2D, Pose3D
+from robotics_utils.kinematics import Point2D, Pose2D, Pose3D
 
 
 class Polyline2D:
@@ -26,8 +26,11 @@ class Polyline2D:
                 raise ValueError(f"Polyline2D requires at least one point, got: {points}.")
             self._xy = np.vstack(pts).astype(float)
 
+        if self.n < 2:
+            raise ValueError(f"Cannot construct Polyline2D with fewer than 2 points; got {self.n}")
+
     @classmethod
-    def from_poses(cls, poses: Iterable[Pose3D]) -> Polyline2D:
+    def from_poses(cls, poses: Iterable[Pose2D | Pose3D]) -> Polyline2D:
         """Construct a Polyline2D from a sequence of 3D poses by using their (x, y)."""
         return cls([Point2D(p.position.x, p.position.y) for p in poses])
 
@@ -42,54 +45,57 @@ class Polyline2D:
         if self.n <= 1:
             return 0.0
 
-        diffs_m = np.diff(self._xy, axis=0, prepend=self._xy[0, :])
-        segment_len_m = np.hypot(diffs_m[:, 0], diffs_m[:, 1])
-        return float(np.sum(segment_len_m))
+        return float(np.sum(self.arclength_per_segment_m()))
+
+    def arclength_per_segment_m(self) -> np.ndarray:
+        """Compute and return the arclength (m) of each segment in the polyline."""
+        diffs_m = np.diff(self._xy, axis=0)  # (N-1, 2)
+        return np.linalg.norm(diffs_m, axis=1)  # Compute vector norms along axis 1
 
     def cumulative_arclength_m(self) -> np.ndarray:
         """Compute the cumulative arclength (m) to each vertex from the start of the polyline."""
         if self.n == 1:
             return np.array([0.0], dtype=float)
 
-        diffs_m = np.diff(self._xy, axis=0, prepend=self._xy[0, :])
-        segment_len_m = np.hypot(diffs_m[:, 0], diffs_m[:, 1])
-        return np.cumsum(segment_len_m)
+        segment_lengths_m = self.arclength_per_segment_m()
+        return np.concatenate(([0.0], np.cumsum(segment_lengths_m)))
 
     def interpolate_at_s(self, s_target: float) -> tuple[Point2D, int]:
         """Compute the point at the given arclength (m) along the polyline.
 
         :param s_target: Target arclength (m) along the polyline
-        :return: Tuple containing the interpolated point and the *next* segment index
+        :return: ( interpolated point, segment index in [0..N-2] used for the interpolation )
         """
-        s_m = self.cumulative_arclength_m
+        s_m = self.cumulative_arclength_m()
         if s_target <= 0.0:
             return Point2D.from_array(self._xy[0]), 0
 
+        s_target = min(s_target, self.total_arclength_m)
+
         # Find the segment whose upper vertex is the first with arclength >= target
         j = int(np.searchsorted(s_m, s_target, side="left"))
-        j = int(np.clip(j, 1, self.n - 1))  # Ensure a valid segment index
 
-        start_s, end_s = float(s_m[j - 1]), float(s_m[j])  # Arclength at segment endpoints
+        # Compute segment index used for interpolation
+        seg_idx = int(np.clip(j - 1, 0, self.n - 2))  # Ensure a valid segment index
 
-        if end_s <= start_s:  # Handle degenerate segments
-            return Point2D.from_array(self._xy[j]), j
+        start_s, end_s = float(s_m[seg_idx]), float(s_m[seg_idx + 1])
+        if end_s <= start_s:  # Handle degenerate segments by selecting their end point
+            return Point2D.from_array(self._xy[seg_idx + 1]), seg_idx
 
         t = (s_target - start_s) / (end_s - start_s)
-        p_xy = (1.0 - t) * self._xy[j - 1] + t * self._xy[j]
+        t = float(np.clip(t, 0.0, 1.0))
 
-        return Point2D.from_array(p_xy), j
+        p_xy = (1.0 - t) * self._xy[seg_idx] + t * self._xy[seg_idx + 1]
+
+        return Point2D.from_array(p_xy), seg_idx
 
     def tangent_yaw_at_segment(self, idx: int) -> float:
         """Return yaw (radians) of the direction of segment `idx`, between [-pi, pi]."""
-        seg_start_idx = max(0, idx - 1)
-        seg_end_idx = min(self.n - 1, idx)
-        if seg_start_idx == seg_end_idx and seg_end_idx + 1 < self.n:
-            seg_end_idx += 1
+        if not (0 <= idx < self.n - 1):
+            raise IndexError(f"Segment index out of range: {idx} for N={self.n}.")
 
-        dx_dy = self._xy[seg_end_idx, :] - self._xy[seg_start_idx, :]  # (2,)
-        dx, dy = dx_dy[0], dx_dy[1]
-
-        return np.atan2(dy, dx)
+        dx, dy = (self._xy[idx + 1] - self._xy[idx]).tolist()
+        return np.arctan2(dy, dx)  # Due to NumPy 1.17
 
     def project_point(self, point: Point2D) -> tuple[float, Point2D, int]:
         """Project a point onto the polyline.

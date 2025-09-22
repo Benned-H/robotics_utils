@@ -1,3 +1,3 @@
 """Import navigation-related class and function definitions."""
 
-from .goal_base_pose import GoalBasePose as GoalBasePose
+from .navigation_goal import NavigationGoal as NavigationGoal

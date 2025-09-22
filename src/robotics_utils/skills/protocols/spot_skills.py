@@ -48,6 +48,7 @@ from robotics_utils.ros import (
 from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
 from robotics_utils.ros.pose_broadcast_thread import PoseBroadcastThread
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
+from robotics_utils.ros.robots.spot_mobile_base import SpotRobot
 from robotics_utils.ros.services import ServiceCaller, trigger_service
 from robotics_utils.ros.transform_recorder import TransformRecorder
 from robotics_utils.skills import SkillsProtocol, skill_method
@@ -161,6 +162,8 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         self._kinematic_tree = KinematicTree.from_yaml(config.env_yaml)
 
+        self._spot_robot = SpotRobot()  # Used as an interface for Spot as a mobile robot
+
     def spin_once(self, duration_s: float = 0.1) -> None:
         """Sleep for the given duration to allow background processing."""
         rospy.sleep(duration_s)
@@ -187,8 +190,8 @@ class SpotSkillsProtocol(SkillsProtocol):
         return response.success, response.message
 
     @skill_method
-    def go_to_pose(self, base_pose: Pose3D) -> SkillResult:
-        """Navigate to the given base pose.
+    def navigate_to_pose(self, base_pose: Pose3D) -> SkillResult:
+        """Navigate to the given base pose using global path planning.
 
         :param base_pose: Target base pose for the robot
         :return: Tuple containing a Boolean skill success and outcome message
@@ -409,7 +412,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         :return: Tuple containing a Boolean skill success and outcome message
         """
         # First, navigate to the base pose used for the skill
-        nav_success, nav_msg = self.go_to_pose(template.pose_s_base)
+        nav_success, nav_msg = self.navigate_to_pose(template.pose_s_base)
         if not nav_success:
             return False, nav_msg
 
