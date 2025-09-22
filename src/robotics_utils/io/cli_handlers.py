@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.prompt import FloatPrompt, IntPrompt, Prompt
 
 from robotics_utils.kinematics import Pose3D
-from robotics_utils.skills.skill_templates import PickTemplate
+from robotics_utils.skills.skill_templates import OpenDrawerTemplate, PickTemplate, PlaceTemplate
 
 InputT = TypeVar("InputT")
 """An input type being requested via CLI."""
@@ -143,17 +143,31 @@ def handle_pick_template(ui: ParamUI[PickTemplate], console: Console) -> PickTem
     """Prompt the user for a template for a 'Pick' skill using the CLI."""
     console.print(f"[cyan]{ui.label}[/cyan]")
 
-    pose_o_g = handle_pose(
+    obj_name = handle_string(
         ParamUI(
-            "Grasp pose of the end-effector w.r.t. the object to be picked.",
-            default=None if ui.default is None else ui.default.pose_o_g,
+            label="Name of the object to be picked.",
+            default=None if ui.default is None else ui.default.object_name,
+        ),
+        console,
+    )
+    open_rad = handle_float(
+        ParamUI(
+            label="Gripper angle (radians) before picking the object.",
+            default=None if ui.default is None else ui.default.open_gripper_angle_rad,
         ),
         console,
     )
     pre_grasp_x_m = handle_float(
         ParamUI(
-            "Offset (m) of the pre-grasp pose 'back' (-x) from the grasp pose.",
+            "Offset (absolute meters) of the pre-grasp pose 'back' (-x) from the grasp pose.",
             default=None if ui.default is None else ui.default.pre_grasp_x_m,
+        ),
+        console,
+    )
+    pose_o_g = handle_pose(
+        ParamUI(
+            "Object-relative pose of the end-effector when the object is grasped.",
+            default=None if ui.default is None else ui.default.pose_o_g,
         ),
         console,
     )
@@ -164,28 +178,97 @@ def handle_pick_template(ui: ParamUI[PickTemplate], console: Console) -> PickTem
         ),
         console,
     )
-    carry_pose = handle_pose(
+    stow_after = handle_bool(
         ParamUI(
-            "End-effector pose (w.r.t. body frame) used to carry the object.",
-            default=None if ui.default is None else ui.default.pose_b_carry,
-        ),
-        console,
-    )
-    stow_carry = handle_bool(
-        ParamUI(
-            "Should the arm be stowed instead of specifying a carry pose?",
-            default=None if ui.default is None else ui.default.stow_carry,
+            "If True, stow the arm after picking the object.",
+            default=None if ui.default is None else ui.default.stow_after,
         ),
         console,
     )
 
-    return PickTemplate(
-        pose_o_g,
-        abs(pre_grasp_x_m),
-        abs(post_grasp_lift_m),
-        carry_pose,
-        stow_carry,
+    return PickTemplate(obj_name, open_rad, pre_grasp_x_m, pose_o_g, post_grasp_lift_m, stow_after)
+
+
+def handle_place_template(ui: ParamUI[PlaceTemplate], console: Console) -> PlaceTemplate:
+    """Prompt the user for a template for a 'Place' skill using the CLI."""
+    console.print(f"[cyan]{ui.label}[/cyan]")
+
+    ee_link = handle_string(
+        ParamUI(
+            label="Name of the end-effector link used to place an object.",
+            default=None if ui.default is None else ui.default.ee_link_name,
+        ),
+        console,
     )
+    held_obj_name = handle_string(
+        ParamUI(
+            label="Name of the held object to be placed.",
+            default=None if ui.default is None else ui.default.held_object_name,
+        ),
+        console,
+    )
+    pre_place_lift_m = handle_float(
+        ParamUI(
+            label="Offset (m) of the pre-place pose 'up' (+z world frame) from the place pose.",
+            default=None if ui.default is None else ui.default.pre_place_lift_m,
+        ),
+        console,
+    )
+    place_pose_s_o = handle_pose(
+        ParamUI(
+            label="Surface-relative placement pose of the placed object.",
+            default=None if ui.default is None else ui.default.place_pose_s_o,
+        ),
+        console,
+    )
+    post_place_x_m = handle_float(
+        ParamUI(
+            label="Offset (abs. meters) of the post-place pose 'back' (-x) from the place pose.",
+            default=None if ui.default is None else ui.default.post_place_x_m,
+        ),
+        console,
+    )
+
+    return PlaceTemplate(ee_link, held_obj_name, pre_place_lift_m, place_pose_s_o, post_place_x_m)
+
+
+def handle_open_drawer_template(
+    ui: ParamUI[OpenDrawerTemplate],
+    console: Console,
+) -> OpenDrawerTemplate:
+    """Prompt the user for a template for an 'OpenDrawer' skill using the CLI."""
+    console.print(f"[cyan]{ui.label}[/cyan]")
+
+    pregrasp_pose = handle_pose(
+        ParamUI(
+            label="Target end-effector pose before the drawer-grasping pose.",
+            default=None if ui.default is None else ui.default.pregrasp_pose_ee,
+        ),
+        console,
+    )
+    grasp_pose = handle_pose(
+        ParamUI(
+            label="End-effector pose used to grasp the drawer handle.",
+            default=None if ui.default is None else ui.default.grasp_drawer_pose_ee,
+        ),
+        console,
+    )
+    pull_pose = handle_pose(
+        ParamUI(
+            label="Target end-effector pose after initially pulling the drawer open.",
+            default=None if ui.default is None else ui.default.pull_drawer_pose_ee,
+        ),
+        console,
+    )
+    open_traj_path = handle_filepath(
+        ParamUI(
+            label="Path to a YAML file containing the trajectory used to finish opening the drawer.",
+            default=None if ui.default is None else ui.default.open_traj_path,
+        ),
+        console,
+    )
+
+    return OpenDrawerTemplate(pregrasp_pose, grasp_pose, pull_pose, open_traj_path)
 
 
 INPUT_HANDLERS = {
@@ -196,4 +279,6 @@ INPUT_HANDLERS = {
     Path: handle_filepath,
     Pose3D: handle_pose,
     PickTemplate: handle_pick_template,
+    PlaceTemplate: handle_place_template,
+    OpenDrawerTemplate: handle_open_drawer_template,
 }

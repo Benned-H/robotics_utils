@@ -10,8 +10,12 @@ from robotics_utils.io.cli_handlers import INPUT_HANDLERS, ParamUI, SkillsUI
 from robotics_utils.io.skills_cli import build_cli
 from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros import TransformManager
-from robotics_utils.skills.protocols.spot_skills import SpotSkillsConfig, SpotSkillsProtocol
-from robotics_utils.skills.skill_templates import PickTemplate
+from robotics_utils.skills.protocols.spot_skills import (
+    SPOT_GRIPPER_HALF_OPEN_RAD,
+    SpotSkillsConfig,
+    SpotSkillsProtocol,
+)
+from robotics_utils.skills.skill_templates import OpenDrawerTemplate, PickTemplate, PlaceTemplate
 
 
 def yaml_filepath_exists(path: Path) -> str | None:
@@ -35,21 +39,29 @@ def main() -> None:
             label="YAML file specifying a relative end-effector trajectory",
             validators=[yaml_filepath_exists],
         ),
-        ("OpenDrawer", "pre_pose"): ParamUI(
-            label="Intermediate end-effector pose target before the grasp pose",
-            default=Pose3D.from_xyz_rpy(x=0.68, z=0.56, yaw_rad=3.1416, ref_frame="black_dresser"),
-        ),
-        ("OpenDrawer", "grasp_pose"): ParamUI(
-            label="End-effector pose used to grasp the dresser drawer handle",
-            default=Pose3D.from_xyz_rpy(x=0.47, z=0.56, yaw_rad=3.1416, ref_frame="black_dresser"),
-        ),
-        ("OpenDrawer", "pull_pose"): ParamUI(
-            label="End-effector pose at the end of pulling the drawer open",
-            default=Pose3D.from_xyz_rpy(x=0.68, z=0.63, yaw_rad=3.1416, ref_frame="black_dresser"),
-        ),
-        ("OpenDrawer", "traj_yaml"): ParamUI(
-            label="Path to a YAML file containing the skill's final trajectory",
-            default=Path("/docker/spot_skills/drawer.yaml"),
+        ("OpenDrawer", "template"): ParamUI(
+            label="Template for an 'OpenDrawer' skill",
+            default=OpenDrawerTemplate(
+                pregrasp_pose_ee=Pose3D.from_xyz_rpy(
+                    x=0.68,
+                    z=0.56,
+                    yaw_rad=3.1416,
+                    ref_frame="black_dresser",
+                ),
+                grasp_drawer_pose_ee=Pose3D.from_xyz_rpy(
+                    x=0.47,
+                    z=0.56,
+                    yaw_rad=3.1416,
+                    ref_frame="black_dresser",
+                ),
+                pull_drawer_pose_ee=Pose3D.from_xyz_rpy(
+                    x=0.68,
+                    z=0.63,
+                    yaw_rad=3.1416,
+                    ref_frame="black_dresser",
+                ),
+                open_traj_path=Path("/docker/spot_skills/drawer.yaml"),
+            ),
         ),
         ("LookForObject", "object_name"): ParamUI(
             label="Name of the object looked for",
@@ -86,23 +98,20 @@ def main() -> None:
             label="Frame tracked during the recording",
             default="arm_link_wr1",
         ),
-        ("Pick", "object_name"): ParamUI(
-            label="Name of the object to be picked",
-            default="eraser1",
-        ),
         ("Pick", "template"): ParamUI(
             label="Template for a 'Pick' skill",
             default=PickTemplate(
+                object_name="eraser1",
+                open_gripper_angle_rad=SPOT_GRIPPER_HALF_OPEN_RAD,
+                pre_grasp_x_m=0.05,
                 pose_o_g=Pose3D.from_xyz_rpy(
                     z=0.36,
                     pitch_rad=1.5708,
                     yaw_rad=-1.5708,
                     ref_frame="eraser1",
                 ),
-                pre_grasp_x_m=0.05,
                 post_grasp_lift_m=0.03,
-                pose_b_carry=Pose3D.identity(),
-                stow_carry=True,
+                stow_after=True,
             ),
         ),
         ("LoadPlanningScene", "env_yaml"): ParamUI(
