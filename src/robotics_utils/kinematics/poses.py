@@ -9,7 +9,7 @@ import numpy as np
 
 from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME
-from robotics_utils.kinematics.point3d import Point3D
+from robotics_utils.kinematics.points import Point2D, Point3D
 from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
 
 if TYPE_CHECKING:
@@ -31,6 +31,11 @@ class Pose2D:
     def __iter__(self) -> Iterator[float]:
         """Provide an iterator over the (x,y,yaw) values of the 2D pose."""
         yield from [self.x, self.y, self.yaw_rad]
+
+    @property
+    def position(self) -> Point2D:
+        """Retrieve the (x,y) position of the 2D pose."""
+        return Point2D(self.x, self.y)
 
     @classmethod
     def from_sequence(cls, pose_seq: Sequence[float], ref_frame: str = DEFAULT_FRAME) -> Pose2D:
