@@ -52,7 +52,7 @@ from robotics_utils.ros.services import ServiceCaller, trigger_service
 from robotics_utils.ros.transform_recorder import TransformRecorder
 from robotics_utils.skills import SkillsProtocol, skill_method
 from robotics_utils.skills.skill import SkillResult
-from robotics_utils.skills.skill_templates import PickTemplate, PlaceTemplate
+from robotics_utils.skills.skill_templates import PickTemplate, PlacementSurface, PlaceTemplate
 
 
 @dataclass(frozen=True)
@@ -269,18 +269,21 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         self._gripper.open()  # Open Spot's gripper before approaching the dresser
 
-        pre_success, pre_outcome = self._move_ee_to_pose(pre_pose, "pre_grasp_drawer")
+        self._pose_broadcaster.poses["pre_grasp_drawer"] = pre_pose
+        pre_success, pre_outcome = self._move_ee_to_pose(pre_pose)
         if not pre_success:
             return False, pre_outcome
 
-        grasp_success, grasp_outcome = self._move_ee_to_pose(grasp_pose, "grasp_drawer")
+        self._pose_broadcaster.poses["grasp_drawer"] = grasp_pose
+        grasp_success, grasp_outcome = self._move_ee_to_pose(grasp_pose)
         if not grasp_success:
             return False, grasp_outcome
 
         self._gripper.close()
         time.sleep(3)  # Wait 3 seconds for the gripper to settle
 
-        pull_success, pull_outcome = self._move_ee_to_pose(pull_pose, "pull_drawer")
+        self._pose_broadcaster.poses["pull_drawer"] = pull_pose
+        pull_success, pull_outcome = self._move_ee_to_pose(pull_pose)
         if not pull_success:
             return False, pull_outcome
 
@@ -290,7 +293,8 @@ class SpotSkillsProtocol(SkillsProtocol):
         post_pull_pose = deepcopy(pull_pose)
         post_pull_pose.position.x += 0.1
 
-        post_success, post_outcome = self._move_ee_to_pose(post_pull_pose, "post_pull_drawer")
+        self._pose_broadcaster.poses["post_pull_drawer"] = post_pull_pose
+        post_success, post_outcome = self._move_ee_to_pose(post_pull_pose)
         if not post_success:
             return False, post_outcome
 
@@ -364,22 +368,22 @@ class SpotSkillsProtocol(SkillsProtocol):
         pose_w_postg.position.z += template.post_grasp_lift_m
 
         self._pose_broadcaster.poses[f"pre_grasp_{object_name}"] = pose_o_pregrasp
-        self._pose_broadcaster.poses[f"grasp_wrt_{object_name}"] = pose_w_g
+        self._pose_broadcaster.poses[f"grasp_{object_name}"] = pose_w_g
         self._pose_broadcaster.poses[f"post_grasp_{object_name}"] = pose_w_postg
 
         self._gripper.open()
 
-        pre_ok, pre_msg = self._move_ee_to_pose(pose_o_pregrasp, f"pre_grasp_{object_name}")
+        pre_ok, pre_msg = self._move_ee_to_pose(pose_o_pregrasp)
         if not pre_ok:
             return False, pre_msg
 
-        grasp_ok, grasp_msg = self._move_ee_to_pose(template.pose_o_g, f"grasp_{object_name}")
+        grasp_ok, grasp_msg = self._move_ee_to_pose(template.pose_o_g)
         if not grasp_ok:
             return False, grasp_msg
 
         self._gripper.close()
 
-        post_ok, post_msg = self._move_ee_to_pose(pose_w_postg, f"post_grasp_{object_name}")
+        post_ok, post_msg = self._move_ee_to_pose(pose_w_postg)
         if not post_ok:
             return False, post_msg
 
@@ -389,30 +393,65 @@ class SpotSkillsProtocol(SkillsProtocol):
                 return False, stow_msg
 
         else:
-            carry_ok, carry_msg = self._move_ee_to_pose(
-                template.pose_b_carry,
-                f"carry_{object_name}",
-            )
+            self._pose_broadcaster.poses[f"carry_{object_name}"] = template.pose_b_carry
+            carry_ok, carry_msg = self._move_ee_to_pose(template.pose_b_carry)
             if not carry_ok:
                 return False, carry_msg
 
         return True, f"Successfully picked object '{object_name}'."
 
     @skill_method
-    def place(self, surface_name: str, template: PlaceTemplate) -> SkillResult:
+    def place(self, held_obj_name: str, template: PlaceTemplate) -> SkillResult:
         """Place a held object onto a surface based on the given template.
 
-        :param surface_name: Name of the surface to place the object on
+        :param held_obj_name: Name of the object currently held by the robot
         :param template: Template for a 'Place' skill
         :return: Tuple containing a Boolean skill success and outcome message
         """
-        if surface_name != template.pose_s_o.ref_frame:
-            place_frame = template.pose_s_o.ref_frame
-            self._console.print(f"[yellow]Warning: Place pose given in frame {place_frame}.[/]")
-            fixed_pose_s_o = TransformManager.convert_to_frame(template.pose_s_o, surface_name)
-            template = replace(template, pose_s_o=fixed_pose_s_o)
+        # First, navigate to the base pose used for the skill
+        nav_success, nav_msg = self.go_to_pose(template.pose_s_base)
+        if not nav_success:
+            return False, nav_msg
 
-        # TODO
+        # Second, compute and visualize the pre-place, place, and post-place poses
+        ee_name = self._arm.ee_link_name
+        pose_o_ee = TransformManager.lookup_transform(ee_name, held_obj_name)
+        if pose_o_ee is None:
+            return False, f"Could not look up transform of {ee_name} w.r.t. {held_obj_name}."
+        place_pose_s_ee = template.place_pose_s_o @ pose_o_ee
+
+        place_pose_w_ee = TransformManager.convert_to_frame(place_pose_s_ee, DEFAULT_FRAME)
+        pre_place_w_ee = deepcopy(place_pose_w_ee)
+        pre_place_w_ee.position.z += template.pre_place_lift_m
+
+        pose_p_postp = Pose3D.from_xyz_rpy(x=-template.post_place_x_m)  # Post-place w.r.t. place
+        postplace_pose_s_ee = place_pose_s_ee @ pose_p_postp
+
+        # Name the poses for being broadcast as /tf frames
+        self._pose_broadcaster.poses[f"pre_place_{held_obj_name}"] = pre_place_w_ee
+        self._pose_broadcaster.poses[f"place_{held_obj_name}"] = place_pose_s_ee
+        self._pose_broadcaster.poses[f"post_place_{held_obj_name}"] = postplace_pose_s_ee
+
+        # Finally, execute the rest of the skill as planned
+        preplace_ok, preplace_msg = self._move_ee_to_pose(pre_place_w_ee)
+        if not preplace_ok:
+            return False, preplace_msg
+
+        place_ok, place_msg = self._move_ee_to_pose(place_pose_s_ee)
+        if not place_ok:
+            return False, place_msg
+
+        self.open_gripper()
+
+        postplace_ok, postplace_msg = self._move_ee_to_pose(postplace_pose_s_ee)
+        if not postplace_ok:
+            return False, postplace_msg
+
+        stow_ok, stow_msg = self.stow_arm()
+        if not stow_ok:
+            return False, stow_msg
+
+        return True, f"Successfully placed object '{held_obj_name}'."
 
     @skill_method
     def _take_control(self) -> SkillResult:
@@ -517,15 +556,12 @@ class SpotSkillsProtocol(SkillsProtocol):
         return True, "Successfully closed Spot's gripper."
 
     @skill_method
-    def _move_ee_to_pose(self, ee_target: Pose3D, label: str) -> SkillResult:
+    def _move_ee_to_pose(self, ee_target: Pose3D) -> SkillResult:
         """Move Spot's end-effector to the specified pose.
 
         :param ee_target: End-effector target pose
-        :param label: Label of the pose used in RViz
         :return: Tuple containing a Boolean skill success and outcome message
         """
-        self._pose_broadcaster.poses[label] = ee_target
-
         query = MotionPlanningQuery(ee_target)
 
         traj = self._motion_planner.compute_motion_plan(query)
