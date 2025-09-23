@@ -213,13 +213,18 @@ class SpotSkillsProtocol(SkillsProtocol):
         return response.success, response.message
 
     @skill_method
-    def open_door(self, is_pull: bool, hinge_on_left: bool) -> SkillResult:
+    def open_door(self, body_pitch_rad: float, is_pull: bool, hinge_on_left: bool) -> SkillResult:
         """Open a door using Spot's built-in skill.
 
+        :param body_pitch_rad: Pitch (radians) of Spot's body when taking the door handle image
         :param is_pull: Whether the door opens by pulling toward Spot
         :param hinge_on_left: Whether the door's hinge is on the left, from Spot's perspective
         """
-        request = OpenDoorRequest(is_pull=is_pull, hinge_on_left=hinge_on_left)
+        request = OpenDoorRequest(
+            body_pitch_rad=body_pitch_rad,
+            is_pull=is_pull,
+            hinge_on_left=hinge_on_left,
+        )
         response = self._open_door_caller(request)
         if response is None:
             return False, "OpenDoor service response was None."
