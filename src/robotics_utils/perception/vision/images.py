@@ -108,6 +108,14 @@ class RGBImage(Image):
         rgb_data = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         return RGBImage(rgb_data)
 
+    def to_file(self, image_path: str | Path) -> None:
+        """Save the RGB image to the given filepath."""
+        image_path = Path(image_path)
+        bgr_data = cv2.cvtColor(self.data, cv2.COLOR_RGB2BGR)
+        success = cv2.imwrite(str(image_path), bgr_data)
+        if not success:
+            raise RuntimeError(f"Failed to save image to path: {image_path}")
+
 
 class DepthImage(Image):
     """A depth image represented as a NumPy array of shape (H, W)."""

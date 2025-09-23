@@ -48,7 +48,8 @@ from robotics_utils.ros import (
 from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
 from robotics_utils.ros.pose_broadcast_thread import PoseBroadcastThread
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
-from robotics_utils.ros.robots.spot_mobile_base import SpotRobot
+
+# from robotics_utils.ros.robots.spot_mobile_base import SpotRobot
 from robotics_utils.ros.services import ServiceCaller, trigger_service
 from robotics_utils.ros.transform_recorder import TransformRecorder
 from robotics_utils.skills import SkillsProtocol, skill_method
@@ -170,7 +171,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         self._kinematic_tree = KinematicTree.from_yaml(config.env_yaml)
 
-        self._spot_robot = SpotRobot()  # Used as an interface for Spot as a mobile robot
+        # self._spot_robot = SpotRobot()  # Used as an interface for Spot as a mobile robot
 
     def spin_once(self, duration_s: float = 0.1) -> None:
         """Sleep for the given duration to allow background processing."""
@@ -189,13 +190,9 @@ class SpotSkillsProtocol(SkillsProtocol):
                 f"Available waypoints: {list(self._waypoints.keys())}."
             )
 
-        request = NameServiceRequest(name=waypoint)
-        response = self._nav_to_waypoint_caller(request)
-
-        if response is None:
-            return False, "NavigateToWaypoint service response was None."
-
-        return response.success, response.message
+        # Lookup pose from env.yaml and call navigate_to_pose instead
+        waypoint_pose = self._waypoints[waypoint]
+        return self.navigate_to_pose(waypoint_pose.to_3d())
 
     @skill_method
     def navigate_to_pose(self, base_pose: Pose3D) -> SkillResult:
