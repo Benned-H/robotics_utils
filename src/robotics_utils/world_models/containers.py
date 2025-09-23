@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from robotics_utils.io.logging import log_info
+from robotics_utils.world_models.simulators import ObjectModel
 
 if TYPE_CHECKING:
     from robotics_utils.collision_models import CollisionModel
@@ -14,40 +14,12 @@ if TYPE_CHECKING:
     from robotics_utils.kinematics.kinematic_tree import KinematicTree
 
 
-@dataclass(frozen=True)
-class ObjectModel:
-    """A physical object in the environment."""
-
-    name: str
-    pose: Pose3D
-    collision_model: CollisionModel
-
-
-class ContainerState(Enum):
-    """An enumeration of possible states of a physical container."""
-
-    CLOSED = 0
-    OPEN = 1
-
-    @classmethod
-    def from_string(cls, value: str) -> ContainerState:
-        """Construct a ContainerState from a string."""
-        state = {
-            "closed": ContainerState.CLOSED,
-            "open": ContainerState.OPEN,
-        }.get(value.lower().strip())
-
-        if state is None:
-            raise ValueError(f"Cannot construct ContainerState from string: '{value}'.")
-        return state
-
-
 @dataclass
 class ContainerModel:
     """A physical container in the environment, potentially containing objects."""
 
     name: str
-    state: ContainerState
+    is_open: bool
     closed_model: CollisionModel
     open_model: CollisionModel
 
@@ -73,7 +45,10 @@ class ContainerModel:
             if required_key not in yaml_data:
                 raise KeyError(f"ContainerModel needs YAML key '{required_key}', got {yaml_data}")
 
-        initial_state = ContainerState.from_string(yaml_data["state"])
+        initial_state = yaml_data["state"]
+        if initial_state not in ["open", "closed"]:
+            raise ValueError(f"Unrecognized container state: '{initial_state}'.")
+        begins_open = initial_state == "open"
 
         closed_model = collision_models.get(yaml_data["closed_model"])
         if closed_model is None:
@@ -88,7 +63,7 @@ class ContainerModel:
             for obj_name in yaml_data.get("contains", [])
         }
 
-        return ContainerModel(name, initial_state, closed_model, open_model, contained_objects)
+        return ContainerModel(name, begins_open, closed_model, open_model, contained_objects)
 
     @property
     def collision_model(self) -> CollisionModel:
@@ -97,13 +72,8 @@ class ContainerModel:
 
     @property
     def is_closed(self) -> bool:
-        """Check whether the container is closed."""
-        return self.state == ContainerState.CLOSED
-
-    @property
-    def is_open(self) -> bool:
-        """Check whether the container is open."""
-        return self.state == ContainerState.OPEN
+        """Retrieve whether the container is closed."""
+        return not self.is_open
 
     def update_kinematic_tree(self, tree: KinematicTree) -> None:
         """Update the given kinematic tree according to this container's state.
@@ -112,12 +82,12 @@ class ContainerModel:
         """
         tree.set_collision_model(frame_name=self.name, collision_model=self.collision_model)
 
-        if self.state == ContainerState.OPEN:  # If open, update all contained objects' state
+        if self.is_open:  # If open, update the tree with all contained objects' state
             for obj_name, obj_model in self.contained_objects.items():
                 tree.set_object_pose(obj_name, obj_model.pose)
                 tree.set_collision_model(obj_name, obj_model.collision_model)
 
-        elif self.state == ContainerState.CLOSED:  # If closed, clear all contained objects' state
+        else:  # If closed, clear all contained objects' state from the tree
             for obj_name in self.contained_objects:
                 removed_obj_model = tree.remove_object(obj_name)
                 if removed_obj_model is None:
@@ -130,11 +100,11 @@ class ContainerModel:
 
         :param tree: Specifies the kinematic state of the environment
         """
-        if self.state == ContainerState.OPEN:
+        if self.is_open:
             log_info(f"Container '{self.name}' is already open so it cannot be opened again.")
             return
 
-        self.state = ContainerState.OPEN
+        self.is_open = True
         self.update_kinematic_tree(tree)
 
     def close(self, tree: KinematicTree) -> None:
@@ -142,9 +112,9 @@ class ContainerModel:
 
         :param tree: Specifies the kinematic state of the environment
         """
-        if self.state == ContainerState.CLOSED:
+        if self.is_closed:
             log_info(f"Container '{self.name}' is already closed so it cannot be closed again.")
             return
 
-        self.state = ContainerState.CLOSED
+        self.is_open = False
         self.update_kinematic_tree(tree)

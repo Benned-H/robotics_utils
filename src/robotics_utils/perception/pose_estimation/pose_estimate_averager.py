@@ -16,9 +16,11 @@ class PoseEstimateAverager:
 
     def __init__(self, window_size: int) -> None:
         """Initialize the pose averager with a maximum sliding window size."""
-        self._window_size = window_size
         self._estimates: dict[str, deque[Pose3D]] = defaultdict(lambda: deque(maxlen=window_size))
+        """Maps each reference frame name to a sliding queue of pose estimates for that frame."""
+
         self._averages: dict[str, Pose3D | None] = {}
+        """Maps each frame name to its latest averaged pose estimate, if it has been computed."""
 
     @property
     def all_stored_estimates(self) -> dict[str, list[Pose3D]]:
@@ -28,14 +30,23 @@ class PoseEstimateAverager:
     @property
     def all_available_averages(self) -> dict[str, Pose3D]:
         """Retrieve a map of all available (frame name, averaged pose) pairs."""
-        return {frame: opt_avg for frame, opt_avg in self._averages.items() if opt_avg is not None}
+        return {frame: avg for frame, avg in self._averages.items() if avg is not None}
 
     def update(self, frame_name: str, pose: Pose3D) -> None:
         """Add a new pose estimate for the given frame.
 
         :param frame_name: Identifier of the relevant reference frame
         :param pose: New noisy pose estimate
+        :raises ValueError: If the relative frame of the estimate differs from current estimates
         """
+        # All estimates for a frame must share a parent frame
+        curr_estimates = self._estimates[frame_name]
+        if curr_estimates and curr_estimates[0].ref_frame != pose.ref_frame:
+            raise ValueError(
+                f"Pose estimates for frame '{frame_name}' use different reference "
+                f"frames: {curr_estimates[0].ref_frame} and {pose.ref_frame}.",
+            )
+
         self._estimates[frame_name].append(pose)
         self._averages.pop(frame_name, None)  # Clear the cached average for this frame
 
@@ -56,7 +67,19 @@ class PoseEstimateAverager:
         """Compute and return a map from each frame name to its averaged pose estimate."""
         return {frame: self.get(frame) for frame in self._estimates}
 
-    def reset(self) -> None:
+    def reset_frame(self, frame_name: str) -> Pose3D | None:
+        """Clear any stored pose estimates and cached averages for the named frame.
+
+        :return: Previously stored pose estimate for the frame, if one exists, else None
+        """
+        latest_average = self.get(frame_name)
+
+        self._estimates[frame_name].clear()
+        self._averages[frame_name] = None
+
+        return latest_average
+
+    def reset_all(self) -> None:
         """Clear all stored pose estimates and cached averages."""
         self._estimates.clear()
         self._averages.clear()

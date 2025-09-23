@@ -1,55 +1,48 @@
 """Define ROS-dependent utilities for managing robot navigation."""
 
-import time
-from dataclasses import dataclass
+from __future__ import annotations
 
 import rospy
+from nav_msgs.srv import GetPlan, GetPlanRequest, GetPlanResponse
 
-from robotics_utils.kinematics import Pose2D
-from robotics_utils.math.distances import angle_difference_rad, euclidean_distance_2d_m
-from robotics_utils.ros.transform_manager import TransformManager
-
-
-@dataclass(frozen=True)
-class GoalReachedThresholds:
-    """Thresholds specifying when a robot is considered to have reached a goal pose."""
-
-    distance_m: float  # Distance (meters) from the goal base pose
-    abs_angle_rad: float  # Absolute angle (radians) from the yaw of the base pose
+from robotics_utils.kinematics import Pose2D, Pose3D
+from robotics_utils.math.polyline import Polyline2D
+from robotics_utils.ros.msg_conversion import pose_from_msg, pose_to_stamped_msg
+from robotics_utils.ros.services import ServiceCaller
 
 
-def check_reached_goal(
-    target_pose_2d: Pose2D,
-    thresholds: GoalReachedThresholds,
-    pose_lookup_timeout_s: float = 5.0,
-) -> bool:
-    """Check whether the robot is considered to have reached a goal pose.
+def compute_navigation_plan(
+    start: Pose2D,
+    goal: Pose2D,
+    tolerance_m: float = 0.25,
+    planner_service: str = "/move_base/make_plan",
+) -> Polyline2D | None:
+    """Compute a 2D path from the given start pose to the given goal pose.
 
-    :param target_pose_2d: Target base pose for a mobile robot
-    :param thresholds: Thresholds specifying when the robot is considered to have reached a goal pose
-    :param pose_lookup_timeout_s: Duration (sec) after which pose lookup times out (defaults to 5)
-    :return: True if the robot is sufficiently close to the target pose, else False
+    :param start: Initial pose in the planning problem
+    :param goal: Goal pose in the planning problem
+    :param tolerance_m: Max. distance (m) to relax the (x,y) constraint, if goal is obstructed
+    :param planner_service: Name of a ROS service with the service type `nav_msgs/GetPlan`
+    :return: Polyline of 2D points in the found path, or None if no plan is found
     """
-    pose_lookup_end_time = time.time() + pose_lookup_timeout_s
-    target_frame = target_pose_2d.ref_frame
+    # start = Pose2D(-0.016433, 2.3881905, 0.0, ref_frame="map")
+    # goal = Pose2D(0.713996891, -1.31167166, 0.0, ref_frame="map")
 
-    curr_pose = None
-    while curr_pose is None and time.time() < pose_lookup_end_time:
-        curr_pose = TransformManager.lookup_transform("body", target_frame, timeout_s=0.1)
+    move_base_caller = ServiceCaller[GetPlanRequest, GetPlanResponse](planner_service, GetPlan)
 
-    if curr_pose is None:
-        rospy.logfatal(f"Could not look up body pose in frame '{target_pose_2d.ref_frame}'.")
-        return False
+    start_msg = pose_to_stamped_msg(start.to_3d())
+    goal_msg = pose_to_stamped_msg(goal.to_3d())
 
-    distance_2d_m = euclidean_distance_2d_m(target_pose_2d, curr_pose.to_2d(), change_frames=True)
-    angle_error_rad = angle_difference_rad(target_pose_2d.yaw_rad, curr_pose.yaw_rad)
+    rospy.loginfo(f"Start message: {start_msg}")
+    rospy.loginfo(f"Goal message: {goal_msg}")
+    rospy.loginfo(f"Tolerance (m): {tolerance_m}")
 
-    distance_reached = distance_2d_m < thresholds.distance_m
-    angle_reached = angle_error_rad < thresholds.abs_angle_rad
-    result = distance_reached and angle_reached
+    request = GetPlanRequest(start_msg, goal_msg, tolerance_m)
+    response = move_base_caller(request)
+    if response is None or response.plan.poses is None:
+        rospy.logwarn("GetPlan service response was None; navigation failed.")
+        return None
 
-    rospy.loginfo(f"Current Euclidean distance to target pose: {distance_2d_m} m")
-    rospy.loginfo(f"Current absolute angular error from target pose: {angle_error_rad} rad")
-    rospy.loginfo(f"Ending navigation? {result}")
+    plan: list[Pose3D] = [pose_from_msg(ps) for ps in response.plan.poses]
 
-    return result
+    return Polyline2D.from_poses(plan)

@@ -15,7 +15,7 @@ class Displayable(Protocol):
         ...
 
 
-def display_image(image: Displayable, window_title: str, wait_for_input: bool = True) -> bool:
+def display(image: Displayable, window_title: str, wait_for_input: bool = True) -> bool:
     """Display an image in an OpenCV window with the given title.
 
     :param image: Image supporting conversion into a displayable format

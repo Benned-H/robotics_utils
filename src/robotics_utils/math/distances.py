@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from robotics_utils.kinematics import Quaternion
 from robotics_utils.math.angles import normalize_angle
 
 if TYPE_CHECKING:
@@ -53,3 +54,13 @@ def angle_difference_rad(a_rad: float, b_rad: float) -> float:
     """
     difference_rad = normalize_angle(a_rad - b_rad)
     return abs(difference_rad)
+
+
+def angle_between_quaternions_deg(q1: Quaternion, q2: Quaternion) -> float:
+    """Compute the angle (degrees) between two unit quaternions representing 3D rotations.
+
+    Reference: https://math.stackexchange.com/a/167828
+    """
+    product = q1 * q2.conjugate()
+    angle_rad = 2 * np.arccos(product.w)
+    return np.rad2deg(angle_rad)

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from robotics_utils.abstractions.objects.objects import Objects
 from robotics_utils.collision_models import CollisionModel
 from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
-from robotics_utils.world_models.containers import ContainerModel, ObjectModel
+from robotics_utils.world_models.containers import ContainerModel
+from robotics_utils.world_models.simulators import ObjectModel
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -42,6 +44,9 @@ class KinematicTree:
 
         self.container_models: dict[str, ContainerModel] = {}
         """Maps the name of each container to its kinematic model."""
+
+        self.object_types: Objects = Objects({})
+        """Maps the name of each object to its set of types."""
 
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> KinematicTree:
@@ -91,12 +96,32 @@ class KinematicTree:
             c = ContainerModel.from_yaml_data(c_name, c_data, collision_models, tree.object_poses)
             tree.add_container(c)
 
+        # Also, load object types from the YAML file
+        tree.object_types = Objects.from_yaml(yaml_path)
+
         return tree
 
     @property
     def object_poses(self) -> dict[str, Pose3D]:
         """Create and return a dictionary mapping object names to their 3D poses."""
         return {obj_name: self.frames[obj_name] for obj_name in self.object_names}
+
+    @property
+    def object_models(self) -> dict[str, ObjectModel]:
+        """Create and return a dictionary mapping object names to their 3D geometry models.
+
+        :return: Map from object names to the corresponding object models
+        :raises RuntimeError: If an object doesn't have a collision model defined
+        """
+        obj_models: dict[str, ObjectModel] = {}
+        for obj_name, obj_pose in self.object_poses.items():
+            collision_model = self.get_collision_model(obj_name)
+            if collision_model is None:
+                raise RuntimeError(f"Object '{obj_name}' doesn't have a collision model.")
+
+            obj_models[obj_name] = ObjectModel(obj_name, obj_pose, collision_model)
+
+        return obj_models
 
     @property
     def robot_base_poses(self) -> dict[str, Pose3D]:

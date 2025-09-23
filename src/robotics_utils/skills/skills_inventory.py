@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Iterator
+from typing import Generic, Iterator, TypeVar
 
 from robotics_utils.skills.skill import Skill
 
-SkillsProtocol = object
-"""Represents an arbitrary protocol defining skills for a particular domain."""
+SkillOutputT = TypeVar("SkillOutputT")
+"""Represents the type of outputs from all skills in a domain."""
+
+
+class SkillsProtocol(Generic[SkillOutputT]):
+    """An arbitrary protocol defining skills for a particular domain."""
+
+    def spin_once(self, duration_s: float = 0.1) -> None:
+        """Sleep for the given duration to allow background processing."""
 
 
 class SkillsInventory:
@@ -58,7 +65,7 @@ class SkillsInventory:
         methods = [getattr(protocol, method_name) for method_name in dir(protocol)]
         skills = [Skill.from_method(method) for method in methods if hasattr(method, "_is_skill")]
 
-        return SkillsInventory(name=protocol.__name__, skills=skills)
+        return SkillsInventory(name=type(protocol).__name__, skills=skills)
 
     def get_skill(self, skill_name: str) -> Skill:
         """Retrieve the named skill from the inventory."""
