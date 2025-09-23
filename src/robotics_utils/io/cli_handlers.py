@@ -200,10 +200,17 @@ def handle_place_template(ui: ParamUI[PlaceTemplate], console: Console) -> Place
         ),
         console,
     )
-    held_obj_name = handle_string(
+    obj_name = handle_string(
         ParamUI(
             label="Name of the held object to be placed.",
-            default=None if ui.default is None else ui.default.held_object_name,
+            default=None if ui.default is None else ui.default.object_name,
+        ),
+        console,
+    )
+    surface_name = handle_string(
+        ParamUI(
+            label="Name of the surface the object is placed onto.",
+            default=None if ui.default is None else ui.default.surface_name,
         ),
         console,
     )
@@ -229,7 +236,14 @@ def handle_place_template(ui: ParamUI[PlaceTemplate], console: Console) -> Place
         console,
     )
 
-    return PlaceTemplate(ee_link, held_obj_name, pre_place_lift_m, place_pose_s_o, post_place_x_m)
+    return PlaceTemplate(
+        ee_link,
+        obj_name,
+        surface_name,
+        pre_place_lift_m,
+        place_pose_s_o,
+        post_place_x_m,
+    )
 
 
 def handle_open_drawer_template(

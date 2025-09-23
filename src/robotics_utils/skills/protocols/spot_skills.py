@@ -98,6 +98,8 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         :param config: Configuration for the Spot skills protocol
         """
+        self.robot_name = "Spot"
+
         self._waypoints = Waypoints.from_yaml(config.env_yaml)
         self._console = config.console
 
@@ -264,10 +266,11 @@ class SpotSkillsProtocol(SkillsProtocol):
         message = "Spot successfully docked." if success else "Spot failed to dock."
         return success, message
 
-    @skill_method  # TODO: Args to specify which drawer
-    def open_drawer(self, template: OpenDrawerTemplate) -> SkillResult:
+    @skill_method
+    def open_drawer(self, container_name: str, template: OpenDrawerTemplate) -> SkillResult:
         """Open a drawer using Spot's end-effector.
 
+        :param container_name: Name of the container with the drawer to be opened
         :param template: Template for an 'OpenDrawer' skill
         :return: Tuple containing a Boolean skill success and outcome message
         """
@@ -318,6 +321,9 @@ class SpotSkillsProtocol(SkillsProtocol):
         stow_success, stow_msg = self.stow_arm()
         if not stow_success:
             return False, stow_msg
+
+        # Once the drawer has been fully opened, change its mesh in MoveIt
+        self._kinematic_tree.open_container(container_name)
 
         return True, "Successfully opened the drawer."
 
@@ -387,7 +393,10 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not grasp_ok:
             return False, grasp_msg
 
-        self._gripper.close()
+        # Grasp the object (i.e., close the gripper and update the kinematic state)
+        grasp_ok, grasp_msg = self._grasp_object(template.object_name, tf_timeout_s=10.0)
+        if not grasp_ok:
+            return False, grasp_msg
 
         post_ok, post_msg = self._move_ee_to_pose(postgrasp_pose)
         if not post_ok:
@@ -421,9 +430,9 @@ class SpotSkillsProtocol(SkillsProtocol):
         if preplace_pose is None or place_pose is None or postplace_pose is None:
             return False, "Transform lookup failed when computing 'Place' skill poses."
 
-        self._pose_broadcaster.poses[f"preplace_{template.held_object_name}"] = preplace_pose
-        self._pose_broadcaster.poses[f"place_{template.held_object_name}"] = place_pose
-        self._pose_broadcaster.poses[f"postplace_{template.held_object_name}"] = postplace_pose
+        self._pose_broadcaster.poses[f"preplace_{template.object_name}"] = preplace_pose
+        self._pose_broadcaster.poses[f"place_{template.object_name}"] = place_pose
+        self._pose_broadcaster.poses[f"postplace_{template.object_name}"] = postplace_pose
 
         # Finally, execute the rest of the skill as planned
         preplace_ok, preplace_msg = self._move_ee_to_pose(preplace_pose)
@@ -434,7 +443,10 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not place_ok:
             return False, place_msg
 
-        self.open_gripper()
+        # Release the object (i.e., open the gripper and update the kinematic state)
+        release_ok, release_msg = self._release_object(template.object_name, template.surface_name)
+        if not release_ok:
+            return False, release_msg
 
         postplace_ok, postplace_msg = self._move_ee_to_pose(postplace_pose)
         if not postplace_ok:
@@ -444,7 +456,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not stow_ok:
             return False, stow_msg
 
-        return True, f"Successfully placed object '{template.held_object_name}'."
+        return True, f"Successfully placed object '{template.object_name}'."
 
     @skill_method
     def _take_control(self) -> SkillResult:
@@ -455,14 +467,14 @@ class SpotSkillsProtocol(SkillsProtocol):
             return False, "Unable to unlock Spot's arm."
         return True, "Successfully took control of Spot and unlocked Spot's arm."
 
-    @skill_method
-    def _get_rgb_image(self, camera_name: str, output_dir: Path) -> SkillResult:
-        """Take an RGB image using the named camera on Spot and save it to the given path.
+    # @skill_method
+    # def _get_rgb_image(self, camera_name: str, output_dir: Path) -> SkillResult:
+    #     """Take an RGB image using the named camera on Spot and save it to the given path.
 
-        :param camera_name: Name of a robot camera
-        :param output_dir: Directory into which the captured image is saved
-        :return: Tuple containing a Boolean skill success and outcome message
-        """
+    #     :param camera_name: Name of a robot camera
+    #     :param output_dir: Directory into which the captured image is saved
+    #     :return: Tuple containing a Boolean skill success and outcome message
+    #     """
 
     @skill_method
     def _lookup_pose(self, frame: str, ref_frame: str) -> SkillResult:
@@ -485,6 +497,72 @@ class SpotSkillsProtocol(SkillsProtocol):
             self._console.print(f"[blue]Pose of {frame} w.r.t. {ref_frame}: {pose}.[/blue]")
 
         return response.success, response.message
+
+    @skill_method
+    def _grasp_object(self, object_name: str, tf_timeout_s: float) -> SkillResult:
+        """Grasp the named object by closing Spot's gripper.
+
+        :param object_name: Name of the object to be grasped
+        :param tf_timeout_s: Duration (sec) after which pose lookup times out
+        :return: Tuple containing a Boolean skill success and outcome message
+        """
+        self._gripper.close()
+
+        # Find the pose of the object relative to the end-effector
+        end_time = time.time() + tf_timeout_s
+        pose_ee_o = None
+        while time.time() < end_time and pose_ee_o is None:
+            pose_ee_o = TransformManager.lookup_transform(
+                object_name,
+                self._arm.ee_link_name,
+                timeout_s=0.5,
+            )
+            if pose_ee_o is None:
+                time.sleep(0.05)
+
+        if pose_ee_o is None:
+            ee_name = self._arm.ee_link_name
+            return False, f"Unable to look up pose of '{object_name}' w.r.t. '{ee_name}'."
+
+        # Update the external state to reflect that Spot has grasped the object
+        self._fiducial_tracker.known_poses[object_name] = pose_ee_o  # Set pose w.r.t. end-effector
+        TransformManager.broadcast_transform(object_name, pose_ee_o)
+
+        self._scene.grasp_object(
+            object_name=object_name,
+            robot_name=self.robot_name,
+            manipulator=self._arm,
+        )
+
+        return True, f"Successfully grasped the object '{object_name}'."
+
+    @skill_method
+    def _release_object(self, object_name: str, surface_name: str) -> SkillResult:
+        """Release the named object by opening Spot's gripper.
+
+        :param object_name: Name of the object to be released
+        :param surface_name: Name of the surface the object is placed onto
+        :return: Tuple containing a Boolean skill success and outcome message
+        """
+        self._gripper.open()
+
+        scene_success = self._scene.release_object(object_name, self.robot_name, self._arm)
+        if not scene_success:
+            return False, f"Failed to release object '{object_name}' in the planning scene."
+
+        pose_ee_o = self._fiducial_tracker.known_poses.get(object_name)
+        if pose_ee_o is None:
+            return False, f"Unable to find the grasped pose of '{object_name}' in known poses."
+
+        pose_s_ee = TransformManager.lookup_transform(self._arm.ee_link_name, surface_name)
+        if pose_s_ee is None:
+            return False, f"Unable to find the end-effector pose relative to '{surface_name}'."
+
+        pose_s_o = pose_s_ee @ pose_ee_o
+        self._fiducial_tracker.known_poses[object_name] = pose_s_o  # Set pose w.r.t. surface
+        TransformManager.broadcast_transform(object_name, pose_s_o)
+
+        return True, f"Successfully released the object '{object_name}'."
 
     @skill_method
     def _record_trajectory(

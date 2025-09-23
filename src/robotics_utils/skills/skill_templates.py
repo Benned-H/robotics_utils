@@ -63,8 +63,11 @@ class PlaceTemplate:
     ee_link_name: str
     """Name of the end-effector link used to place an object."""
 
-    held_object_name: str
+    object_name: str
     """Name of the held object to be placed."""
+
+    surface_name: str
+    """Name of the surface the object is placed onto."""
 
     pre_place_lift_m: float
     """Offset (meters) of the pre-place pose "up" (+z world frame) from the place pose."""
@@ -93,7 +96,7 @@ class PlaceTemplate:
 
         :return: End-effector pose when placing, or None if transform lookup fails
         """
-        pose_o_ee = TransformManager.lookup_transform(self.ee_link_name, self.held_object_name)
+        pose_o_ee = TransformManager.lookup_transform(self.ee_link_name, self.object_name)
 
         return None if pose_o_ee is None else self.place_pose_s_o @ pose_o_ee
 

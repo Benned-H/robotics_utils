@@ -114,9 +114,30 @@ def main() -> None:
                 stow_after=True,
             ),
         ),
+        ("Place", "template"): ParamUI(
+            label="Template for a 'Place' skill",
+            default=PlaceTemplate(
+                ee_link_name="arm_link_wr1",
+                object_name="eraser1",
+                surface_name="filing_cabinet",
+                pre_place_lift_m=0.05,
+                place_pose_s_o=Pose3D.from_xyz_rpy(
+                    x=0.1,
+                    y=0.1,
+                    z=0.7,
+                    yaw_rad=0.523599,
+                    ref_frame="filing_cabinet",
+                ),
+                post_place_x_m=0.08,
+            ),
+        ),
         ("LoadPlanningScene", "env_yaml"): ParamUI(
             label="Path to a YAML file specifying an environment state",
             default=env_yaml,
+        ),
+        ("MoveEeToPose", "ee_target"): ParamUI(
+            label="End-effector target pose",
+            default=Pose3D.from_xyz_rpy(z=0.4, x=0.4, ref_frame="body"),  # TODO: Check OK?
         ),
     }
 
