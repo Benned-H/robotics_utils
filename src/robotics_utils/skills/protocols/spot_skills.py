@@ -10,9 +10,6 @@ from pathlib import Path
 import rospy
 from rich.console import Console
 from spot_skills.srv import (
-    Float64Service,
-    Float64ServiceRequest,
-    Float64ServiceResponse,
     GetRGBImages,
     GetRGBImagesRequest,
     GetRGBImagesResponse,
@@ -133,10 +130,6 @@ class SpotSkillsProtocol(SkillsProtocol):
             PlaybackTrajectoryRequest,
             PlaybackTrajectoryResponse,
         ]("spot/playback_trajectory", PlaybackTrajectory)
-        self._erase_board_caller = ServiceCaller[Float64ServiceRequest, Float64ServiceResponse](
-            "spot/erase_board",
-            Float64Service,
-        )
         self._rgb_images_caller = ServiceCaller[GetRGBImagesRequest, GetRGBImagesResponse](
             "spot/get_rgb_images",
             GetRGBImages,
@@ -150,6 +143,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         self._unlock_arm_srv_name = "spot/unlock_arm"
         self._stow_arm_srv_name = "spot/stow_arm"
         self._dock_srv_name = "spot/dock"
+        self._erase_srv_name = "spot/erase_board"
 
         self._gripper = ROSAngularGripper(
             limits=GripperAngleLimits(
@@ -229,18 +223,14 @@ class SpotSkillsProtocol(SkillsProtocol):
         return response.success, response.message
 
     @skill_method
-    def erase_board(self, whiteboard_x_m: float) -> SkillResult:  # TODO: Should take args
+    def erase_board(self) -> SkillResult:
         """Erase a whiteboard using a force-controlled trajectory.
 
-        :param whiteboard_x_m: x-coordinate of the whiteboard in Spot's body frame
         :return: Tuple containing a Boolean skill success and outcome message
         """
-        request = Float64ServiceRequest(value=whiteboard_x_m)
-        response = self._erase_board_caller(request)
-        if response is None:
-            return False, "EraseBoard service response was None."
-
-        return response.success, response.message
+        success = trigger_service(self._erase_srv_name)
+        message = "Spot erased the board." if success else "Could not erase the board."
+        return success, message
 
     @skill_method
     def stow_arm(self) -> SkillResult:
