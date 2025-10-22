@@ -13,6 +13,7 @@ from robotics_utils.ros.transform_manager import TransformManager
 
 def main() -> None:
     """Track visual fiducial detections and forward dependent object poses to /tf."""
+    rospy.init_node("fiducial_tracker_node")
     TransformManager.init_node("fiducial_tracker_node")
 
     rospy.sleep(10)  # Allow ROS parameters to populate
@@ -24,9 +25,9 @@ def main() -> None:
 
     # Check for a YAML file specifying objects/frames with known, fixed poses
     known_poses_yaml_path = get_ros_param("~known_poses_yaml_path", Path)
-    known_poses = Pose3D.load_named_poses(known_poses_yaml_path, collection_name="known_poses")
+    known_poses = Pose3D.load_named_poses(known_poses_yaml_path, collection_name="object_poses")
 
-    _ = FiducialTracker(fiducial_system, topic_prefix, 10, known_poses)
+    _ = FiducialTracker(fiducial_system, topic_prefix, 10)  # , known_poses)
     rospy.spin()
 
 

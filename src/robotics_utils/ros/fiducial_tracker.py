@@ -75,6 +75,8 @@ class FiducialTracker:
 
     def markers_callback(self, markers_msg: AlvarMarkers, args: MarkersCallbackArgs) -> None:
         """Update pose estimates based on new fiducial marker detections."""
+        rospy.loginfo("Processing a message from ar_track_alvar...")
+
         camera_detects = self.system.camera_detects.get(args.camera_name)
         if camera_detects is None:
             rospy.logwarn(f"Unrecognized camera name: '{args.camera_name}'.")
@@ -85,16 +87,22 @@ class FiducialTracker:
             return
 
         for marker_msg in markers_msg.markers:
+            rospy.loginfo(f"Marker message ID: {marker_msg.id}")
+
             marker = self.system.markers.get(marker_msg.id)
             if marker is None:
                 rospy.logwarn(f"Unrecognized marker ID: {marker_msg.id}.")
                 continue
 
             if marker_msg.id not in camera_detects:
+                # rospy.loginfo(f"Camera {args.camera_name} doesn't process tag {marker_msg.id}.")
                 continue  # This camera doesn't detect this marker; move to the next detection
 
             if marker.size_cm != args.size_cm:
+                # rospy.loginfo(f"This topic is for size {args.size_cm} cm, not {marker.size_cm}.")
                 continue  # Data should be processed as another marker size
+
+            rospy.loginfo(f"Updating pose for marker {marker.id} (size {marker.size_cm})...")
 
             raw_pose = pose_from_msg(marker_msg.pose)
             raw_pose.ref_frame = marker_msg.header.frame_id
@@ -205,6 +213,7 @@ class FiducialTracker:
                 for frame_name, known_pose in deepcopy(self.known_poses).items():
                     TransformManager.broadcast_transform(frame_name, known_pose)
 
+                rospy.loginfo(f"Current pose averages: {curr_pose_averages}")
                 rate_hz.sleep()
 
         except rospy.ROSInterruptException as ros_exc:

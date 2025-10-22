@@ -32,7 +32,7 @@ def main() -> None:
     TransformManager.init_node("skills_cli")
 
     spot_skills_catkin_pkg = Path("/docker/spot_skills/src/spot_skills")
-    env_yaml = spot_skills_catkin_pkg / "config/icra_video/env.yaml"
+    env_yaml = spot_skills_catkin_pkg / "config/env.yaml"
 
     param_overrides = {
         ("PlaybackTrajectory", "yaml_path"): ParamUI(
@@ -127,7 +127,7 @@ def main() -> None:
     config = SpotSkillsConfig(
         env_yaml=env_yaml,
         console=Console(),
-        markers_yaml=spot_skills_catkin_pkg / "config/icra_video/markers.yaml",
+        markers_yaml=spot_skills_catkin_pkg / "config/markers.yaml",
         marker_topic_prefix="/ar_pose_marker",
     )
 
