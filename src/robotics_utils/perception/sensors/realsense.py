@@ -9,7 +9,6 @@ import numpy as np
 import pyrealsense2 as rs2
 from rich.console import Console
 from rich.table import Table
-from typing_extensions import Self
 
 from robotics_utils.perception.sensors.cameras import CameraIntrinsics, DepthCameraSpec, Resolution
 from robotics_utils.perception.vision import DepthImage, RGBDImage, RGBImage
@@ -18,6 +17,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from numpy.typing import NDArray
+    from typing_extensions import Self
 
 
 @dataclass(order=True, frozen=True)

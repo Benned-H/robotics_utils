@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, Iterator
 
 import cv2
 import numpy as np
-from typing_extensions import Self
 
 from robotics_utils.visualization import Displayable
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+    from typing_extensions import Self
 
 
 class Image(ABC, Displayable):
@@ -108,6 +108,14 @@ class RGBImage(Image):
         rgb_data = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         return RGBImage(rgb_data)
 
+    def to_file(self, image_path: str | Path) -> None:
+        """Save the RGB image to the given filepath."""
+        image_path = Path(image_path)
+        bgr_data = cv2.cvtColor(self.data, cv2.COLOR_RGB2BGR)
+        success = cv2.imwrite(str(image_path), bgr_data)
+        if not success:
+            raise RuntimeError(f"Failed to save image to path: {image_path}")
+
 
 class DepthImage(Image):
     """A depth image represented as a NumPy array of shape (H, W)."""
@@ -164,9 +172,9 @@ class RGBDImage(Displayable):
 class PixelXY:
     """An (x,y) coordinate of a pixel in an image."""
 
-    def __init__(self, xy: tuple[int, int] | NDArray) -> None:
+    def __init__(self, xy: tuple[int, int] | list | NDArray) -> None:
         """Initialize the PixelXY using the given (x,y) coordinate values."""
-        if isinstance(xy, tuple):
+        if isinstance(xy, (tuple, list)):
             xy = np.array(xy)
 
         self.xy = xy.astype(int)

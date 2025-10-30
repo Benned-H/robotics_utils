@@ -16,7 +16,14 @@ dependencies = ["click", "rich", "numpy", "trimesh"]
 [project.optional-dependencies]
 
 # Optional dependencies to support computer vision applications
-vision = ["torch", "torchvision", "transformers", "pillow", "opencv-python"]
+vision = [
+    "torch",
+    "torchvision",
+    "transformers",
+    "pillow",
+    "opencv-python",
+    "pupil-apriltags",
+]
 
 # Optional dependencies to support Intel RealSense sensors
 realsense = ["robotics-utils[vision]", "pyrealsense2", "open3d"]
