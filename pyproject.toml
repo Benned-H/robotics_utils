@@ -28,9 +28,6 @@ vision = [
 # Optional dependencies to support Intel RealSense sensors
 realsense = ["robotics-utils[vision]", "pyrealsense2", "open3d"]
 
-# Optional dependencies to support Gemini Robotics-ER 1.5
-gemini = ["google-genai"]
-
 all = ["robotics-utils[vision]"] # Install everything
 
 

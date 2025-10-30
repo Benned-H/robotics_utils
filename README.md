@@ -4,11 +4,11 @@ Catch-all repository for general-purpose robotics utilities.
 
 ## Demos
 
-_Open-Vocabulary Object Detection_ - Launch the open-vocabulary object detection demo by running:
+_Open-Vocabulary Bounding Box Detection_ - Launch the open-vocabulary bounding box detection demo by running:
 
 ```bash
 uv venv --clear && uv sync --extra vision
-uv run scripts/object_detection_demo.py interactive IMAGE_PATH
+uv run scripts/bounding_box_detection_demo.py interactive IMAGE_PATH
 ```
 
 - Here, `IMAGE_PATH` specifies the path to the image you'd like to detect objects in.

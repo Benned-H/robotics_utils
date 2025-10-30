@@ -1,4 +1,4 @@
-"""Example usage of the ObjectDetector class."""
+"""Example usage of the BoundingBoxDetector class."""
 
 from __future__ import annotations
 
@@ -12,7 +12,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from robotics_utils.perception.vision import ObjectDetector, RGBImage, TextQueries
+from robotics_utils.perception.vision import RGBImage
+from robotics_utils.perception.vision.vlms import OwlViTBoundingBoxDetector, TextQueries
 from robotics_utils.visualization import display_in_window
 
 
@@ -22,7 +23,9 @@ from robotics_utils.visualization import display_in_window
 def object_detection_cli(ctx: click.Context, model_name: str | None) -> None:
     """Run object detection through a command-line interface."""
     ctx.ensure_object(dict)  # Create ctx.obj if it doesn't exist
-    ctx.obj["detector"] = ObjectDetector() if model_name is None else ObjectDetector(model_name)
+    ctx.obj["detector"] = (
+        OwlViTBoundingBoxDetector() if model_name is None else OwlViTBoundingBoxDetector(model_name)
+    )
     ctx.obj["console"] = Console()
 
 
@@ -31,7 +34,7 @@ def object_detection_cli(ctx: click.Context, model_name: str | None) -> None:
 @click.pass_context
 def interactive(ctx: click.Context, image_path: Path) -> None:
     """Run object detection in an interactive loop."""
-    detector: ObjectDetector = ctx.obj["detector"]
+    detector: OwlViTBoundingBoxDetector = ctx.obj["detector"]
     console: Console = ctx.obj["console"]
 
     image = RGBImage.from_file(image_path)
@@ -79,7 +82,7 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
                     continue
 
                 console.print("[yellow]Calling object detector...[/yellow]")
-                detected = detector.detect(image, current_queries)
+                detected = detector.detect(image, list(current_queries))
                 display_in_window(detected, "Object Detections")
 
                 if click.confirm("Display cropped images for each detection?"):
