@@ -14,7 +14,7 @@ from robotics_utils.perception.pose_estimation import (
 )
 from robotics_utils.perception.sensors.cameras import CameraIntrinsics
 from robotics_utils.perception.vision import RGBImage
-from robotics_utils.visualization import display_window
+from robotics_utils.visualization import display_in_window
 
 IMAGE_PATH = Path("images/apriltags.png")
 TAG_SIZE_CM = 17.78
@@ -39,7 +39,7 @@ def main() -> None:
     for d in detections:
         d.draw_on_image(vis_image)
 
-    display_window(vis_image, window_title="AprilTag Detections")
+    display_in_window(vis_image, window_title="AprilTag Detections")
 
 
 if __name__ == "__main__":

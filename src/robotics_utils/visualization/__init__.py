@@ -1,7 +1,7 @@
 """Import classes and functions for visualization."""
 
 from .display_images import Displayable as Displayable
-from .display_images import display_window as display_window
+from .display_images import display_in_window as display_in_window
 
 # Attempt to import the PointcloudVisualizer class, but allow failure if Open3D is unavailable
 try:

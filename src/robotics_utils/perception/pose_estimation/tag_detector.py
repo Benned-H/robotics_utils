@@ -26,7 +26,7 @@ class TagDetection:
     family: str
     pose: Pose3D
     hamming: int  # How many error bits were corrected?
-    corners: list[PixelXY]  # Pixel coordinates of detection corners (wrap counter-clockwise)
+    corners: list[PixelXY]  # Pixel coordinates of detection corners (wraps counter-clockwise)
     center: PixelXY  # Pixel coordinate of the detection's center
 
     @classmethod
@@ -55,7 +55,7 @@ class TagDetection:
     def draw_on_image(self, image: RGBImage) -> None:
         """Visualize the AprilTag detection by drawing it on the given image.
 
-        :param image: Image drawn upon; modified in-place
+        :param image: Image drawn upon (modified in-place)
         """
         corners_data = [list(c) for c in self.corners]
         corners = [np.asarray(corners_data, dtype=np.float32).reshape(4, 1, 2)]
@@ -66,7 +66,7 @@ class TagDetection:
 
 
 class AprilTagDetector:
-    """A thin wrapper class around pupil_apriltags.Detector."""
+    """A wrapper class around pupil_apriltags.Detector."""
 
     def __init__(
         self,
@@ -77,7 +77,7 @@ class AprilTagDetector:
         refine_edges: int = 1,
         decode_sharpening: float = 0.25,
     ) -> None:
-        """Initialize detector with robust defaults for Spot body cams.
+        """Initialize the detector with defaults appropriate for noisy cameras.
 
         Default values were selected based on pupil_apriltags documentation.
 
@@ -86,6 +86,7 @@ class AprilTagDetector:
         self._fiducial_system = fiducial_system
         self._tag_sizes_cm: list[float] = []
         self._tag_ids_per_size_cm: defaultdict[int, set[int]] = defaultdict(set)
+        """A map from each index in `self._tag_sizes_cm` to the set of IDs of tags that size."""
 
         for marker in fiducial_system.markers.values():
             marker_added = False
@@ -110,10 +111,10 @@ class AprilTagDetector:
         )
 
     def detect(self, image: RGBImage, intrinsics: CameraIntrinsics) -> list[TagDetection]:
-        """Detect AprilTags in an image taked with the given camera intrinsics.
+        """Detect AprilTags in an image taken with the given camera intrinsics.
 
-        :param image: RGB image for which detection is attempted
-        :param intrinsics: Camera intrinsics associated with the image
+        :param image: RGB image to detect AprilTags in
+        :param intrinsics: Intrinsics of the camera that took the image
         :return: List of tag detections, represented as TagDetection objects (may be empty)
         """
         intrinsics_tuple = astuple(intrinsics)
@@ -134,9 +135,7 @@ class AprilTagDetector:
             tags_of_size_cm = self._tag_ids_per_size_cm[idx]
             for raw_det in raw_detections:
                 det = TagDetection.from_pupil_apriltags(raw_det)
-                if det.id not in tags_of_size_cm:
-                    continue
-
-                output.append(det)
+                if det.id in tags_of_size_cm:
+                    output.append(det)
 
         return output

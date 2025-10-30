@@ -13,7 +13,7 @@ from rich.table import Table
 from rich.text import Text
 
 from robotics_utils.perception.vision import ObjectDetector, RGBImage, TextQueries
-from robotics_utils.visualization import display_window
+from robotics_utils.visualization import display_in_window
 
 
 @click.group()
@@ -80,12 +80,12 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
 
                 console.print("[yellow]Calling object detector...[/yellow]")
                 detected = detector.detect(image, current_queries)
-                display_window(detected, "Object Detections")
+                display_in_window(detected, "Object Detections")
 
                 if click.confirm("Display cropped images for each detection?"):
                     for i, d in enumerate(detected.detections):
                         cropped = d.bounding_box.crop(image, scale_ratio=1.2)
-                        display_window(
+                        display_in_window(
                             cropped,
                             f"Detection {i}/{len(detected.detections)}: '{d.query}'",
                         )
