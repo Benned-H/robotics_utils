@@ -40,7 +40,7 @@ def display_window(image: Displayable, window_title: str, wait_for_input: bool =
     h, w = display_data.shape[:2]
     scr_h, scr_w = find_screen_resolution()
 
-    # Compute scale ratio if the image doesn't fit on screen
+    # If necessary, scale the image so that it fits on-screen
     if h > scr_h or w > scr_w:
         scale = min(scr_h / h, scr_w / w, 1.0)
         new_h, new_w = int(h * scale), int(w * scale)
