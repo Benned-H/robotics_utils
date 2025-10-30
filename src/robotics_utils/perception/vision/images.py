@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Iterator
 
 import cv2
 import numpy as np
+from PIL import Image as PILImage
 
 from robotics_utils.visualization import Displayable
 
@@ -42,9 +43,9 @@ class Image(ABC, Displayable):
         return self.data.shape[1]
 
     @property
-    def height_width(self) -> tuple[int, int]:
-        """Retrieve a tuple containing the height and width (in pixels) of the image."""
-        return (self.height, self.width)
+    def resolution(self) -> tuple[int, int]:
+        """Retrieve a tuple containing the resolution (width, height) of the image."""
+        return (self.width, self.height)
 
     def clip_x(self, pixel_x: int) -> int:
         """Clip a pixel x-coordinate into the image."""
@@ -70,6 +71,21 @@ class Image(ABC, Displayable):
 
         cropped_data = self.data[min_y : max_y + 1, min_x : max_x + 1, :]
         return type(self)(cropped_data.copy())
+
+    def resize(self, max_width_px: int = 800) -> None:
+        """Resize the image (in-place) to fit within the given width in pixels.
+
+        :param max_width_px: Maximum width (pixels) of the resulting image, defaults to 800
+        """
+        if self.width <= max_width_px:
+            return  # No changes needed
+
+        new_height_px = int(max_width_px * self.height / self.width)
+
+        pil_image = PILImage.fromarray(self.data)
+        pil_image = pil_image.resize((max_width_px, new_height_px), PILImage.Resampling.LANCZOS)
+
+        self.data = np.asarray(pil_image)
 
 
 class RGBImage(Image):

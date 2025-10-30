@@ -56,12 +56,13 @@ class ObjectBoundingBoxes(Displayable):
 
         q_colors = {q: tuple(int(n) for n in rng.integers(0, 255, size=3)) for q in self.queries}
 
-        vis_image = deepcopy(self.image)
+        rgb_image = deepcopy(self.image)
         for detection in self.detections:
             color: RGB = q_colors[detection.query]
-            detection.draw(vis_image, color)
+            detection.draw(rgb_image, color)
 
-        return vis_image.data
+        bgr_data = cv2.cvtColor(rgb_image.data, cv2.COLOR_RGB2BGR)
+        return bgr_data.astype(np.uint8)
 
 
 class BoundingBoxDetector(Protocol):

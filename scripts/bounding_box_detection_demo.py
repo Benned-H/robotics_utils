@@ -2,118 +2,47 @@
 
 from __future__ import annotations
 
-import traceback
 from pathlib import Path
 
 import click
-import numpy as np
 from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich.text import Text
 
-from robotics_utils.perception.vision import RGBImage
-from robotics_utils.perception.vision.vlms import OwlViTBoundingBoxDetector, TextQueries
+from robotics_utils.io.repls import ObjectDetectionREPL
+from robotics_utils.perception.vision.vlms import (
+    ObjectBoundingBoxes,
+    OwlViTBoundingBoxDetector,
+)
 from robotics_utils.visualization import display_in_window
 
 
-@click.group()
+def display_detected_bounding_boxes(console: Console, boxes: ObjectBoundingBoxes) -> None:
+    """Display the given bounding box detections using the given console."""
+    display_in_window(boxes, "Object Detections")
+
+    if click.confirm("Display cropped images for each detection?"):
+        for i, d in enumerate(boxes.detections):
+            cropped = d.bounding_box.crop(boxes.image, scale_ratio=1.2)
+            display_in_window(cropped, f"Detection {i}/{len(boxes.detections)}: '{d.query}'")
+
+
+@click.command()
+@click.argument("image_path", type=click.Path(exists=True, path_type=Path))
 @click.option("--model-name", "model_name", help="Name of the OWL-ViT model to load")
-@click.pass_context
-def object_detection_cli(ctx: click.Context, model_name: str | None) -> None:
-    """Run object detection through a command-line interface."""
-    ctx.ensure_object(dict)  # Create ctx.obj if it doesn't exist
-    ctx.obj["detector"] = (
+def object_detection(image_path: Path, model_name: str | None) -> None:
+    """Run object detection in an interactive loop."""
+    console = Console()
+    detector = (
         OwlViTBoundingBoxDetector() if model_name is None else OwlViTBoundingBoxDetector(model_name)
     )
-    ctx.obj["console"] = Console()
 
-
-@object_detection_cli.command()
-@click.argument("image_path", type=click.Path(exists=True, path_type=Path))
-@click.pass_context
-def interactive(ctx: click.Context, image_path: Path) -> None:
-    """Run object detection in an interactive loop."""
-    detector: OwlViTBoundingBoxDetector = ctx.obj["detector"]
-    console: Console = ctx.obj["console"]
-
-    image = RGBImage.from_file(image_path)
-
-    menu_table = Table(title="Menu Options", border_style="cyan", title_style="bold cyan")
-    menu_table.add_column("Option", style="bold", width=8)
-    menu_table.add_column("Description", style="white")
-
-    menu_items = [
-        ("1", "Add a text query"),
-        ("2", "Remove a text query"),
-        ("3", "Call object detector"),
-        ("4", "Quit"),
-    ]
-
-    for option, description in menu_items:
-        menu_table.add_row(option, description)
-
-    current_queries = TextQueries()
-
-    while True:
-        console.print()
-        console.print(menu_table)
-
-        choice = click.prompt("\nSelect option", type=click.IntRange(1, 4))
-
-        try:
-            if choice == 1:
-                query: str = click.prompt("Enter text query (or multiple separated by commas)")
-                current_queries.add(query)
-                console.print(f"[green]✓[/green] Current pending queries:\n{current_queries}")
-
-            elif choice == 2:
-                console.print(f"Current pending queries:\n{current_queries}")
-
-                remove_query: str = click.prompt("Enter text query to be removed").strip()
-                if remove_query and current_queries.remove(remove_query):
-                    console.print(f"[green]Query '{remove_query}' was removed[/green]")
-                else:
-                    console.print(f"[red]Could not remove query '{remove_query}'[/red]")
-
-            elif choice == 3:
-                if not current_queries:
-                    console.print("[red]Cannot call the object detector without a query![/red]")
-                    continue
-
-                console.print("[yellow]Calling object detector...[/yellow]")
-                detected = detector.detect(image, list(current_queries))
-                display_in_window(detected, "Object Detections")
-
-                if click.confirm("Display cropped images for each detection?"):
-                    for i, d in enumerate(detected.detections):
-                        cropped = d.bounding_box.crop(image, scale_ratio=1.2)
-                        display_in_window(
-                            cropped,
-                            f"Detection {i}/{len(detected.detections)}: '{d.query}'",
-                        )
-
-                if click.confirm("Clear the current text queries?"):
-                    current_queries.clear()
-
-                console.print("[green]✓[/green] Object detection completed")
-
-            elif choice == 4:
-                goodbye_panel = Panel(
-                    Text("👋 Goodbye!", style="bold green", justify="center"),
-                    border_style="green",
-                )
-                console.print(goodbye_panel)
-                break
-
-        except click.Abort:
-            console.print("[yellow]⚠️ Operation canceled[/yellow]")
-
-        except Exception:
-            exc_text = traceback.format_exc()
-            error_panel = Panel(Text(f"❌ Error: {exc_text}", style="bold red"), border_style="red")
-            console.print(error_panel)
+    repl: ObjectDetectionREPL[ObjectBoundingBoxes] = ObjectDetectionREPL(
+        console,
+        image_path,
+        detect_func=detector.detect,
+        display_func=display_detected_bounding_boxes,
+    )
+    repl.loop()
 
 
 if __name__ == "__main__":
-    object_detection_cli()
+    object_detection()

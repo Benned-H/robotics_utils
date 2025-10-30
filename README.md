@@ -8,10 +8,20 @@ _Open-Vocabulary Bounding Box Detection_ - Launch the open-vocabulary bounding b
 
 ```bash
 uv venv --clear && uv sync --extra vision
-uv run scripts/bounding_box_detection_demo.py interactive IMAGE_PATH
+uv run scripts/bounding_box_detection_demo.py IMAGE_PATH
 ```
 
 - Here, `IMAGE_PATH` specifies the path to the image you'd like to detect objects in.
+
+_Open-Vocabulary Object Keypoint Detection_ - Launch the open-vocabulary keypoint detection demo by running:
+
+```bash
+uv venv --clear && uv sync --extra gemini
+uv run scripts/keypoint_detection_demo.py IMAGE_PATH API_KEY
+```
+
+- `IMAGE_PATH` denotes the path to the image you'd like to detect objects in.
+- `API_KEY` denotes your Google API key.
 
 _Intel RealSense Demo_ - Install the dependencies for the RealSense demo using [these instructions](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md#installing-the-packages). Then reopen the terminal and reconnect the RealSense to the computer.
 

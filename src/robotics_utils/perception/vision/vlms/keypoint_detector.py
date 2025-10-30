@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import cv2
 import numpy as np
+from rich.console import Console
 
 from robotics_utils.visualization import Displayable
 
@@ -68,11 +69,17 @@ class ObjectKeypoints(Displayable):
 class KeypointDetector(Protocol):
     """Detect keypoints for objects in images based on text queries."""
 
-    def detect(self, image: RGBImage, queries: list[str]) -> ObjectKeypoints:
+    def detect_keypoints(
+        self,
+        image: RGBImage,
+        queries: list[str],
+        console: Console | None,
+    ) -> ObjectKeypoints:
         """Detect object keypoints matching text queries in the given image.
 
         :param image: RGB image to detect objects within
         :param queries: Text queries describing the object(s) to be detected
+        :param console: Optional CLI console used for logging
         :return: Collection of detected object keypoints matching the queries
         """
         ...
