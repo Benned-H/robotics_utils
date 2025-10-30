@@ -22,7 +22,7 @@ uv venv --clear && uv sync --extra realsense
 uv run scripts/realsense_demo.py
 ```
 
-_AprilTag Detection Demo_ - Run AprilTag detector on an image loaded from file:
+_AprilTag Detection Demo_ - Run the AprilTag detection demo by running:
 
 ```bash
 uv venv --clear && uv sync --extra vision
