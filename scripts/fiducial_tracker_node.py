@@ -4,7 +4,7 @@ from pathlib import Path
 
 import rospy
 
-from robotics_utils.perception.pose_estimation import FiducialSystem
+from robotics_utils.perception.vision.fiducials import FiducialSystem
 from robotics_utils.ros.fiducial_tracker import FiducialTracker
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager

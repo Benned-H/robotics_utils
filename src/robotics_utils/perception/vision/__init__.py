@@ -1,6 +1,9 @@
 """Import classes related to machine vision."""
 
 from .bounding_box import BoundingBox as BoundingBox
+from .cameras import CameraIntrinsics as CameraIntrinsics
+from .cameras import DepthCameraSpec as DepthCameraSpec
+from .cameras import Resolution as Resolution
 from .images import DepthImage as DepthImage
 from .images import Image as Image
 from .images import PixelXY as PixelXY

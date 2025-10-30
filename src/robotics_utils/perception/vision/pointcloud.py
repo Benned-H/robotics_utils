@@ -9,7 +9,7 @@ import numpy as np
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-    from robotics_utils.perception.sensors.cameras import CameraIntrinsics
+    from robotics_utils.perception.vision.cameras import CameraIntrinsics
     from robotics_utils.perception.vision.images import DepthImage
 
 
