@@ -110,6 +110,17 @@ class Quaternion:
         return EulerRPY(r, p, y)
 
     @classmethod
+    def from_rotation_matrix(cls, r_matrix: NDArray[np.float64]) -> Quaternion:
+        """Construct a quaternion from a 3x3 rotation matrix."""
+        if r_matrix.shape != (3, 3):
+            raise ValueError(f"Quaternion expects a 3x3 rotation matrix, got {r_matrix.shape}")
+
+        matrix = np.eye(4)  # Begin with a 4x4 identity matrix
+        matrix[:3, :3] = r_matrix  # Fill in the rotation
+
+        return cls.from_homogeneous_matrix(matrix)
+
+    @classmethod
     def from_homogeneous_matrix(cls, matrix: NDArray[np.float64]) -> Quaternion:
         """Construct a quaternion from a 4x4 homogeneous transformation matrix."""
         if matrix.shape != (4, 4):

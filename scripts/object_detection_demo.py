@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import traceback
-from copy import deepcopy
 from pathlib import Path
 
 import click
@@ -14,7 +13,7 @@ from rich.table import Table
 from rich.text import Text
 
 from robotics_utils.perception.vision import ObjectDetector, RGBImage, TextQueries
-from robotics_utils.visualization import display_image
+from robotics_utils.visualization import display_in_window
 
 
 @click.group()
@@ -80,24 +79,16 @@ def interactive(ctx: click.Context, image_path: Path) -> None:
                     continue
 
                 console.print("[yellow]Calling object detector...[/yellow]")
-                detections = detector.detect(image, current_queries)
-
-                rng = np.random.default_rng()
-                query_colors: dict[str, tuple] = {}
-                for q in current_queries:
-                    query_colors[q] = tuple(int(n) for n in rng.integers(0, 255, size=3))
-
-                vis_image = deepcopy(image)
-                for detection in detections:
-                    color = query_colors[detection.query]
-                    detection.draw(vis_image, color)
-
-                display_image(vis_image, "Detections (press any key to exit)")
+                detected = detector.detect(image, current_queries)
+                display_in_window(detected, "Object Detections")
 
                 if click.confirm("Display cropped images for each detection?"):
-                    for i, d in enumerate(detections):
+                    for i, d in enumerate(detected.detections):
                         cropped = d.bounding_box.crop(image, scale_ratio=1.2)
-                        display_image(cropped, f"Detection {i}/{len(detections)}: '{d.query}'")
+                        display_in_window(
+                            cropped,
+                            f"Detection {i}/{len(detected.detections)}: '{d.query}'",
+                        )
 
                 if click.confirm("Clear the current text queries?"):
                     current_queries.clear()

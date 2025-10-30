@@ -11,6 +11,8 @@
         "ms-vscode-remote.remote-containers",
         "njpwerner.autodocstring",
         "tamasfe.even-better-toml",
-        "vscode-icons-team.vscode-icons"
+        "vscode-icons-team.vscode-icons",
+        "p403n1x87.austin-vscode",
+        "tomoki1207.pdf"
     ]
 }

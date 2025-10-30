@@ -22,6 +22,13 @@ uv venv --clear && uv sync --extra realsense
 uv run scripts/realsense_demo.py
 ```
 
+_AprilTag Detection Demo_ - Run the AprilTag detection demo by running:
+
+```bash
+uv venv --clear && uv sync --extra vision
+uv run scripts/apriltag_detection_demo.py
+```
+
 ## Development Commands
 
 To set up the virtual environment for running the unit tests, run:
