@@ -32,8 +32,11 @@ def test_pose_estimate_averager_compute_all_averages(
     # Arrange - Populate a pose estimate averager using the given pose estimates
     averager = PoseEstimateAverager(window_size)
     for frame_name, estimates in poses_map.items():
-        for pose in estimates:
-            averager.update(frame_name, pose)
+        if estimates:
+            parent_frame = estimates[0].ref_frame
+            for pose in estimates:
+                pose.ref_frame = parent_frame  # Ensure pose estimates share their parent frame
+                averager.update(frame_name, pose)
 
     # Act - Compute all averages using the averager
     results = averager.compute_all_averages()

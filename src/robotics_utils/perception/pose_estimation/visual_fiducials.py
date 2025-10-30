@@ -59,7 +59,7 @@ class FiducialSystem:
     """A system of known visual fiducial markers and fiducial-detecting cameras."""
 
     markers: dict[int, FiducialMarker]  # Map marker IDs to FiducialMarker instances
-    camera_names: list[str]  # List of camera names used for detections
+    camera_names: set[str]  # Set of camera names used for detections
 
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> FiducialSystem:
@@ -70,8 +70,6 @@ class FiducialSystem:
             FiducialMarker.from_yaml_data(fiducial_name, data)
             for fiducial_name, data in yaml_data["markers"].items()
         ]
+        camera_names = set(yaml_data["cameras"])
 
-        return FiducialSystem(
-            markers={m.id: m for m in markers},
-            camera_names=list(yaml_data["cameras"]),
-        )
+        return FiducialSystem(markers={m.id: m for m in markers}, camera_names=camera_names)

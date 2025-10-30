@@ -12,10 +12,4 @@ markers:
     relative_frames:
       sink: [1.3, 0.2, -0.6, 0, 1.5708, 0]
 
-cameras:
-  frontleft:
-    recognized_sizes_cm: [5.0] # Sizes (cm) of tags that each camera is configured to recognize
-  frontright:
-    recognized_sizes_cm: [10.0]
-  hand:
-    recognized_sizes_cm: [4.0, 18.5]
+cameras: [frontleft, frontright, hand]

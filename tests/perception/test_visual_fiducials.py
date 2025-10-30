@@ -35,16 +35,4 @@ def test_fiducial_system_from_yaml(markers_yaml: Path) -> None:
     assert len(marker_2.relative_frames) == 1
     assert "sink" in marker_2.relative_frames
 
-    assert len(system.cameras) == 3
-    frontleft = system.cameras["frontleft"]
-    assert len(frontleft.recognized_sizes_cm) == 1
-    assert any(s == pytest.approx(5) for s in frontleft.recognized_sizes_cm)
-
-    frontright = system.cameras["frontright"]
-    assert len(frontright.recognized_sizes_cm) == 1
-    assert any(s == pytest.approx(10) for s in frontright.recognized_sizes_cm)
-
-    hand = system.cameras["hand"]
-    assert len(hand.recognized_sizes_cm) == 2
-    assert any(s == pytest.approx(4) for s in hand.recognized_sizes_cm)
-    assert any(s == pytest.approx(18.5) for s in hand.recognized_sizes_cm)
+    assert system.camera_names == {"frontleft", "frontright", "hand"}
