@@ -5,8 +5,7 @@ from __future__ import annotations
 import pytest
 
 from robotics_utils.skills import SkillsInventory, SkillsProtocol
-
-from ..examples.dorfl_skills import Bread, DorflSkillsProtocol, Jar, Knife  # noqa: TID252
+from robotics_utils.skills.protocols.dorfl_skills import Bread, DorflSkillsProtocol, Jar, Knife
 
 
 @pytest.fixture
