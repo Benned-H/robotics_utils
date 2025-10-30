@@ -9,16 +9,18 @@ from __future__ import annotations
 import json
 import textwrap
 import time
+from copy import deepcopy
 
+import numpy as np
 import PIL.Image
 from google import genai
 from google.genai.types import GenerateContentConfig, ThinkingConfig
-from rich.console import Console
 
-from robotics_utils.io.logging import log_info
-from robotics_utils.perception.vision import RGBImage
+from robotics_utils.io.logging import console, log_info
+from robotics_utils.perception.vision import PixelXY, RGBImage
 from robotics_utils.perception.vision.vlms.keypoint_detector import (
     KeypointDetector,
+    ObjectKeypoint,
     ObjectKeypoints,
 )
 
@@ -43,10 +45,21 @@ def parse_json(json_output: str | None) -> str | None:
 class GeminiRoboticsER(KeypointDetector):
     """An interface for Gemini Robotics-ER 1.5."""
 
-    def __init__(self, api_key: str, model_id: str = "gemini-robotics-er-1.5-preview") -> None:
-        """Initialize the keypoint detector to use Gemini Robotics-ER 1.5 (preview version)."""
+    def __init__(
+        self,
+        api_key: str,
+        model_id: str = "gemini-robotics-er-1.5-preview",
+        object_limit: int = 20,
+    ) -> None:
+        """Initialize the keypoint detector to use Gemini Robotics-ER 1.5 (preview version).
+
+        :param api_key: Google API key used to access Gemini Robotics-ER 1.5
+        :param model_id: String specifying which Gemini model to use
+        :param object_limit: Limit on the number of objects per response
+        """
         self.client = genai.Client(api_key=api_key)
         self.model_id = model_id
+        self.object_limit = object_limit
 
     def call(
         self,
@@ -79,27 +92,22 @@ class GeminiRoboticsER(KeypointDetector):
 
         return parse_json(image_response.text)
 
-    def detect_keypoints(
-        self,
-        image: RGBImage,
-        queries: list[str],
-        console: Console
-        | None = None,  # TODO: Instead use https://rich.readthedocs.io/en/latest/console.html
-    ) -> ObjectKeypoints:
+    def detect_keypoints(self, image: RGBImage, queries: list[str]) -> ObjectKeypoints:
         """Detect object keypoints matching text queries in the given image.
 
         :param image: RGB image to detect objects within
         :param queries: Text queries describing the object(s) to be detected
-        :param console: Optional CLI console used for logging (defaults to None)
         :return: Collection of detected object keypoints matching the queries
         """
-        image.resize()  # Resize image for smaller API calls
-        if console is not None:
-            console.print(f"Image post-resizing is {image.width} x {image.height} pixels (W x H).")
+        copied = deepcopy(image)
+        copied.resize(max_width_px=800)
+
+        console.print(f"Resized image copy is {copied.width} x {copied.height} pixels (W x H).")
 
         prompt = textwrap.dedent(f"""\
             Get all points matching the following objects: {", ".join(queries)}. The label
             returned should be an identifying name for the object detected.
+            Limit to {self.object_limit} objects.
 
             The answer should follow the JSON format:
             [{{"point": , "label": }}, ...]
@@ -108,7 +116,7 @@ class GeminiRoboticsER(KeypointDetector):
             """)
 
         start_time = time.time()
-        json_output = self.call(image, prompt)
+        json_output = self.call(copied, prompt)
 
         points_data = []
         try:
@@ -116,12 +124,23 @@ class GeminiRoboticsER(KeypointDetector):
                 data = json.loads(json_output)
                 points_data.extend(data)
         except json.JSONDecodeError:
-            if console is not None:
-                console.print_exception()
-                console.print("[yellow]⚠️ Warning: Invalid JSON response. Skipping.[/yellow]")
+            console.print_exception()
+            console.print("[yellow]⚠️ Warning: Invalid JSON response. Skipping.[/yellow]")
 
-        if console is not None:
-            console.print(f"\nTotal processing time: {(time.time() - start_time):.4f} seconds.")
-            console.print(str(points_data))
+        console.print(f"\nTotal processing time: {(time.time() - start_time):.4f} seconds.")
 
-        return None  # TODO
+        # Convert the JSON data to object keypoints (i.e., convert 0-1000 to image pixel coords)
+        keypoints = []
+        for det in points_data:
+            yx_output = det["point"]
+            if len(yx_output) != 2:
+                raise ValueError(f"Points should be in [y, x] format; found {yx_output}.")
+            y_ratio, x_ratio = np.asarray(yx_output, dtype=np.float32) / 1000.0
+
+            pixel_x = int(x_ratio * image.width)
+            pixel_y = int(y_ratio * image.height)
+            pixel_xy = image.clip_pixel(PixelXY((pixel_x, pixel_y)))
+
+            keypoints.append(ObjectKeypoint(query=det["label"], keypoint=pixel_xy))
+
+        return ObjectKeypoints(detections=keypoints, image=image)

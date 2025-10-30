@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import click
-from rich.console import Console
 
 from robotics_utils.io.repls import ObjectDetectionREPL
 from robotics_utils.perception.vision.vlms import (
@@ -15,8 +14,8 @@ from robotics_utils.perception.vision.vlms import (
 from robotics_utils.visualization import display_in_window
 
 
-def display_detected_bounding_boxes(console: Console, boxes: ObjectBoundingBoxes) -> None:
-    """Display the given bounding box detections using the given console."""
+def display_detected_bounding_boxes(boxes: ObjectBoundingBoxes) -> None:
+    """Display the given bounding box detections."""
     display_in_window(boxes, "Object Detections")
 
     if click.confirm("Display cropped images for each detection?"):
@@ -30,13 +29,11 @@ def display_detected_bounding_boxes(console: Console, boxes: ObjectBoundingBoxes
 @click.option("--model-name", "model_name", help="Name of the OWL-ViT model to load")
 def object_detection(image_path: Path, model_name: str | None) -> None:
     """Run object detection in an interactive loop."""
-    console = Console()
     detector = (
         OwlViTBoundingBoxDetector() if model_name is None else OwlViTBoundingBoxDetector(model_name)
     )
 
     repl: ObjectDetectionREPL[ObjectBoundingBoxes] = ObjectDetectionREPL(
-        console,
         image_path,
         detect_func=detector.detect,
         display_func=display_detected_bounding_boxes,
