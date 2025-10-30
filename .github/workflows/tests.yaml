@@ -20,6 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - run: sudo apt-get install python3-tk
+
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
