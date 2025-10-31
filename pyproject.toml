@@ -29,7 +29,11 @@ vision = [
 realsense = ["robotics-utils[vision]", "pyrealsense2", "open3d"]
 
 # Optional dependencies to use Gemini Robotics-ER 1.5
-gemini = ["robotics-utils[vision]", "google-genai; python_version >= '3.9'"]
+gemini = [
+    "robotics-utils[vision]",
+    "google-genai; python_version >= '3.9'",
+    "httpx",
+]
 
 all = ["robotics-utils[vision]"] # Install everything
 

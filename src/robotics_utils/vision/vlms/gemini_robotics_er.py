@@ -17,7 +17,8 @@ import PIL.Image
 
 try:
     from google import genai
-    from google.genai.types import GenerateContentConfig, ThinkingConfig
+    from google.genai.types import GenerateContentConfig, HttpOptions, ThinkingConfig
+    from httpx import ConnectTimeout
 
     GEN_AI_PRESENT = True
 except ModuleNotFoundError:
@@ -68,6 +69,10 @@ def parse_json(json_output: str | None) -> Any | None:
     return None
 
 
+MIN_TIMEOUT_MS = 10_000
+"""Google Gen AI prohibits setting the request timeout to less than 10 seconds."""
+
+
 class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
     """An interface for Gemini Robotics-ER 1.5."""
 
@@ -76,19 +81,26 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
         api_key: str,
         model_id: str = "gemini-robotics-er-1.5-preview",
         object_limit: int = 20,
+        timeout_s: float = 10.0,
     ) -> None:
         """Initialize an interface for Gemini Robotics-ER 1.5 (preview version).
 
         :param api_key: Google API key used to access Gemini Robotics-ER 1.5
         :param model_id: String specifying which Gemini model to use
         :param object_limit: Limit on the number of objects per response (defaults to 20)
+        :param timeout_s: Maximum duration (seconds) of any Gemini call (defaults to 10 sec)
         """
         if not GEN_AI_PRESENT:
             raise ImportError("Cannot run GeminiRoboticsER without google-genai.")
 
-        self.client = genai.Client(api_key=api_key)
+        timeout_ms = int(1000 * timeout_s)
+        if timeout_ms < MIN_TIMEOUT_MS:
+            raise ValueError(f"timeout_s cannot be less than 10 seconds; it was {timeout_s}.")
+
+        self.client = genai.Client(api_key=api_key, http_options=HttpOptions(timeout=timeout_ms))
         self.model_id = model_id
         self.object_limit = object_limit
+        self.timeout_s = timeout_s
 
     def call(
         self,
@@ -113,15 +125,27 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
 
         pil_image = PIL.Image.fromarray(image.data)
 
-        image_response = self.client.models.generate_content(
-            model=self.model_id,
-            contents=[pil_image, prompt],
-            config=config,
-        )
-        if image_response.text is not None:
-            console.print(f"Raw output from Gemini Robotics ER 1.5:\n{image_response.text}")
+        output = None
+        try:
+            response = self.client.models.generate_content(
+                model=self.model_id,
+                contents=[pil_image, prompt],
+                config=config,
+            )
 
-        output = parse_json(image_response.text)
+        except ConnectTimeout:
+            console.print(f"[yellow]Call timed out after {self.timeout_s} seconds.[/yellow]")
+
+        except Exception:
+            console.print_exception()
+            raise
+
+        else:
+            if response.text is not None:
+                console.print(f"Raw output from Gemini Robotics ER 1.5:\n{response.text}")
+
+            output = parse_json(response.text)
+
         console.print(f"\nTotal processing time: {(time.time() - start_time):.4f} seconds.")
         return output
 
