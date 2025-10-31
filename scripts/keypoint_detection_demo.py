@@ -7,12 +7,12 @@ from pathlib import Path
 import click
 
 from robotics_utils.io.repls import ObjectDetectionREPL
-from robotics_utils.vision.vlms import ObjectKeypoints
+from robotics_utils.vision.vlms import DetectedKeypoints
 from robotics_utils.vision.vlms.gemini_robotics_er import GeminiRoboticsER
 from robotics_utils.visualization import display_in_window
 
 
-def display_detected_keypoints(keypoints: ObjectKeypoints) -> None:
+def display_detected_keypoints(keypoints: DetectedKeypoints) -> None:
     """Display the given keypoint detections."""
     display_in_window(keypoints, "Object Keypoints")
 
@@ -24,7 +24,7 @@ def object_detection(api_key: str, image_path: Path) -> None:
     """Run object detection in an interactive loop."""
     detector = GeminiRoboticsER(api_key)
 
-    repl: ObjectDetectionREPL[ObjectKeypoints] = ObjectDetectionREPL(
+    repl: ObjectDetectionREPL[DetectedKeypoints] = ObjectDetectionREPL(
         image_path,
         detect_func=detector.detect_keypoints,
         display_func=display_detected_keypoints,

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class ObjectKeypoint:
+class DetectedKeypoint:
     """A pixel keypoint for a detected object in an image."""
 
     query: str
@@ -39,10 +39,10 @@ class ObjectKeypoint:
 
 
 @dataclass(frozen=True)
-class ObjectKeypoints(Displayable):
+class DetectedKeypoints(Displayable):
     """A collection of detected object keypoints in an image."""
 
-    detections: list[ObjectKeypoint]
+    detections: list[DetectedKeypoint]
     image: RGBImage
     """Image in which the object keypoints were found."""
 
@@ -69,7 +69,7 @@ class ObjectKeypoints(Displayable):
 class KeypointDetector(Protocol):
     """Detect keypoints for objects in images based on text queries."""
 
-    def detect_keypoints(self, image: RGBImage, queries: list[str]) -> ObjectKeypoints:
+    def detect_keypoints(self, image: RGBImage, queries: list[str]) -> DetectedKeypoints:
         """Detect object keypoints matching text queries in the given image.
 
         :param image: RGB image to detect objects within
