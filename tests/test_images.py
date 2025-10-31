@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from hypothesis import given
 
-from .vision_strategies import images, pixels_xy
+from .strategies.vision_strategies import images, pixels_xy
 
 if TYPE_CHECKING:
     from robotics_utils.vision import Image, PixelXY

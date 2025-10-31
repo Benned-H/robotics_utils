@@ -10,7 +10,7 @@ from robotics_utils.math.distances import (
     euclidean_distance_3d_m,
 )
 
-from .kinematics_strategies import angles_rad, poses_2d, poses_3d
+from .strategies.kinematics_strategies import angles_rad, poses_2d, poses_3d
 
 
 @given(poses_2d(), poses_2d())

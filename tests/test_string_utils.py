@@ -7,7 +7,7 @@ from hypothesis import given
 
 from robotics_utils.io.string_utils import is_pascal_case, is_snake_case
 
-from ..common_strategies import pascal_case_strings, snake_case_strings
+from .strategies.common_strategies import pascal_case_strings, snake_case_strings
 
 
 @given(pascal_case_strings(), snake_case_strings())

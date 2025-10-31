@@ -7,7 +7,7 @@ from hypothesis.strategies import lists
 
 from robotics_utils.collision_models import AxisAlignedBoundingBox
 
-from .collision_model_strategies import aabbs
+from .strategies.collision_model_strategies import aabbs
 
 
 @given(aabbs())
