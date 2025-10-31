@@ -1,7 +1,7 @@
 """Unit tests for utility functions that process Python files."""
 
-from robotics_utils.io.process_python import load_class_from_module
 from robotics_utils.kinematics import Pose3D
+from robotics_utils.meta import load_class_from_module
 
 
 def test_load_class_from_module() -> None:

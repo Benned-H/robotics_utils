@@ -6,7 +6,7 @@ from hypothesis import given
 
 from robotics_utils.vision import BoundingBox, PixelXY, RGBImage
 
-from .vision_strategies import bounding_boxes, pixels_xy, rgb_images
+from .strategies.vision_strategies import bounding_boxes, pixels_xy, rgb_images
 
 
 @given(bounding_boxes(), rgb_images())

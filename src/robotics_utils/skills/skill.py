@@ -8,8 +8,8 @@ from itertools import product
 from typing import TYPE_CHECKING, Any, Callable, Mapping, get_type_hints
 
 from robotics_utils.abstractions.predicates import Parameter
-from robotics_utils.io.process_python import parse_docstring_params
 from robotics_utils.io.string_utils import is_pascal_case, pascal_to_snake, snake_to_pascal
+from robotics_utils.meta import parse_docstring_params
 from robotics_utils.skills.skill_instance import SkillInstance
 
 if TYPE_CHECKING:
