@@ -76,11 +76,11 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
         model_id: str = "gemini-robotics-er-1.5-preview",
         object_limit: int = 20,
     ) -> None:
-        """Initialize the keypoint detector to use Gemini Robotics-ER 1.5 (preview version).
+        """Initialize an interface for Gemini Robotics-ER 1.5 (preview version).
 
         :param api_key: Google API key used to access Gemini Robotics-ER 1.5
         :param model_id: String specifying which Gemini model to use
-        :param object_limit: Limit on the number of objects per response
+        :param object_limit: Limit on the number of objects per response (defaults to 20)
         """
         if not GEN_AI_PRESENT:
             raise ImportError("Cannot run GeminiRoboticsER without google-genai.")

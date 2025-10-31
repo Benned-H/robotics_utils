@@ -30,7 +30,7 @@ class ObjectDetectionREPL(Generic[ResultT]):
         detect_func: DetectFunction,
         display_func: DisplayFunction,
     ) -> None:
-        """Initialize the object detection REPL and enter the loop.
+        """Initialize the object detection REPL.
 
         :param image_path: Path to the image used for object detection
         :param detect_func: Function that calls the object detector and returns the result

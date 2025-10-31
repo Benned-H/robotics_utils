@@ -1,4 +1,4 @@
-"""Example usage of the BoundingBoxDetector class."""
+"""Demo script that detects object bounding boxes in an image."""
 
 from __future__ import annotations
 

@@ -13,7 +13,7 @@ from robotics_utils.visualization import display_in_window
 
 
 def display_detected_keypoints(keypoints: ObjectKeypoints) -> None:
-    """Display the given bounding box detections using the given console."""
+    """Display the given keypoint detections."""
     display_in_window(keypoints, "Object Keypoints")
 
 
