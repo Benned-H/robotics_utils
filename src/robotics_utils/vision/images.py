@@ -127,6 +127,8 @@ class RGBImage(Image):
     def to_file(self, image_path: str | Path) -> None:
         """Save the RGB image to the given filepath."""
         image_path = Path(image_path)
+        image_path.parent.mkdir(parents=True, exist_ok=True)
+
         bgr_data = cv2.cvtColor(self.data, cv2.COLOR_RGB2BGR)
         success = cv2.imwrite(str(image_path), bgr_data)
         if not success:

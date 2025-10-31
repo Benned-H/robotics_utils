@@ -8,10 +8,7 @@ import click
 
 from robotics_utils.io.repls import ObjectDetectionREPL
 from robotics_utils.vision import RGBImage
-from robotics_utils.vision.vlms import (
-    DetectedBoundingBoxes,
-    OwlViTBoundingBoxDetector,
-)
+from robotics_utils.vision.vlms import DetectedBoundingBoxes, OwlViTBoundingBoxDetector
 from robotics_utils.vision.vlms.gemini_robotics_er import GeminiRoboticsER
 from robotics_utils.visualization import display_in_window
 
@@ -23,7 +20,7 @@ def display_detected_bounding_boxes(boxes: DetectedBoundingBoxes) -> None:
     if click.confirm("Display cropped images for each detection?"):
         for i, d in enumerate(boxes.detections):
             cropped = d.bounding_box.crop(boxes.image, scale_ratio=1.2)
-            display_in_window(cropped, f"Detection {i}/{len(boxes.detections)}: '{d.query}'")
+            display_in_window(cropped, f"Detection {i + 1}/{len(boxes.detections)}: '{d.query}'")
 
     if click.confirm("Output cropped images to file?"):
         output_dir = click.prompt(
