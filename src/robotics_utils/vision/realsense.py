@@ -10,8 +10,13 @@ import pyrealsense2 as rs2
 from rich.console import Console
 from rich.table import Table
 
-from robotics_utils.perception.sensors.cameras import CameraIntrinsics, DepthCameraSpec, Resolution
-from robotics_utils.perception.vision import DepthImage, RGBDImage, RGBImage
+from robotics_utils.vision import DepthImage, RGBDImage, RGBImage
+from robotics_utils.vision.cameras import (
+    CameraFOV,
+    CameraIntrinsics,
+    DepthCameraSpec,
+    Resolution,
+)
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -301,3 +306,23 @@ class RealSense:
 
         if data.dtype != expected_dtype:
             raise TypeError(f"Expected NumPy datatype {expected_dtype}, got {data.dtype}")
+
+
+# Reference: Range values read directly from D415 box (Product #82635ASRCDVKHV). Depth FOV from:
+#   https://www.intel.com/content/www/us/en/products/sku/128256/intel-realsense-depth-camera-d415/specifications.html
+D415_SPEC = DepthCameraSpec(
+    CameraFOV(horizontal_deg=69.4, vertical_deg=42.5),
+    min_range_m=0.3,
+    max_range_m=10,
+)
+
+
+# Reference: Range and Depth FOV both provided by:
+#   https://www.bhphotovideo.com/c/product/1570532-REG/intel_82635dsd455_realsense_depth_camera_d455.html/specs
+# Depth FOV confirmed by:
+#   https://www.intel.com/content/www/us/en/products/sku/205847/intel-realsense-depth-camera-d455/specifications.html
+D455_SPEC = DepthCameraSpec(
+    CameraFOV(horizontal_deg=86, vertical_deg=57),
+    min_range_m=0.4,
+    max_range_m=20,
+)

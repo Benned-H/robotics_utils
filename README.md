@@ -4,14 +4,33 @@ Catch-all repository for general-purpose robotics utilities.
 
 ## Demos
 
-_Open-Vocabulary Object Detection_ - Launch the open-vocabulary object detection demo by running:
+### Open-Vocabulary Bounding Box Detection
+
+Launch the open-vocabulary bounding box detection demo by running:
 
 ```bash
 uv venv --clear && uv sync --extra vision
-uv run scripts/object_detection_demo.py interactive IMAGE_PATH
+uv run scripts/bounding_box_detection_demo.py IMAGE_PATH
 ```
 
-- Here, `IMAGE_PATH` specifies the path to the image you'd like to detect objects in.
+- `IMAGE_PATH` denotes the path to the image you'd like to detect objects in.
+- To use the Gemini Robotics ER 1.5 backend, instead run:
+  ```bash
+  uv venv --clear && uv sync --extra gemini
+  uv run scripts/bounding_box_detection_demo.py --backend gemini --api-key API_KEY IMAGE_PATH
+  ```
+
+### Open-Vocabulary Object Keypoint Detection
+
+Launch the open-vocabulary keypoint detection demo by running:
+
+```bash
+uv venv --clear && uv sync --extra gemini
+uv run scripts/keypoint_detection_demo.py API_KEY IMAGE_PATH
+```
+
+- `API_KEY` denotes your Google API key.
+- `IMAGE_PATH` denotes the path to the image you'd like to detect objects in.
 
 _Intel RealSense Demo_ - Install the dependencies for the RealSense demo using [these instructions](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md#installing-the-packages). Then reopen the terminal and reconnect the RealSense to the computer.
 
@@ -22,7 +41,9 @@ uv venv --clear && uv sync --extra realsense
 uv run scripts/realsense_demo.py
 ```
 
-_AprilTag Detection Demo_ - Run the AprilTag detection demo by running:
+### AprilTag Detection Demo
+
+Run the AprilTag detection demo by running:
 
 ```bash
 uv venv --clear && uv sync --extra vision

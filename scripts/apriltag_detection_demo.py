@@ -7,13 +7,12 @@ An example image is available here:
 from copy import deepcopy
 from pathlib import Path
 
-from robotics_utils.perception.pose_estimation import (
+from robotics_utils.vision import CameraIntrinsics, RGBImage
+from robotics_utils.vision.fiducials import (
     AprilTagDetector,
     FiducialMarker,
     FiducialSystem,
 )
-from robotics_utils.perception.sensors.cameras import CameraIntrinsics
-from robotics_utils.perception.vision import RGBImage
 from robotics_utils.visualization import display_in_window
 
 IMAGE_PATH = Path("images/apriltags.png")
@@ -23,7 +22,7 @@ MARKERS = [
     FiducialMarker(42, TAG_SIZE_CM, {}),
     FiducialMarker(422, TAG_SIZE_CM, {}),
 ]
-CAMERAS = ["camera"]
+CAMERAS = {"camera"}
 INTRINSICS = CameraIntrinsics(fx=1607.36, fy=1607.36, x0=1024.0, y0=768.0)
 
 

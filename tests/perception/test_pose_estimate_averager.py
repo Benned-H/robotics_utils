@@ -6,7 +6,7 @@ import hypothesis.strategies as st
 from hypothesis import given
 
 from robotics_utils.kinematics import Pose3D
-from robotics_utils.perception.pose_estimation import PoseEstimateAverager
+from robotics_utils.state_estimation import PoseEstimateAverager
 
 from ..kinematics.kinematics_strategies import poses_3d
 

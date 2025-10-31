@@ -1,5 +1,7 @@
 """Define utility functions to simplify logging to the CLI."""
 
+from rich.console import Console
+
 try:
     import rospy
 
@@ -10,6 +12,7 @@ except ModuleNotFoundError:
 import logging
 
 logger = logging.getLogger(__name__)
+console = Console()
 
 
 def log_info(message: str) -> None:
