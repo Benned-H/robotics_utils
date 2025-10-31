@@ -23,14 +23,15 @@ try:
 except ModuleNotFoundError:
     GEN_AI_PRESENT = False
 
+
 from robotics_utils.io.logging import console
-from robotics_utils.perception.vision import BoundingBox, PixelXY, RGBImage
-from robotics_utils.perception.vision.vlms.bounding_box_detector import (
+from robotics_utils.vision import BoundingBox, PixelXY, RGBImage
+from robotics_utils.vision.vlms.bounding_box_detection import (
     BoundingBoxDetector,
-    ObjectBoundingBox,
-    ObjectBoundingBoxes,
+    DetectedBoundingBox,
+    DetectedBoundingBoxes,
 )
-from robotics_utils.perception.vision.vlms.keypoint_detector import (
+from robotics_utils.vision.vlms.keypoint_detection import (
     KeypointDetector,
     ObjectKeypoint,
     ObjectKeypoints,
@@ -167,7 +168,7 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
 
         return ObjectKeypoints(detections=keypoints, image=image)
 
-    def detect_bounding_boxes(self, image: RGBImage, queries: list[str]) -> ObjectBoundingBoxes:
+    def detect_bounding_boxes(self, image: RGBImage, queries: list[str]) -> DetectedBoundingBoxes:
         """Detect object bounding boxes matching text queries in the given image.
 
         :param image: RGB image to detect objects within
@@ -187,16 +188,15 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
             The answer should follow the JSON format:
             [{{"box_2d": [ymin, xmin, ymax, xmax], "label": }}, ...]
             normalized to 0-1000. The values in box_2d must only be integers.
-            Never return masks or code fencing.
             """)
 
         boxes_data = self.call(copied, prompt)
         if boxes_data is None or not isinstance(boxes_data, list):
             console.print(f"Unexpected output from Gemini: {boxes_data}")
-            return ObjectBoundingBoxes([], image)
+            return DetectedBoundingBoxes([], image)
 
         # Convert the JSON data to bounding boxes (i.e., convert 0-1000 to image pixel coords)
-        detections: list[ObjectBoundingBox] = []
+        detections: list[DetectedBoundingBox] = []
         image_hw = np.array([image.height, image.width], dtype=np.float32)
         for det in boxes_data:
             box_2d: tuple[int] = tuple(det["box_2d"])
@@ -211,6 +211,6 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
             max_xy = PixelXY((xmax, ymax))
             bb = BoundingBox(top_left=min_xy, bottom_right=max_xy)
 
-            detections.append(ObjectBoundingBox(query=det["label"], bounding_box=bb))
+            detections.append(DetectedBoundingBox(query=det["label"], bounding_box=bb))
 
-        return ObjectBoundingBoxes(detections, image)
+        return DetectedBoundingBoxes(detections, image)

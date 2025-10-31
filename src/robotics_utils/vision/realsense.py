@@ -10,8 +10,8 @@ import pyrealsense2 as rs2
 from rich.console import Console
 from rich.table import Table
 
-from robotics_utils.perception.vision import DepthImage, RGBDImage, RGBImage
-from robotics_utils.perception.vision.cameras import (
+from robotics_utils.vision import DepthImage, RGBDImage, RGBImage
+from robotics_utils.vision.cameras import (
     CameraFOV,
     CameraIntrinsics,
     DepthCameraSpec,

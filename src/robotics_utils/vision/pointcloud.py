@@ -9,8 +9,8 @@ import numpy as np
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-    from robotics_utils.perception.vision.cameras import CameraIntrinsics
-    from robotics_utils.perception.vision.images import DepthImage
+    from robotics_utils.vision.cameras import CameraIntrinsics
+    from robotics_utils.vision.images import DepthImage
 
 
 class Pointcloud:

@@ -1,8 +1,8 @@
 """Demo script playing with an Intel RealSense camera."""
 
 from robotics_utils.io.logging import log_info
-from robotics_utils.perception.vision import Pointcloud
-from robotics_utils.perception.vision.realsense import D455_SPEC, RealSense
+from robotics_utils.vision import Pointcloud
+from robotics_utils.vision.realsense import D455_SPEC, RealSense
 from robotics_utils.visualization import PointcloudVisualizer, display_in_window
 
 

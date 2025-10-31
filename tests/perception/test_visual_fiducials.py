@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from robotics_utils.perception.vision.fiducials import FiducialSystem
+from robotics_utils.vision.fiducials import FiducialSystem
 
 
 @pytest.fixture

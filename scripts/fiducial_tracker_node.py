@@ -4,10 +4,10 @@ from pathlib import Path
 
 import rospy
 
-from robotics_utils.perception.vision.fiducials import FiducialSystem
 from robotics_utils.ros.fiducial_tracker import FiducialTracker
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
+from robotics_utils.vision.fiducials import FiducialSystem
 
 
 def main() -> None:

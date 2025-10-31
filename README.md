@@ -26,11 +26,11 @@ Launch the open-vocabulary keypoint detection demo by running:
 
 ```bash
 uv venv --clear && uv sync --extra gemini
-uv run scripts/keypoint_detection_demo.py IMAGE_PATH API_KEY
+uv run scripts/keypoint_detection_demo.py API_KEY IMAGE_PATH
 ```
 
-- `IMAGE_PATH` denotes the path to the image you'd like to detect objects in.
 - `API_KEY` denotes your Google API key.
+- `IMAGE_PATH` denotes the path to the image you'd like to detect objects in.
 
 _Intel RealSense Demo_ - Install the dependencies for the RealSense demo using [these instructions](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md#installing-the-packages). Then reopen the terminal and reconnect the RealSense to the computer.
 

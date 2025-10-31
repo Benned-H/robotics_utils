@@ -6,16 +6,16 @@ import torch
 from PIL import Image
 from transformers import OwlViTForObjectDetection, OwlViTImageProcessorFast, OwlViTProcessor
 
-from robotics_utils.perception.vision import (
+from robotics_utils.vision import (
     BoundingBox,
     PixelXY,
     RGBImage,
     determine_pytorch_device,
 )
-from robotics_utils.perception.vision.vlms.bounding_box_detector import (
+from robotics_utils.vision.vlms.bounding_box_detection import (
     BoundingBoxDetector,
-    ObjectBoundingBox,
-    ObjectBoundingBoxes,
+    DetectedBoundingBox,
+    DetectedBoundingBoxes,
 )
 
 
@@ -30,7 +30,7 @@ class OwlViTBoundingBoxDetector(BoundingBoxDetector):
         self.processor = OwlViTProcessor.from_pretrained(model_name)
         self.fast_image_processor = OwlViTImageProcessorFast()
 
-    def detect_bounding_boxes(self, image: RGBImage, queries: list[str]) -> ObjectBoundingBoxes:
+    def detect_bounding_boxes(self, image: RGBImage, queries: list[str]) -> DetectedBoundingBoxes:
         """Detect object bounding boxes matching text queries in the given image.
 
         :param image: RGB image to detect objects within
@@ -57,7 +57,7 @@ class OwlViTBoundingBoxDetector(BoundingBoxDetector):
         boxes = results["boxes"].tolist()  # (top left x, then y, bottom right x, then y)
 
         detections = [
-            ObjectBoundingBox(
+            DetectedBoundingBox(
                 queries[q_idx],
                 BoundingBox(top_left=PixelXY(box_data[:2]), bottom_right=PixelXY(box_data[2:])),
                 score,
@@ -65,4 +65,4 @@ class OwlViTBoundingBoxDetector(BoundingBoxDetector):
             for q_idx, box_data, score in zip(labels, boxes, scores)
         ]
 
-        return ObjectBoundingBoxes(detections, image)
+        return DetectedBoundingBoxes(detections, image)

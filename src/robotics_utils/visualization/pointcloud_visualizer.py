@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import Self
 
-    from robotics_utils.perception.vision import Pointcloud
+    from robotics_utils.vision import Pointcloud
 
 
 class PointcloudVisualizer:

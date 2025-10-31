@@ -10,8 +10,8 @@ from rich.table import Table
 from rich.text import Text
 
 from robotics_utils.io.logging import console
-from robotics_utils.perception.vision import RGBImage
-from robotics_utils.perception.vision.vlms import TextQueries
+from robotics_utils.vision import RGBImage
+from robotics_utils.vision.vlms import TextQueries
 from robotics_utils.visualization import Displayable
 
 ResultT = TypeVar("ResultT", bound=Displayable)

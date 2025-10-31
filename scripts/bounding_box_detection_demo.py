@@ -7,16 +7,16 @@ from pathlib import Path
 import click
 
 from robotics_utils.io.repls import ObjectDetectionREPL
-from robotics_utils.perception.vision import RGBImage
-from robotics_utils.perception.vision.vlms import (
-    ObjectBoundingBoxes,
+from robotics_utils.vision import RGBImage
+from robotics_utils.vision.vlms import (
+    DetectedBoundingBoxes,
     OwlViTBoundingBoxDetector,
 )
-from robotics_utils.perception.vision.vlms.gemini_robotics_er import GeminiRoboticsER
+from robotics_utils.vision.vlms.gemini_robotics_er import GeminiRoboticsER
 from robotics_utils.visualization import display_in_window
 
 
-def display_detected_bounding_boxes(boxes: ObjectBoundingBoxes) -> None:
+def display_detected_bounding_boxes(boxes: DetectedBoundingBoxes) -> None:
     """Display the given bounding box detections."""
     display_in_window(boxes, "Object Detections")
 
@@ -25,7 +25,15 @@ def display_detected_bounding_boxes(boxes: ObjectBoundingBoxes) -> None:
             cropped = d.bounding_box.crop(boxes.image, scale_ratio=1.2)
             display_in_window(cropped, f"Detection {i}/{len(boxes.detections)}: '{d.query}'")
 
-            RGBImage(cropped.data).to_file(f"{d.query}{i}.png")
+    if click.confirm("Output cropped images to file?"):
+        output_dir = click.prompt(
+            "Enter output directory for cropped images",
+            type=click.Path(writable=True, file_okay=False, path_type=Path),
+        )
+
+        for i, d in enumerate(boxes.detections):
+            cropped = d.bounding_box.crop(boxes.image, scale_ratio=1.2)
+            RGBImage(cropped.data).to_file(output_dir / f"{d.query}_{i}.png")
 
 
 @click.command()
@@ -37,7 +45,7 @@ def display_detected_bounding_boxes(boxes: ObjectBoundingBoxes) -> None:
 )
 @click.option("--api-key")
 @click.argument("image_path", type=click.Path(exists=True, path_type=Path))
-def object_detection(image_path: Path, backend: str, api_key: str | None) -> None:
+def object_detection(backend: str, api_key: str | None, image_path: Path) -> None:
     """Run object detection in an interactive loop."""
     if backend == "owl-vit":
         detector = OwlViTBoundingBoxDetector()
@@ -47,7 +55,7 @@ def object_detection(image_path: Path, backend: str, api_key: str | None) -> Non
     else:
         raise ValueError(f"Unrecognized backend: {backend}")
 
-    repl: ObjectDetectionREPL[ObjectBoundingBoxes] = ObjectDetectionREPL(
+    repl: ObjectDetectionREPL[DetectedBoundingBoxes] = ObjectDetectionREPL(
         image_path,
         detect_func=detector.detect_bounding_boxes,
         display_func=display_detected_bounding_boxes,
