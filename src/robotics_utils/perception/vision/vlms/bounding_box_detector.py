@@ -68,7 +68,7 @@ class ObjectBoundingBoxes(Displayable):
 class BoundingBoxDetector(Protocol):
     """Detect bounding boxes for objects in images based on text queries."""
 
-    def detect(self, image: RGBImage, queries: list[str]) -> ObjectBoundingBoxes:
+    def detect_bounding_boxes(self, image: RGBImage, queries: list[str]) -> ObjectBoundingBoxes:
         """Detect object bounding boxes matching text queries in the given image.
 
         :param image: RGB image to detect objects within

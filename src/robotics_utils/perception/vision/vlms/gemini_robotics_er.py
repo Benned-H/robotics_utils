@@ -10,14 +10,26 @@ import json
 import textwrap
 import time
 from copy import deepcopy
+from typing import Any
 
 import numpy as np
 import PIL.Image
-from google import genai
-from google.genai.types import GenerateContentConfig, ThinkingConfig
 
-from robotics_utils.io.logging import console, log_info
-from robotics_utils.perception.vision import PixelXY, RGBImage
+try:
+    from google import genai
+    from google.genai.types import GenerateContentConfig, ThinkingConfig
+
+    GEN_AI_PRESENT = True
+except ModuleNotFoundError:
+    GEN_AI_PRESENT = False
+
+from robotics_utils.io.logging import console
+from robotics_utils.perception.vision import BoundingBox, PixelXY, RGBImage
+from robotics_utils.perception.vision.vlms.bounding_box_detector import (
+    BoundingBoxDetector,
+    ObjectBoundingBox,
+    ObjectBoundingBoxes,
+)
 from robotics_utils.perception.vision.vlms.keypoint_detector import (
     KeypointDetector,
     ObjectKeypoint,
@@ -25,24 +37,37 @@ from robotics_utils.perception.vision.vlms.keypoint_detector import (
 )
 
 
-def parse_json(json_output: str | None) -> str | None:
-    """Parse a JSON output from a VLM.
+def parse_json(json_output: str | None) -> Any | None:
+    """Parse a JSON output from a VLM into Python data structures.
 
     :param json_output: String containing JSON data (or None if VLM didn't return text)
-    :return: Cleaned JSON output (or None if JSON not found)
+    :return: Parsed JSON output as a list or dictionary (or None if JSON not found)
     """
     if json_output is None:
         return None
 
     lines = json_output.splitlines()
+    json_data: str | None = None
     for i, line in enumerate(lines):
-        if line == "```json":  # Ignore everything before "```json"
-            output = "\n".join(lines[i + 1 :])
-            return output.split("```")[0]  # Ignore everything after the closing "```"
+        if line == "```json":
+            # Ignore everything before "```json"
+            json_block_onwards = "\n".join(lines[i + 1 :])
+
+            # Ignore everything after the closing "```"
+            json_data = json_block_onwards.split("```")[0]
+            break
+
+    try:
+        if json_data is not None:
+            return json.loads(json_data)
+    except json.JSONDecodeError:
+        console.print_exception()
+        console.print("[yellow]⚠️ Warning: Invalid JSON response. Skipping.[/yellow]")
+
     return None
 
 
-class GeminiRoboticsER(KeypointDetector):
+class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
     """An interface for Gemini Robotics-ER 1.5."""
 
     def __init__(
@@ -57,6 +82,9 @@ class GeminiRoboticsER(KeypointDetector):
         :param model_id: String specifying which Gemini model to use
         :param object_limit: Limit on the number of objects per response
         """
+        if not GEN_AI_PRESENT:
+            raise ImportError("Cannot run GeminiRoboticsER without google-genai.")
+
         self.client = genai.Client(api_key=api_key)
         self.model_id = model_id
         self.object_limit = object_limit
@@ -66,14 +94,16 @@ class GeminiRoboticsER(KeypointDetector):
         image: RGBImage,
         prompt: str,
         config: GenerateContentConfig | None = None,
-    ) -> str | None:
+    ) -> Any | None:
         """Call Gemini Robotics ER 1.5 on the given visual-language prompt.
 
         :param image: RGB image used in the prompt
         :param prompt: Natural language prompt
         :param config: Optional Gemini configuration (defaults to None; zero thinking budget)
-        :return: JSON text from the response, or None if no JSON was output
+        :return: Data parsed from the response JSON, or None if no JSON was output
         """
+        start_time = time.time()
+
         if config is None:
             config = GenerateContentConfig(
                 temperature=0.5,
@@ -88,9 +118,11 @@ class GeminiRoboticsER(KeypointDetector):
             config=config,
         )
         if image_response.text is not None:
-            log_info(image_response.text)
+            console.print(f"Raw output from Gemini Robotics ER 1.5:\n{image_response.text}")
 
-        return parse_json(image_response.text)
+        output = parse_json(image_response.text)
+        console.print(f"\nTotal processing time: {(time.time() - start_time):.4f} seconds.")
+        return output
 
     def detect_keypoints(self, image: RGBImage, queries: list[str]) -> ObjectKeypoints:
         """Detect object keypoints matching text queries in the given image.
@@ -101,7 +133,6 @@ class GeminiRoboticsER(KeypointDetector):
         """
         copied = deepcopy(image)
         copied.resize(max_width_px=800)
-
         console.print(f"Resized image copy is {copied.width} x {copied.height} pixels (W x H).")
 
         prompt = textwrap.dedent(f"""\
@@ -115,19 +146,10 @@ class GeminiRoboticsER(KeypointDetector):
             The points are in [y, x] format normalized to 0-1000.
             """)
 
-        start_time = time.time()
-        json_output = self.call(copied, prompt)
-
-        points_data = []
-        try:
-            if json_output is not None:
-                data = json.loads(json_output)
-                points_data.extend(data)
-        except json.JSONDecodeError:
-            console.print_exception()
-            console.print("[yellow]⚠️ Warning: Invalid JSON response. Skipping.[/yellow]")
-
-        console.print(f"\nTotal processing time: {(time.time() - start_time):.4f} seconds.")
+        points_data = self.call(copied, prompt)
+        if points_data is None or not isinstance(points_data, list):
+            console.print(f"Unexpected output from Gemini: {points_data}")
+            return ObjectKeypoints([], image)
 
         # Convert the JSON data to object keypoints (i.e., convert 0-1000 to image pixel coords)
         keypoints = []
@@ -144,3 +166,51 @@ class GeminiRoboticsER(KeypointDetector):
             keypoints.append(ObjectKeypoint(query=det["label"], keypoint=pixel_xy))
 
         return ObjectKeypoints(detections=keypoints, image=image)
+
+    def detect_bounding_boxes(self, image: RGBImage, queries: list[str]) -> ObjectBoundingBoxes:
+        """Detect object bounding boxes matching text queries in the given image.
+
+        :param image: RGB image to detect objects within
+        :param queries: Text queries describing the object(s) to be detected
+        :return: Collection of detected object bounding boxes matching the queries
+        """
+        copied = deepcopy(image)
+        copied.resize(max_width_px=800)
+        console.print(f"Resized image copy is {copied.width} x {copied.height} pixels (W x H).")
+
+        prompt = textwrap.dedent(f"""\
+            Return bounding boxes for the following objects: {", ".join(queries)}. The
+            label for each box should be an identifying name for the detected object.
+            If an object is present multiple times, use the same corresponding label.
+            Limit to {self.object_limit} objects.
+
+            The answer should follow the JSON format:
+            [{{"box_2d": [ymin, xmin, ymax, xmax], "label": }}, ...]
+            normalized to 0-1000. The values in box_2d must only be integers.
+            Never return masks or code fencing.
+            """)
+
+        boxes_data = self.call(copied, prompt)
+        if boxes_data is None or not isinstance(boxes_data, list):
+            console.print(f"Unexpected output from Gemini: {boxes_data}")
+            return ObjectBoundingBoxes([], image)
+
+        # Convert the JSON data to bounding boxes (i.e., convert 0-1000 to image pixel coords)
+        detections: list[ObjectBoundingBox] = []
+        image_hw = np.array([image.height, image.width], dtype=np.float32)
+        for det in boxes_data:
+            box_2d: tuple[int] = tuple(det["box_2d"])
+            if len(box_2d) != 4:
+                raise ValueError(f"Bounding box was {box_2d}; expected [ymin, xmin, ymax, xmax].")
+            box_2d_ratio = np.asarray(box_2d, dtype=np.float32) / 1000.0
+
+            ymin, xmin = box_2d_ratio[:2] * image_hw
+            ymax, xmax = box_2d_ratio[2:] * image_hw
+
+            min_xy = PixelXY((xmin, ymin))
+            max_xy = PixelXY((xmax, ymax))
+            bb = BoundingBox(top_left=min_xy, bottom_right=max_xy)
+
+            detections.append(ObjectBoundingBox(query=det["label"], bounding_box=bb))
+
+        return ObjectBoundingBoxes(detections, image)

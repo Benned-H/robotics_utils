@@ -30,7 +30,7 @@ class OwlViTBoundingBoxDetector(BoundingBoxDetector):
         self.processor = OwlViTProcessor.from_pretrained(model_name)
         self.fast_image_processor = OwlViTImageProcessorFast()
 
-    def detect(self, image: RGBImage, queries: list[str]) -> ObjectBoundingBoxes:
+    def detect_bounding_boxes(self, image: RGBImage, queries: list[str]) -> ObjectBoundingBoxes:
         """Detect object bounding boxes matching text queries in the given image.
 
         :param image: RGB image to detect objects within
