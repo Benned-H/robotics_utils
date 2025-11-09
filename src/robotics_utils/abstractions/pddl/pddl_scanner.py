@@ -3,56 +3,74 @@
 Reference: PDDL - The Planning Domain Definition Language (Version 1.2) (Ghallab et al., 1998)
 """
 
-import sys
-
-if sys.version_info < (3, 10):
-    raise RuntimeError("This module requires Python 3.10 or higher.")
+from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from enum import StrEnum
-from typing import Generator
+from enum import Enum, auto
+from typing import Iterator
 
 PDDL_NAME_REGEX = r"[a-zA-Z]{1}[a-zA-Z0-9\-_]*"
 """Names in PDDL begin with a letter and contain only letters, digits, hyphens, and underscores."""
 
 
-class PDDLTokenType(StrEnum):
+class PDDLTokenType(Enum):
     """Enumeration of token types when parsing PDDL."""
 
-    NAME = PDDL_NAME_REGEX
+    NAME = auto()
     """Name of a PDDL domain, type, predicate, operator, etc."""
 
-    VARIABLE = r"\?" + PDDL_NAME_REGEX
+    VARIABLE = auto()
     """Name of a PDDL variable."""
 
-    KEYWORD = r":" + PDDL_NAME_REGEX
+    KEYWORD = auto()
     """A PDDL keyword starts with a colon."""
 
-    MINUS = r"-"
+    MINUS = auto()
     """Separates PDDL entities from their types in typed lists."""
 
-    OPEN_PAREN = r"\("
+    EQUALS = auto()
+    """Some PDDL domains include `=` as a built-in predicate."""
+
+    OPEN_PAREN = auto()
     """An open parenthesis."""
 
-    CLOSE_PAREN = r"\)"
+    CLOSE_PAREN = auto()
     """A close parenthesis."""
 
-    COMMENT = r";[^\n]*"
+    COMMENT = auto()
     """Comments in PDDL begin with a semicolon and end with the next newline."""
 
-    NEWLINE = r"\n"
+    NEWLINE = auto()
 
-    SKIP = r"[ \t]+"
+    SKIP = auto()
     """Whitespace to be ignored."""
 
-    MISMATCH = r"."
+    MISMATCH = auto()
     """Any other character is a mismatch."""
 
-    @property
-    def named_group_regex(self) -> str:
-        """Retrieve the named group regular expression for the token type."""
-        return f"(?P<{self.name}>{self.value})"
+    NONE = auto()
+    """Represents when an input stream of tokens has been exhausted."""
+
+
+PDDL_TOKEN_TYPE_TO_REGEX = {
+    PDDLTokenType.NAME: PDDL_NAME_REGEX,
+    PDDLTokenType.VARIABLE: r"\?" + PDDL_NAME_REGEX,
+    PDDLTokenType.KEYWORD: r":" + PDDL_NAME_REGEX,
+    PDDLTokenType.MINUS: r"-",
+    PDDLTokenType.EQUALS: r"=",
+    PDDLTokenType.OPEN_PAREN: r"\(",
+    PDDLTokenType.CLOSE_PAREN: r"\)",
+    PDDLTokenType.COMMENT: r";[^\n]*",
+    PDDLTokenType.NEWLINE: r"\n",
+    PDDLTokenType.SKIP: r"[ \t]+",
+    PDDLTokenType.MISMATCH: r".",
+}
+
+
+def named_group_regex(token_type: PDDLTokenType) -> str:
+    """Construct a named group regular expression for a PDDL token type."""
+    return f"(?P<{token_type.name}>{PDDL_TOKEN_TYPE_TO_REGEX[token_type]})"
 
 
 @dataclass(frozen=True)
@@ -87,27 +105,36 @@ PDDL_REQ_FLAGS = {
 Reference: Section 15 ("Current Requirement Flags") of Ghallab et al. (1998).
 """  # TODO: Support these!
 
+PDDL_KEYWORDS = {
+    ":requirements",
+    ":types",
+    ":constants",
+    ":predicates",
+    ":action",
+    ":parameters",
+    ":precondition",
+    ":effect",
+    ":domain",
+    ":objects",
+    ":init",
+    ":goal",
+}.union(PDDL_REQ_FLAGS.keys())
+
 
 class PDDLScanner:
     """A scanner for a subset of the Planning Domain Definition Language (PDDL)."""
 
-    def __init__(self) -> None:
+    def __init__(self, known_keywords: set[str]) -> None:
         """Initialize regular expressions for scanning tokens of PDDL.
 
         Reference: https://docs.python.org/3/library/re.html#writing-a-tokenizer
+
+        :param known_keywords: Set of PDDL requirement flags recognized by the scanner
         """
-        self.token_regex = "|".join(tt.named_group_regex for tt in PDDLTokenType)
+        self.token_regex = "|".join(named_group_regex(tt) for tt in PDDLTokenType)
+        self.known_keywords = known_keywords
 
-        self.keywords = {
-            ":requirements",
-            ":types",
-            ":predicates",
-            ":action",
-            ":precondition",
-            ":effect",
-        }
-
-    def tokenize(self, string: str) -> Generator[PDDLToken]:
+    def tokenize(self, string: str) -> Iterator[PDDLToken]:
         """Tokenize a string of PDDL into an iterator over tokens.
 
         :param string: String containing PDDL to be tokenized
@@ -123,23 +150,19 @@ class PDDLScanner:
             value = mo.group()
             column = mo.start() - line_start
 
-            match token_type:
-                case PDDLTokenType.KEYWORD:
-                    if value not in self.keywords:
-                        raise RuntimeError(f"Unknown PDDL keyword: '{value}'.")
+            if token_type == PDDLTokenType.KEYWORD:
+                if value not in self.known_keywords:
+                    raise RuntimeError(f"Unknown PDDL keyword: '{value}'.")
 
-                case PDDLTokenType.MISMATCH:
-                    raise RuntimeError(f"Cannot tokenize '{value}' on line {line_num}.")
+            elif token_type == PDDLTokenType.MISMATCH:
+                raise RuntimeError(f"Cannot tokenize '{value}' on line {line_num}.")
 
-                case PDDLTokenType.COMMENT | PDDLTokenType.SKIP:
-                    continue  # Skip comments and whitespace
+            elif token_type in {PDDLTokenType.COMMENT, PDDLTokenType.SKIP}:
+                continue  # Skip comments and whitespace
 
-                case PDDLTokenType.NEWLINE:
-                    line_start = mo.end()
-                    line_num += 1
-                    continue
-
-                case _:
-                    pass
+            elif token_type == PDDLTokenType.NEWLINE:
+                line_start = mo.end()
+                line_num += 1
+                continue
 
             yield PDDLToken(token_type, value, line_num, column)

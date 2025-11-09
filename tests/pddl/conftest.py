@@ -1,4 +1,4 @@
-"""Define test fixtures providing example PDDL snippets."""
+"""Define pytest fixtures providing PDDL examples."""
 
 from textwrap import dedent
 
@@ -6,7 +6,7 @@ import pytest
 
 
 @pytest.fixture
-def briefcase_world_domain_partial() -> str:
+def briefcase_world_domain() -> str:
     """Return a string containing an example `briefcase-world` PDDL (partial) domain.
 
     Reference: Section 2 (pg. 2) of Ghallab et al. (1998).
@@ -31,7 +31,7 @@ def mov_b_action() -> str:
                   (:action mov-b
                     :parameters (?m ?l - location)
                     :precondition (and (at B ?m) (not (= ?m ?l)))
-                    :effect (and (at B ?l) (not (at B ? m))
+                    :effect (and (at B ?l) (not (at B ?m))
                         (forall (?z)
                             (when (and (in ?z) (not (= ?z B)))
                                   (and (at ?z ?l) (not (at ?z ?m)))))) )""")
@@ -77,3 +77,12 @@ def get_paid_problem() -> str:
                         (object p) (object d) (object b)
                         (at B home) (at P home) (at D home) (in P))
                     (:goal (and (at B office) (at D office) (at P home))))""")
+
+
+@pytest.fixture
+def typed_list_of_names() -> str:
+    """Return a string containing an example of a PDDL `<typed list(name)>`.
+
+    Reference: Section 4 (pg. 6) of Ghallab et al. (1998).
+    """
+    return "integer float - number physob"
