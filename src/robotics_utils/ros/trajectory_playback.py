@@ -32,7 +32,7 @@ class RelativeTrajectoryConfig:
     required_fraction: float = 0.95  # Proportion of the trajectory Cartesian planning must follow
 
 
-class TrajectoryReplayer:
+class TrajectoryPlayback:
     """Play back relative trajectories loaded from file."""
 
     def __init__(self, config: RelativeTrajectoryConfig) -> None:

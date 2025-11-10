@@ -58,7 +58,7 @@ class SkillsInventory:
         methods = [getattr(protocol, method_name) for method_name in dir(protocol)]
         skills = [Skill.from_method(method) for method in methods if hasattr(method, "_is_skill")]
 
-        return SkillsInventory(name=protocol.__name__, skills=skills)
+        return SkillsInventory(name=type(protocol).__name__, skills=skills)
 
     def get_skill(self, skill_name: str) -> Skill:
         """Retrieve the named skill from the inventory."""

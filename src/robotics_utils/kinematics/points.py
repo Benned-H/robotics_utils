@@ -14,6 +14,26 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class Point2D:
+    """An (x,y) position on the 2D plane."""
+
+    x: float
+    y: float
+
+    @classmethod
+    def from_array(cls, arr: np.ndarray) -> Point2D:
+        """Construct a Point2D from a NumPy array."""
+        if arr.shape != (2,):
+            raise ValueError(f"Cannot construct Point2D from an array of shape {arr.shape}.")
+
+        return cls(float(arr[0]), float(arr[1]))
+
+    def to_array(self) -> NDArray[np.float64]:
+        """Convert the 2D point into a NumPy array."""
+        return np.array([self.x, self.y], dtype=np.float64)
+
+
+@dataclass
 class Point3D:
     """An (x,y,z) position in 3D space."""
 
@@ -37,9 +57,9 @@ class Point3D:
             arr = arr.reshape(3)
 
         if arr.shape != (3,):
-            raise ValueError(f"Cannot construct Point3D from an array of shape {arr.shape}")
+            raise ValueError(f"Cannot construct Point3D from an array of shape {arr.shape}.")
 
-        return cls(arr[0], arr[1], arr[2])
+        return cls(float(arr[0]), float(arr[1]), float(arr[2]))
 
     def to_array(self) -> NDArray[np.float64]:
         """Convert the 3D point to a NumPy array."""

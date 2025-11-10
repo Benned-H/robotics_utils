@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from dataclasses import dataclass
 from itertools import product
-from typing import TYPE_CHECKING, Any, Callable, Mapping, get_type_hints
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Tuple, get_type_hints
 
 from robotics_utils.abstractions.predicates import Parameter
 from robotics_utils.io.string_utils import is_pascal_case, pascal_to_snake, snake_to_pascal
@@ -20,6 +20,20 @@ def skill_method(m: Callable) -> Callable:
     """Mark a method as implementing a skill."""
     m._is_skill = True
     return m
+
+
+@dataclass
+class SkillOutcome:
+    """An outcome (and optional output value) from a skill execution."""
+
+    success: bool
+    message: str
+    output: object | None = None
+    """Optional output value from a skill execution (defaults to None)."""
+
+
+SkillResult = Tuple[bool, str]
+"""A Boolean success and a message describing the outcome of a skill execution."""
 
 
 @dataclass(frozen=True)
@@ -80,7 +94,7 @@ class Skill:
         """Retrieve the method name corresponding to this skill."""
         return pascal_to_snake(self.name)  # PascalCase skill name -> snake_case method name
 
-    def execute(self, executor: SkillsProtocol, bindings: Mapping[str, object]) -> object | None:
+    def execute(self, executor: SkillsProtocol, bindings: Mapping[str, object]) -> SkillOutcome:
         """Execute this skill under the given parameter bindings.
 
         :param executor: Protocol defining an interface for skill execution

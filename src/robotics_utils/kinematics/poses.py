@@ -9,7 +9,7 @@ import numpy as np
 
 from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME
-from robotics_utils.kinematics.point3d import Point3D
+from robotics_utils.kinematics.points import Point2D, Point3D
 from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
 
 if TYPE_CHECKING:
@@ -44,6 +44,11 @@ class Pose2D:
             raise ValueError(f"Pose2D expects 3 values, got {len(pose_seq)}")
 
         return Pose2D(pose_seq[0], pose_seq[1], pose_seq[2], ref_frame)
+
+    @property
+    def position(self) -> Point2D:
+        """Retrieve the (x,y) position of the 2D pose."""
+        return Point2D(self.x, self.y)
 
     def to_yaml_data(self, default_frame: str | None) -> dict[str, Any] | list[float]:
         """Convert the Pose2D into a form suitable for export to YAML.
