@@ -1,4 +1,4 @@
-"""Unit tests for the ContainerModel class."""
+"""Unit tests for the ContainerState class."""
 
 from pathlib import Path
 
@@ -20,19 +20,19 @@ def test_environment_with_containers_from_yaml(container_env_yaml: Path) -> None
     tree = KinematicTree.from_yaml(container_env_yaml)
 
     assert len(tree.object_names) == 4  # Expect 4 objects (the fifth is inside a closed cabinet)
-    assert len(tree.container_models) == 3  # Expect three containers: two open and one closed
+    assert len(tree.containers) == 3  # Expect three containers: two open and one closed
 
-    closed_cabinet = tree.container_models.get("closed_cabinet")
+    closed_cabinet = tree.containers.get("closed_cabinet")
     assert closed_cabinet is not None
     assert closed_cabinet.is_closed
     assert "cup1" in closed_cabinet.contained_objects
 
-    eraser_open_cabinet = tree.container_models.get("open_cabinet1")
+    eraser_open_cabinet = tree.containers.get("open_cabinet1")
     assert eraser_open_cabinet is not None
     assert eraser_open_cabinet.is_open
     assert "eraser1" in eraser_open_cabinet.contained_objects
 
-    empty_open_cabinet = tree.container_models.get("open_cabinet2")
+    empty_open_cabinet = tree.containers.get("open_cabinet2")
     assert empty_open_cabinet is not None
     assert empty_open_cabinet.is_open
     assert not empty_open_cabinet.contained_objects
@@ -44,8 +44,8 @@ def test_environment_with_containers_from_yaml(container_env_yaml: Path) -> None
     assert "cup1" not in tree.children
 
 
-def test_container_model_open_and_close(container_env_yaml: Path) -> None:
-    """Verify that opening and closing containers appropriately affects the kinematic state."""
+def test_container_state_open_and_close(container_env_yaml: Path) -> None:
+    """Verify that opening and closing containers appropriately affects the state."""
     tree = KinematicTree.from_yaml(container_env_yaml)
 
     # Act/Assert - Expect that objects in closed containers are removed from the kinematic state
@@ -61,18 +61,22 @@ def test_container_model_open_and_close(container_env_yaml: Path) -> None:
     tree.open_container("closed_cabinet")
     assert "cup1" in tree.object_names
     assert "eraser1" in tree.object_names
+    assert tree.containers["closed_cabinet"].is_open
 
     # Close the first open cabinet
     tree.close_container("open_cabinet1")
     assert "cup1" in tree.object_names
     assert "eraser1" not in tree.object_names
+    assert tree.containers["open_cabinet1"].is_closed
 
-    # Close the second open cabinet (nothing should happen)
+    # Close the second open cabinet (no object states should change)
     tree.close_container("open_cabinet2")
     assert "cup1" in tree.object_names
     assert "eraser1" not in tree.object_names
+    assert tree.containers["open_cabinet2"].is_closed
 
     # Re-close the originally closed cabinet
     tree.close_container("closed_cabinet")
     assert "cup1" not in tree.object_names
     assert "eraser1" not in tree.object_names
+    assert tree.containers["closed_cabinet"].is_closed

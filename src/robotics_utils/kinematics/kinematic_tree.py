@@ -9,7 +9,7 @@ from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME, Configuration
 from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
-from robotics_utils.world_models.containers import ContainerModel, ObjectModel
+from robotics_utils.states import ContainerState, ObjectKinematicState
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -40,8 +40,8 @@ class KinematicTree:
 
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
-        self.container_models: dict[str, ContainerModel] = {}
-        """Maps the name of each container to its kinematic model."""
+        self.containers: dict[str, ContainerState] = {}
+        """Maps the name of each container to its kinematic state."""
 
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> KinematicTree:
@@ -88,7 +88,7 @@ class KinematicTree:
 
         # Load any containers in the environment from YAML
         for c_name, c_data in containers_data.items():
-            c = ContainerModel.from_yaml_data(c_name, c_data, collision_models, tree.object_poses)
+            c = ContainerState.from_yaml_data(c_name, c_data, collision_models, tree.object_poses)
             tree.add_container(c)
 
         return tree
@@ -97,6 +97,23 @@ class KinematicTree:
     def object_poses(self) -> dict[str, Pose3D]:
         """Create and return a dictionary mapping object names to their 3D poses."""
         return {obj_name: self.frames[obj_name] for obj_name in self.object_names}
+
+    @property
+    def object_states(self) -> dict[str, ObjectKinematicState]:
+        """Create and return a dictionary mapping object names to their kinematic states.
+
+        :return: A map from object names to their kinematic states
+        :raises RuntimeError: If an object doesn't have a defined collision model
+        """
+        object_states: dict[str, ObjectKinematicState] = {}
+        for obj_name, obj_pose in self.object_poses.items():
+            collision_model = self.get_collision_model(obj_name)
+            if collision_model is None:
+                raise RuntimeError(f"Object '{obj_name}' doesn't have a collision model.")
+
+            object_states[obj_name] = ObjectKinematicState(obj_name, obj_pose, collision_model)
+
+        return object_states
 
     @property
     def robot_base_poses(self) -> dict[str, Pose3D]:
@@ -198,28 +215,29 @@ class KinematicTree:
 
         return self.collision_models.get(frame_name)
 
-    def add_container(self, container: ContainerModel) -> None:
-        """Add a container model to the kinematic tree and update the state accordingly."""
-        self.container_models[container.name] = container
-        container.update_kinematic_tree(self)
+    def add_container(self, container_state: ContainerState) -> None:
+        """Update the state of the kinematic tree for the given container."""
+        self.containers[container_state.name] = container_state
+        container_state.update_kinematic_tree(self)
 
     def open_container(self, container_name: str) -> None:
         """Open the named container and update the state accordingly."""
-        if container_name not in self.container_models:
+        if container_name not in self.containers:
             raise KeyError(f"Cannot open unknown container: '{container_name}'.")
-        self.container_models[container_name].open(self)
+        self.containers[container_name].open(self)
 
     def close_container(self, container_name: str) -> None:
         """Close the named container and update the state accordingly."""
-        if container_name not in self.container_models:
+        if container_name not in self.containers:
             raise KeyError(f"Cannot close unknown container: '{container_name}'.")
-        self.container_models[container_name].close(self)
+        self.containers[container_name].close(self)
 
-    def remove_object(self, obj_name: str) -> ObjectModel | None:
+    def remove_object(self, obj_name: str) -> ObjectKinematicState | None:
         """Remove the named object from the kinematic state.
 
         :param obj_name: Name of the object removed from the state
-        :return: Model of the object's state before it was removed (None if no state existed)
+        :return: Object's kinematic state before it was removed (None if no state existed)
+        :raises KeyError: If the named object doesn't exist in the kinematic tree
         """
         if obj_name not in self.object_names:
             raise KeyError(f"Cannot remove unknown object '{obj_name}' from the kinematic tree.")
@@ -243,4 +261,4 @@ class KinematicTree:
         if removed_pose is None or removed_collision_model is None:
             return None
 
-        return ObjectModel(obj_name, removed_pose, removed_collision_model)
+        return ObjectKinematicState(obj_name, removed_pose, removed_collision_model)
