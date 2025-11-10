@@ -173,14 +173,14 @@ def primitive_shape_to_msg(shape: PrimitiveShape) -> SolidPrimitive:
 def trajectory_point_to_msg(point: TrajectoryPoint) -> JointTrajectoryPoint:
     """Convert a trajectory point into a trajectory_msgs/JointTrajectoryPoint message."""
     msg = JointTrajectoryPoint()
-    msg.positions = [point.position[j] for j in point.joint_names]
+    msg.positions = [point.positions[j] for j in point.joint_names]
     msg.velocities = [point.velocities[j] for j in point.joint_names]
     msg.time_from_start = rospy.Duration.from_sec(point.time_s)
     return msg
 
 
 def trajectory_to_msg(trajectory: Trajectory) -> JointTrajectory:
-    """Convert a trajectory of points into a trajectory_msgs/JointTrajectory message."""
+    """Convert a trajectory into a trajectory_msgs/JointTrajectory message."""
     msg = JointTrajectory()
     msg.joint_names = trajectory.joint_names
     msg.points = [trajectory_point_to_msg(p) for p in trajectory.points]
@@ -194,7 +194,7 @@ def trajectory_point_from_msg(
     """Construct a TrajectoryPoint from a trajectory_msgs/JointTrajectoryPoint message."""
     return TrajectoryPoint(
         time_s=msg.time_from_start.to_sec(),
-        position=dict(zip(joint_names, msg.positions)),
+        positions=dict(zip(joint_names, msg.positions)),
         velocities=dict(zip(joint_names, msg.velocities)),
     )
 

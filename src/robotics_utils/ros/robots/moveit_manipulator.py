@@ -36,7 +36,7 @@ class MoveItManipulator(Manipulator):
         self.move_group = MoveGroupCommander(move_group_name, wait_for_servers=30)
         self.move_group.set_pose_reference_frame(self.base_frame)
 
-        self._ee_link = self.move_group.get_end_effector_link()
+        self._ee_link: str = self.move_group.get_end_effector_link()
 
         # Read the robot's URDF from ROS params
         robot_urdf = get_ros_param("/robot_description", str)
@@ -61,7 +61,7 @@ class MoveItManipulator(Manipulator):
         if moveit_joints != trac_ik_joints:
             rospy.logwarn(f"[Manipulator {self.name}] joints per MoveIt: {moveit_joints}")
             rospy.logwarn(f"[Manipulator {self.name}] joints per Trac-IK: {trac_ik_joints}")
-            raise RuntimeError(f"MoveIt and Trac-IK disagree on manipulator {self.name}'s joints.")
+            raise RuntimeError(f"MoveIt and Trac-IK disagree on joints in '{self.name}'.")
 
         return moveit_joints
 
@@ -74,7 +74,7 @@ class MoveItManipulator(Manipulator):
         return dict(zip(self.joint_names, joint_values))
 
     def execute_motion_plan(self, trajectory: Trajectory) -> None:
-        """Execute the given trajectory using the manipulator."""
+        """Execute the given trajectory on the manipulator using MoveIt."""
         trajectory_msg = trajectory_to_msg(trajectory)
 
         self.move_group.clear_pose_targets()
@@ -83,6 +83,8 @@ class MoveItManipulator(Manipulator):
 
     def compute_ik(self, ee_target: Pose3D) -> Configuration | None:
         """Compute an inverse kinematics solution to place the end-effector at the given pose.
+
+        Reference for TRAC-IK: https://bitbucket.org/traclabs/trac_ik/src/rolling/trac_ik_python/
 
         :param ee_target: Target pose of the end-effector
         :return: Manipulator configuration solving the IK problem (else None)

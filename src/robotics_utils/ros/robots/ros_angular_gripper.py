@@ -41,7 +41,7 @@ class ROSAngularGripper(AngularGripper):
         """Move the gripper to a target angle (radians).
 
         :param target_rad: Target angle (radians) for the gripper
-        :param timeout_s: Duration (seconds) after which the motion is abandoned (defaults to 10)
+        :param timeout_s: Duration (seconds) after which the motion times out (defaults to 10 sec)
         """
         goal_msg = GripperCommandGoal()
         goal_msg.command.position = target_rad

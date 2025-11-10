@@ -1,4 +1,4 @@
-"""Define a command-line interface for executing skills from a skills inventory."""
+"""Define a command-line interface for executing skills."""
 
 from __future__ import annotations
 
@@ -17,15 +17,15 @@ def _idx_to_skill(inventory: SkillsInventory) -> dict[int, Skill]:
     """Assign indices (starting from 1) to the skills in the given inventory.
 
     :param inventory: Collection of skills assigned integer indices
-    :return: Map from integer indices to skill objects
+    :return: Map from integer indices to Skill objects
     """
     sorted_names = sorted(skill.name for skill in inventory)
 
     return {idx: inventory.skills[skill_name] for idx, skill_name in enumerate(sorted_names)}
 
 
-def _render_inventory_table(inv: SkillsInventory) -> Table:
-    """Render a numbered skills table for CLI skill selection."""
+def _render_selection_table(inv: SkillsInventory) -> Table:
+    """Render a numbered table for CLI skill selection."""
     table = Table(title=f"Skills Inventory: {inv.name}", show_lines=False)
     table.add_column("#", justify="right", style="cyan", no_wrap=True)
     table.add_column("Skill", style="bold")
@@ -46,11 +46,13 @@ def _prompt_for_bindings(skill: Skill, skills_ui: SkillsUI) -> dict[str, object]
     console.print(Panel.fit(f"[bold]{skill.name}[/]", border_style="green"))
     bindings: dict[str, object] = {}
 
+    # Fail early if a skill parameter's type doesn't have a handler
     for p in skill.parameters:
-        handler = skills_ui.handlers.get(p.type_)
-        if handler is None:
+        if p.type_ not in skills_ui.handlers:
             raise KeyError(f"No input handler for type {p.type_name} (parameter '{p.name}').")
 
+    for p in skill.parameters:
+        handler = skills_ui.handlers[p.type_]
         prompt = p.name if p.semantics is None else f"{p.name}: {p.semantics}"
         param_ui = ParamUI(prompt, default=skills_ui.default_values.get((skill.name, p.name)))
         bindings[p.name] = handler(param_ui)
@@ -78,7 +80,7 @@ def build_cli(protocol: SkillsProtocol, skills_ui: SkillsUI) -> click.Command:
     def cli(yes: bool) -> None:
         """Create an interactive CLI for invoking skills with Python-typed parameters."""
         while True:
-            console.print(_render_inventory_table(inventory))
+            console.print(_render_selection_table(inventory))
             choice = Prompt.ask("Select a skill number (or 'q' to quit)").strip().lower()
             if choice in {"q", "quit", "exit"}:
                 console.print("[dim]Bye.[/]")

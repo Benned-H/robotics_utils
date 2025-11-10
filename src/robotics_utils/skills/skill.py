@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from dataclasses import dataclass
 from itertools import product
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Tuple, get_type_hints
+from typing import TYPE_CHECKING, Any, Callable, Mapping, get_type_hints
 
 from robotics_utils.abstractions.predicates import Parameter
 from robotics_utils.io.string_utils import is_pascal_case, pascal_to_snake, snake_to_pascal
@@ -30,10 +30,6 @@ class SkillOutcome:
     message: str
     output: object | None = None
     """Optional output value from a skill execution (defaults to None)."""
-
-
-SkillResult = Tuple[bool, str]
-"""A Boolean success and a message describing the outcome of a skill execution."""
 
 
 @dataclass(frozen=True)

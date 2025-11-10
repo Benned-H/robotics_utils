@@ -35,7 +35,7 @@ class AngularGripper(ABC):
         """Move the gripper to a target angle (radians).
 
         :param target_rad: Target angle (radians) for the gripper
-        :param timeout_s: Duration (seconds) after which the motion is abandoned
+        :param timeout_s: Duration (seconds) after which the motion times out
         """
         ...
 

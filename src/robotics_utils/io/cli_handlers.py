@@ -32,7 +32,7 @@ class ParamUI(Generic[InputT]):
     """String used to prompt the user for a parameter value."""
 
     default: InputT | None = None
-    """Default value for the parameter (defaults to None = no default parameter value)."""
+    """Default value for the parameter (defaults to None = no default value)."""
 
     validators: list[Validator[InputT]] | None = None
     """Optional list of input validators (defaults to None)."""
@@ -161,7 +161,7 @@ InputHandler = Callable[[ParamUI[InputT]], InputT]
 """A handler function used to prompt a user for input data of some type."""
 
 ParamKey = Tuple[str, str]
-"""A tuple identifying a skill name and a parameter name."""
+"""A tuple specifying a skill name and a parameter name."""
 
 
 @dataclass(frozen=True)
