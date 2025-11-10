@@ -9,7 +9,7 @@ import numpy as np
 from robotics_utils.math.angles import normalize_angle
 
 if TYPE_CHECKING:
-    from robotics_utils.kinematics import Pose2D, Pose3D
+    from robotics_utils.kinematics import Pose2D, Pose3D, Quaternion
 
 
 def euclidean_distance_2d_m(pose_a: Pose2D, pose_b: Pose2D, change_frames: bool) -> float:
@@ -53,3 +53,13 @@ def angle_difference_rad(a_rad: float, b_rad: float) -> float:
     """
     difference_rad = normalize_angle(a_rad - b_rad)
     return abs(difference_rad)
+
+
+def angle_between_quaternions_deg(q1: Quaternion, q2: Quaternion) -> float:
+    """Compute the angle (degrees) between two unit quaternions representing 3D rotations.
+
+    Reference: https://math.stackexchange.com/a/167828
+    """
+    product = q1 * q2.conjugate()
+    angle_rad = 2.0 * np.arccos(product.w)
+    return np.rad2deg(angle_rad)

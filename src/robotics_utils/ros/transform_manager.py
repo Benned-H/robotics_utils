@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 import rospy
@@ -98,14 +99,16 @@ class TransformManager:
 
             transform_t_s @ pose_s_d = pose_t_d (i.e., "data expressed in the target frame")
 
+        Reference: https://docs.ros.org/en/noetic/api/tf2_ros/html/c++/classtf2__ros_1_1Buffer.html#ada7f9d7d8d12655d7ce5c5f303303f5f
+
         :param source_frame: Frame where the data originated
         :param target_frame: Frame to which the data will be transformed
-        :param when: Timestamp for which the relative transform is found (if None, uses 'now')
+        :param when: Timestamp for which the relative transform is found (if None, use latest data)
         :param timeout_s: Duration (seconds) after which to abandon the lookup (defaults to 5)
         :return: Pose3D representing transform (i.e., transform_t_s) or None (if lookup failed)
         """
         if when is None:
-            when = rospy.Time.now()
+            when = rospy.Time(0)
 
         rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
         rate_hz.sleep()
@@ -147,13 +150,18 @@ class TransformManager:
         return pose_t_s
 
     @staticmethod
-    def convert_to_frame(pose_c_p: Pose3D | Pose2D, target_frame: str) -> Pose3D:
+    def convert_to_frame(
+        pose_c_p: Pose3D | Pose2D,
+        target_frame: str,
+        timeout_s: float = 5.0,
+    ) -> Pose3D:
         """Convert the given pose into the target reference frame.
 
         Frames: Frame implied by the pose (p), current ref. frame (c), target ref. frame (t)
 
         :param pose_c_p: Pose (frame p) w.r.t. its current reference frame (frame c)
         :param target_frame: Target reference frame (frame t) of the output pose
+        :param timeout_s: Duration (seconds) after which the conversion times out (default: 5 sec)
         :return: Pose3D relative to the target reference frame (i.e., pose_t_p)
         """
         if isinstance(pose_c_p, Pose2D):
@@ -163,7 +171,11 @@ class TransformManager:
         if current_frame == target_frame:
             return pose_c_p
 
-        pose_t_c = TransformManager.lookup_transform(current_frame, target_frame, None, 10.0)
+        pose_t_c = None
+        end_time = time.time() + timeout_s
+        while pose_t_c is None and time.time() < end_time:
+            pose_t_c = TransformManager.lookup_transform(current_frame, target_frame, timeout_s=1)
+
         if pose_t_c is None:
             raise RuntimeError(f"Lookup from frame '{current_frame}' to '{target_frame}' failed")
 

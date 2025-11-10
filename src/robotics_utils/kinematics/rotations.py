@@ -6,6 +6,7 @@ from dataclasses import astuple, dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
+from pyquaternion import Quaternion as Q
 from trimesh.transformations import (
     euler_from_matrix,
     euler_from_quaternion,
@@ -76,6 +77,16 @@ class Quaternion:
         """Normalize the quaternion after it is initialized."""
         self.normalize()
 
+    def __mul__(self, other: Quaternion) -> Quaternion:
+        """Return the Hamilton product of this quaternion and another.
+
+        Reference: https://kieranwynn.github.io/pyquaternion/#quaternion-operations
+        """
+        if not isinstance(other, Quaternion):
+            raise TypeError(f"Cannot multiply a Quaternion with a {type(other)}: {other}.")
+        product = Q(self.w, self.x, self.y, self.z) * Q(other.w, other.x, other.y, other.z)
+        return Quaternion(product.x, product.y, product.z, product.w)
+
     def normalize(self) -> None:
         """Normalize the quaternion to ensure it is a unit quaternion."""
         norm = float(np.linalg.norm(self.to_array()))
@@ -86,6 +97,13 @@ class Quaternion:
         self.y /= norm
         self.z /= norm
         self.w /= norm
+
+    def conjugate(self) -> Quaternion:
+        """Compute the conjugate of this quaternion.
+
+        Reference: https://mathworld.wolfram.com/QuaternionConjugate.html
+        """
+        return Quaternion(-self.x, -self.y, -self.z, self.w)
 
     @classmethod
     def identity(cls) -> Quaternion:
