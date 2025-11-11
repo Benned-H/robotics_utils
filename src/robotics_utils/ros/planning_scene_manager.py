@@ -10,8 +10,8 @@ import rospy
 from moveit_commander import MoveGroupCommander, PlanningSceneInterface
 from moveit_msgs.msg import CollisionObject
 
+from robotics_utils.kinematics import Pose3D
 from robotics_utils.kinematics.kinematic_tree import KinematicTree
-from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.ros.msg_conversion import (
     pose_from_msg,
     pose_to_msg,
@@ -24,7 +24,7 @@ from robotics_utils.states import KinematicSimulator, ObjectKinematicState
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from robotics_utils.collision_models.collision_model import CollisionModel
+    from robotics_utils.collision_models import CollisionModel
     from robotics_utils.motion_planning import MotionPlanningQuery
     from robotics_utils.robots.manipulator import Manipulator
 
@@ -33,7 +33,7 @@ class PlanningSceneManager(KinematicSimulator):
     """A manager to update the state of the MoveIt planning scene."""
 
     def __init__(self, move_group_name: str = "arm") -> None:
-        """Initialize the manager's interface with the MoveIt planning scene.
+        """Initialize an interface with the MoveIt planning scene.
 
         :param move_group_name: Name of the move group controlled by MoveIt
         """
@@ -41,11 +41,11 @@ class PlanningSceneManager(KinematicSimulator):
         rospy.sleep(3)  # Allow time for the scene to initialize
 
         self._move_group = MoveGroupCommander(move_group_name)
-        self.planning_frame = self._move_group.get_planning_frame()
-        rospy.loginfo(f"MoveIt planning frame: {self.planning_frame}.")
+        self.planning_frame = str(self._move_group.get_planning_frame())
+        rospy.loginfo(f"MoveIt planning frame: '{self.planning_frame}'.")
 
         self._added_objects: set[str] = set()
-        """Names of all objects added to the planning scene (doesn't count hidden objects)."""
+        """Names of all objects added to the planning scene (doesn't include hidden objects)."""
 
         self._hidden_objects: dict[str, CollisionObject] = {}
         """Hidden objects are ignored for the purposes of collision checking."""
@@ -62,7 +62,7 @@ class PlanningSceneManager(KinematicSimulator):
         message = (
             f"Loaded MoveIt planning scene from YAML file: {yaml_path}."
             if success
-            else f"Could not fully load planning scene from the YAML file: {yaml_path}."
+            else f"Could not load MoveIt planning scene from the YAML file: {yaml_path}."
         )
         return success, message
 
@@ -81,11 +81,11 @@ class PlanningSceneManager(KinematicSimulator):
         self.planning_scene.add_object(collision_obj_msg)
 
         object_exists = self.wait_until_object_exists(collision_obj_msg.id)
-        if not object_exists:
-            rospy.logerr(f"Failed to add '{collision_obj_msg.id}' to the MoveIt planning scene.")
 
         if object_exists:
             self._added_objects.add(collision_obj_msg.id)
+        else:
+            rospy.logerr(f"Failed to add '{collision_obj_msg.id}' to the MoveIt planning scene.")
 
         return object_exists
 
@@ -198,7 +198,7 @@ class PlanningSceneManager(KinematicSimulator):
         move_object_msg.operation = CollisionObject.MOVE
         move_object_msg.pose = pose_to_msg(pose_p_o)
         move_object_msg.header.frame_id = self.planning_frame
-        move_object_msg.header.stamp = rospy.Time(0)
+        move_object_msg.header.stamp = rospy.Time.now()
 
         self.planning_scene.add_object(move_object_msg)
 
@@ -217,7 +217,7 @@ class PlanningSceneManager(KinematicSimulator):
         self.add_object_msg(collision_obj_msg)
 
     def synchronize_state(self, tree: KinematicTree, attempts_per_obj: int = 3) -> bool:
-        """Update the MoveIt planning scene to reflect the given environment state."""
+        """Update the MoveIt planning scene to reflect the given kinematic state."""
         all_added = True
         for obj_name, obj_state in tree.object_states.items():
             attempts_left = attempts_per_obj
@@ -247,7 +247,7 @@ class PlanningSceneManager(KinematicSimulator):
         return False
 
     def wait_until_object_removed(self, name: str, timeout_s: float = 10.0) -> bool:
-        """Wait unobj_posetil the named object is removed from the MoveIt planning scene.
+        """Wait until the named object is removed from the MoveIt planning scene.
 
         :param name: Name of the object to be removed from the planning scene
         :param timeout_s: Timeout duration (seconds)
@@ -330,7 +330,7 @@ class PlanningSceneManager(KinematicSimulator):
         """Construct a moveit_msgs/CollisionObject message using the given data.
 
         :param object_state: Kinematic state of an object (i.e., its pose and collision model)
-        :param object_type: Type of the object (e.g., box or table)
+        :param object_type: Type of the object (e.g., `"box"`)
         :return: Constructed moveit_msgs/CollisionObject message
         """
         # Convert object pose into the target frame
@@ -339,7 +339,7 @@ class PlanningSceneManager(KinematicSimulator):
         msg = CollisionObject()
         msg.id = object_state.name
         msg.header.frame_id = self.planning_frame
-        msg.header.stamp = rospy.Time(0)  # Use latest available data
+        msg.header.stamp = rospy.Time.now()
         msg.operation = CollisionObject.ADD
 
         if object_type is not None:
@@ -353,14 +353,14 @@ class PlanningSceneManager(KinematicSimulator):
         msg.primitives = [
             primitive_shape_to_msg(ps) for ps in object_state.collision_model.primitives
         ]
-        primitive_local_poses = []
+        shape_local_poses = []
         for ps in object_state.collision_model.primitives:
-            height_m = ps.aabb.max_xyz.z - ps.aabb.min_xyz.z
-            local_pose = Pose3D.from_xyz_rpy(z=height_m / 2.0, ref_frame=object_state.name)
-            primitive_local_poses.append(local_pose)
+            z_size_m = ps.aabb.max_xyz.z - ps.aabb.min_xyz.z
+            local_pose = Pose3D.from_xyz_rpy(z=z_size_m / 2.0, ref_frame=object_state.name)
+            shape_local_poses.append(local_pose)
 
         # Compose each primitive shape's local pose with the object's pose in the target frame
-        msg.primitive_poses = [pose_to_msg(pose_t_o @ p_o_ps) for p_o_ps in primitive_local_poses]
+        msg.primitive_poses = [pose_to_msg(pose_t_o @ pose_o_s) for pose_o_s in shape_local_poses]
 
         # Deliberately DO NOT set msg.pose when adding an object
 
