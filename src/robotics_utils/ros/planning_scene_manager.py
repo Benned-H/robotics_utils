@@ -33,7 +33,7 @@ class PlanningSceneManager(KinematicSimulator):
     """A manager to update the state of the MoveIt planning scene."""
 
     def __init__(self, move_group_name: str = "arm") -> None:
-        """Initialize an interface with the MoveIt planning scene.
+        """Initialize an interface for the MoveIt planning scene.
 
         :param move_group_name: Name of the move group controlled by MoveIt
         """
