@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import astuple, dataclass
+from typing import Generic, TypeVar
 
 import numpy as np
 from numpy.typing import NDArray
+
+from robotics_utils.vision.images import DepthImage, Image, RGBImage
 
 
 @dataclass(frozen=True)
@@ -75,3 +79,56 @@ class DepthCameraSpec:
 
     max_range_m: float
     """Absolute maximum range (meters) for the camera, beyond which data should be discarded."""
+
+
+ImageT = TypeVar("ImageT", bound=Image)
+
+
+@dataclass
+class Camera(ABC, Generic[ImageT]):
+    """An interface for a robot camera that returns a particular type of image."""
+
+    name: str
+    intrinsics: CameraIntrinsics
+
+    @abstractmethod
+    def get_image(self) -> ImageT:
+        """Capture and return an image using the camera."""
+
+
+@dataclass
+class RGBCamera(Camera[RGBImage]):
+    """An interface for an RGB camera."""
+
+
+@dataclass
+class DepthCamera(Camera[DepthImage]):
+    """An interface for a depth camera."""
+
+    depth_spec: DepthCameraSpec
+
+
+class CamerasInterface:
+    """A general-purpose interface for all cameras on a robot."""
+
+    def __init__(self, cameras: list[Camera]) -> None:
+        """Initialize the interface using the given Camera objects."""
+        self._cameras_map: dict[str, Camera] = {c.name: c for c in cameras}
+
+    def get_image(self, camera_name: str) -> Image:
+        """Capture and return an image using the named camera."""
+        camera = self._cameras_map.get(camera_name)
+        if camera is None:
+            raise KeyError(f"Cannot capture image using unknown camera: '{camera_name}'.")
+        return camera.get_image()
+
+    def get_intrinsics(self, camera_name: str) -> CameraIntrinsics:
+        """Retrieve the intrinsic parameters of the named camera."""
+        camera = self._cameras_map.get(camera_name)
+        if camera is None:
+            raise KeyError(f"Cannot retrieve intrinsics of unknown camera: '{camera_name}'.")
+        return camera.intrinsics
+
+    def get_camera(self, camera_name: str) -> Camera | None:
+        """Retrieve the interface for the named camera."""
+        return self._cameras_map.get(camera_name)

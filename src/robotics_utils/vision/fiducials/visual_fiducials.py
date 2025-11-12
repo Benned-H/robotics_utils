@@ -48,10 +48,15 @@ class FiducialMarker:
 
         return FiducialMarker(marker_id, size_cm, relative_frames)
 
+    @staticmethod
+    def id_to_frame_name(tag_id: int) -> str:
+        """Construct the name of the reference frame for a tag with the given ID."""
+        return f"marker_{tag_id}"
+
     @property
     def frame_name(self) -> str:
         """Retrieve the name of the reference frame defined by this visual fiducial."""
-        return f"marker_{self.id}"
+        return self.id_to_frame_name(self.id)
 
 
 @dataclass(frozen=True)

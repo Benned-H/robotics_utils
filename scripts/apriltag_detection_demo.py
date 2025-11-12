@@ -34,7 +34,7 @@ def main() -> None:
     image = RGBImage.from_file(IMAGE_PATH)
     vis_image = deepcopy(image)
 
-    detections = detector.detect(image, INTRINSICS)
+    detections = detector._detect(image, INTRINSICS)  # noqa: SLF001
     for d in detections:
         d.draw_on_image(vis_image)
 

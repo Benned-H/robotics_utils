@@ -36,6 +36,7 @@ from robotics_utils.ros import (
 from robotics_utils.ros.msg_conversion import pose_from_msg
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.skills import SkillOutcome, SkillsProtocol, skill_method
+from robotics_utils.vision.fiducials import AprilTagDetector
 
 SPOT_GRIPPER_OPEN_RAD = -1.5707
 SPOT_GRIPPER_CLOSED_RAD = 0.0

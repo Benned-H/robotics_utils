@@ -7,4 +7,5 @@ from .pose_broadcast_thread import PoseBroadcastThread as PoseBroadcastThread
 from .services import ServiceCaller as ServiceCaller
 from .services import WaitUntilServiceCalled as WaitUntilServiceCalled
 from .services import trigger_service as trigger_service
+from .tag_tracker import TagTracker as TagTracker
 from .transform_manager import TransformManager as TransformManager

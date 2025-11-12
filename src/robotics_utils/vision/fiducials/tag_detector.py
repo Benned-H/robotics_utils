@@ -11,14 +11,14 @@ import numpy as np
 import pupil_apriltags
 
 from robotics_utils.kinematics import Point3D, Pose3D, Quaternion
-from robotics_utils.vision import PixelXY, RGBImage
+from robotics_utils.vision import PixelXY, RGBCamera, RGBImage
 
 if TYPE_CHECKING:
     from robotics_utils.vision import CameraIntrinsics
     from robotics_utils.vision.fiducials import FiducialSystem
 
 
-@dataclass(frozen=True)
+@dataclass
 class TagDetection:
     """An AprilTag detected in an image."""
 
@@ -110,7 +110,7 @@ class AprilTagDetector:
             decode_sharpening=decode_sharpening,
         )
 
-    def detect(self, image: RGBImage, intrinsics: CameraIntrinsics) -> list[TagDetection]:
+    def _detect(self, image: RGBImage, intrinsics: CameraIntrinsics) -> list[TagDetection]:
         """Detect AprilTags in an image taken with the given camera intrinsics.
 
         :param image: RGB image to detect AprilTags in
@@ -139,3 +139,14 @@ class AprilTagDetector:
                     output.append(det)
 
         return output
+
+    def detect_from_camera(self, camera: RGBCamera) -> list[TagDetection]:
+        """Detect AprilTags in a new image captured using the given camera.
+
+        :return: List of AprilTag detections, with their estimated poses w.r.t. the camera
+        """
+        rgb_image = camera.get_image()
+        detections = self._detect(rgb_image, camera.intrinsics)
+        for d in detections:
+            d.pose.ref_frame = camera.name
+        return detections
