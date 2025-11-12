@@ -79,7 +79,7 @@ SPOT_PICK_CUP = PickParameters(
 
 SPOT_PICK_ERASER = PickParameters(
     pose_o_g=Pose3D.from_xyz_rpy(x=-0.00, y=0.00, z=0.24, pitch_rad=1.5708, ref_frame="cellphone"),
-    x_pre_grasp_offset_m=0.15,
+    x_pre_grasp_offset_m=0.1,
     x_post_grasp_lift_m=0.1,
     carry_pose="horiz_carry"
 )
@@ -89,7 +89,7 @@ def execute_look(manipulator: Manipulator, lookpose) -> None:
     manipulator.open_gripper()
 
     # Take photo!
-    time.sleep(2)
+    time.sleep(4)
 
     return
 
@@ -127,6 +127,17 @@ def execute_pick(manipulator: Manipulator, params: PickParameters) -> None:
 
 Pickable = NewType("Pickable", str)
 
+waterbottle_place_params = {"countertop": {"preplace": ["cup_preplace_countertop1", "cup_preplace_countertop2"],
+                                     "postplace": ["cup_postplace_countertop1",]},
+                                     }
+
+cellphone_place_params = {"desk": {"preplace": ["eraser_preplace_desk1", "eraser_preplace_desk2"],
+                                   "postplace": ["eraser_postplace_desk1",]},
+                          "bed":  {"preplace": ["eraser_preplace_bed1", "eraser_preplace_bed2"],
+                                   "postplace": ["eraser_postplace_bed1",]},
+                        }
+
+
 
 class SpotSkillsExecutor:
     """Interface for executing skills on Spot."""
@@ -136,8 +147,16 @@ class SpotSkillsExecutor:
         self.pick_params: dict[str, PickParameters] = {"waterbottle": SPOT_PICK_CUP, 
                                                        "cellphone": SPOT_PICK_ERASER}
         
-        self.place_params: dict[str, [str]] = {"waterbottle": ["cup_pre_place", "cup_place_countertop"], 
+        self.pre_place_params: dict[str, [str]] = {"waterbottle": ["cup_pre_place", "cup_place_countertop"], 
                                                 "cellphone": ["eraser_pre_place", "eraser_place_desk"]}
+        
+        self.post_place_params: dict[str, [str]] = {"waterbottle": ["cup_post_place_1",], 
+                                                "cellphone": ["eraser_post_place_1"]}
+        
+        self.place_params = {"waterbottle": waterbottle_place_params,
+                             "cellphone": cellphone_place_params,
+                             }
+        
 
         self.spot_arm = Manipulator(move_group="arm", base_link="body", grasping_group="gripper")
         self.looking = True
@@ -156,7 +175,7 @@ class SpotSkillsExecutor:
                                     "sink" : "medium",
                                     "bedroom" : "high",
                                     "couch" : "high",
-                                    "desk" : "high",
+                                    "desk" : "wide",
                                     "tvstand" : "high",
                                     "bed" : "high",
                                     "robot_start_pose": "high", #This is an explicitly bad solution to the planner calling look and not knowing where the robot is
@@ -171,22 +190,40 @@ class SpotSkillsExecutor:
             "2": [self.look, "high",["waterbottle", "cellphone"]],
             "2a": [self.look, "higher",["waterbottle", "cellphone"]],
             "3": [self.look, "medium",["waterbottle", "cellphone"]],
+            "3a": [self.look, "wide",["waterbottle", "cellphone"]],
+            "d": [self.move_spot_move_base, "dock"],
+            "eb": [self.move_spot_move_base, "enter_bedroom"],
+
             "4": [self.move_spot_move_base, "kitchen"],
+            "4r": [self.move_spot_move_base, "reverse_kitchen"],
             "5": [self.move_spot_move_base, "garbagecan"],
             "6": [self.move_spot_move_base, "diningtable"],
             "7": [self.move_spot_move_base, "fridge"],
             "8": [self.move_spot_move_base, "countertop"],
             "9": [self.move_spot_move_base, "sink"],
             "10": [self.move_spot_move_base, "bedroom"],
+            "10r": [self.move_spot_move_base, "reverse_bedroom"],
             "11": [self.move_spot_move_base, "couch"],
             "12": [self.move_spot_move_base, "desk"],
             "13": [self.move_spot_move_base, "tvstand"],
             "14": [self.move_spot_move_base, "bed"],
             "15": [self.pick, "waterbottle"],
-            "16": [self.place, "waterbottle"],
+            "16": [self.place, "waterbottle", "countertop"],
             "17": [self.pick, "cellphone"],
-            "18": [self.place, "cellphone"],
+            "18": [self.place, "cellphone", "desk"],
+            "19": [self.place, "cellphone", "bed"],
+
         }
+
+    def place(self, object, place):
+        print(self.place_params[object][place])
+        for ee in self.place_params[object][place]["preplace"]:
+            self.motion_plan_to_pose(ee)
+
+        self.spot_arm.open_gripper()
+        for ee in self.place_params[object][place]["postplace"]:
+            self.motion_plan_to_pose(ee)
+        self.retract()
 
     def pick(self, picked: Pickable) -> None:
         """Pick an object with the given name."""
@@ -243,13 +280,15 @@ class SpotSkillsExecutor:
         self.looking = False
 
 
-    def place(self, object: Pickable) -> None:
+    def oldplace(self, object: Pickable) -> None:
         """Place an object."""
         # for ee in ["cup_pre_place", "cup_place_countertop"]:
-        for ee in self.place_params[object]:
+        for ee in self.pre_place_params[object]:
             self.motion_plan_to_pose(ee)
 
         self.spot_arm.open_gripper()
+        for ee in self.post_place_params[object]:
+            self.motion_plan_to_pose(ee)
         self.retract()
 
     def motion_plan_to_pose(self, ee_pose_name: str) -> None:
@@ -288,10 +327,12 @@ class SpotSkillsExecutor:
         while True:
             print("""
             Options:
+            (0)retract arm
             (l)auto-look
             (1)look trash
             (2)look high
             (3)look medium
+            (d)move dock
             (4)move kitchen
             (5)move garbagecan
             (6)move diningtable
@@ -307,6 +348,7 @@ class SpotSkillsExecutor:
             (16)place cup on countertop
             (17)pick eraser 
             (18)place eraser on desk
+            (19)place eraser on bed
 
             (q) Exit.
             """)
