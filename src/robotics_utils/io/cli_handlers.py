@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Generic, Tuple, TypeVar
+from typing import Any, Callable, Generic, TypeVar
 
 from click import confirm
 from rich.prompt import FloatPrompt, IntPrompt, Prompt
 
 from robotics_utils.io.logging import console
 from robotics_utils.kinematics import Pose3D
+from robotics_utils.skills import SkillParamKey
 
 InputT = TypeVar("InputT")
 """The type of an input being requested via CLI."""
@@ -160,16 +161,13 @@ INPUT_HANDLERS = {
 InputHandler = Callable[[ParamUI[InputT]], InputT]
 """A handler function used to prompt a user for input data of some type."""
 
-ParamKey = Tuple[str, str]
-"""A tuple specifying a skill name and a parameter name."""
 
-
-@dataclass(frozen=True)
+@dataclass
 class SkillsUI:
     """A user interface to supporting executing a collection of skills."""
 
     handlers: dict[type, InputHandler]
     """A map from Python types to functions that prompt a user for a value of that type."""
 
-    default_values: dict[ParamKey, Any]
+    default_values: dict[SkillParamKey, Any]
     """A map from (skill name, param name) tuples to the default value for that skill parameter."""

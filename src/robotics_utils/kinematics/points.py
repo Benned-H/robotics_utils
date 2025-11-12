@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import astuple, dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+
+from robotics_utils.io.yaml_utils import load_yaml_data
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -82,6 +85,18 @@ class Point3D:
         if len(values) != 3:
             raise ValueError(f"Point3D expects 3 values, got {len(values)}")
         return Point3D(float(values[0]), float(values[1]), float(values[2]))
+
+    @classmethod
+    def load_points_from_yaml(cls, yaml_path: Path, collection_name: str) -> list[Point3D]:
+        """Load a list of points from the given YAML file.
+
+        :param yaml_path: Path to a YAML file containing points data
+        :param collection_name: Name of the collection of points in the YAML file
+        :return: List of imported 3D points
+        """
+        yaml_data = load_yaml_data(yaml_path, required_keys={collection_name})
+        points_data = yaml_data[collection_name]
+        return [Point3D.from_sequence(xyz) for xyz in points_data]
 
     def approx_equal(self, other: Point3D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Point3D is approximately equal to this one."""

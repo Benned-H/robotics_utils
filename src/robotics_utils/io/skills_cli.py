@@ -8,9 +8,9 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from robotics_utils.io.cli_handlers import ParamUI, SkillsUI
+from robotics_utils.io.cli_handlers import INPUT_HANDLERS, ParamUI, SkillsUI
 from robotics_utils.io.logging import console
-from robotics_utils.skills import Skill, SkillsInventory, SkillsProtocol
+from robotics_utils.skills import Skill, SkillsInventory, SkillsProtocol, find_default_param_values
 
 
 def _idx_to_skill(inventory: SkillsInventory) -> dict[int, Skill]:
@@ -60,15 +60,17 @@ def _prompt_for_bindings(skill: Skill, skills_ui: SkillsUI) -> dict[str, object]
     return bindings
 
 
-def build_cli(protocol: SkillsProtocol, skills_ui: SkillsUI) -> click.Command:
+def build_cli(protocol: SkillsProtocol) -> click.Command:
     """Create a Click command that exposes an interactive CLI for a skills inventory.
 
     :param protocol: Class with methods defining the structure of available skills
-    :param skills_ui: User interface used to create the CLI
     :return: A Click command that can be used as an entry point or subcommand
     """
     inventory = SkillsInventory.from_protocol(protocol)
     idx_to_skill = _idx_to_skill(inventory)
+
+    default_param_values = find_default_param_values(protocol)
+    skills_ui = SkillsUI(INPUT_HANDLERS, default_param_values)
 
     unhandled_types = inventory.all_argument_types - set(skills_ui.handlers.keys())
     unhandled_type_names = ", ".join(t.__name__ for t in unhandled_types)
