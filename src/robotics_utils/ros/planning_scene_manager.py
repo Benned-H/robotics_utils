@@ -111,7 +111,7 @@ class PlanningSceneManager(KinematicSimulator):
 
         self._hidden_objects[obj_name] = self.get_object_msg(obj_name)
         object_hidden = self.remove_object(obj_name)
-        return object_hidden and obj_name in self._hidden_objects
+        return object_hidden and (obj_name in self._hidden_objects)
 
     def unhide_object(self, obj_name: str) -> bool:
         """Unhide the named object for the purposes of collision checking.
