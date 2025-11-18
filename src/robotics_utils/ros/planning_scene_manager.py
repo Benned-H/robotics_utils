@@ -97,7 +97,7 @@ class PlanningSceneManager(KinematicSimulator):
         if removed:
             self._added_objects.discard(obj_name)
 
-        return remove
+        return removed
 
     def hide_object(self, obj_name: str) -> bool:
         """Hide the named object for the purposes of collision checking.
