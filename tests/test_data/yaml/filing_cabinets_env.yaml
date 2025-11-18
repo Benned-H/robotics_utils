@@ -39,19 +39,18 @@ collision_models:
 
 containers:
   closed_cabinet:
-    closed_model: filing_cabinet_closed
+    status: closed
     open_model: filing_cabinet_open
+    closed_model: filing_cabinet_closed
     contains: [cup1]
-    state: closed
 
   open_cabinet1:
-    closed_model: filing_cabinet_closed
+    status: open
     open_model: filing_cabinet_open
+    closed_model: filing_cabinet_closed
     contains: [eraser1]
-    state: open
 
   open_cabinet2:
-    closed_model: filing_cabinet_closed
+    status: open
     open_model: filing_cabinet_open
-    contains: []
-    state: open
+    closed_model: filing_cabinet_closed

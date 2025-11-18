@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 import rospy
 import yaml
@@ -14,9 +14,10 @@ from robotics_utils.ros.call_loop_thread import CallLoopThread
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.state_estimation import PoseEstimateAverager
-from robotics_utils.vision import RGBCamera
-from robotics_utils.vision.fiducials.tag_detector import AprilTagDetector
-from robotics_utils.vision.fiducials.visual_fiducials import FiducialMarker, FiducialSystem
+from robotics_utils.vision.fiducials import AprilTagDetector, FiducialMarker, FiducialSystem
+
+if TYPE_CHECKING:
+    from robotics_utils.vision import RGBCamera
 
 
 class TagTracker:

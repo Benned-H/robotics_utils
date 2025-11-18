@@ -61,7 +61,7 @@ class MoveItMotionPlanner:
             rospy.logerr(f"Motion planning error code: {error_code}.")
 
         # Reset any modifications to the planning scene before exiting
-        if not self._planning_scene.unapply_query_ignores(query):
+        if not self._planning_scene.revert_query_ignores(query):
             error_msg = f"Unable to revert collision ignores for motion planning: {query}"
             rospy.logerr(error_msg)
             raise RuntimeError(error_msg)

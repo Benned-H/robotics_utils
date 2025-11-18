@@ -10,7 +10,7 @@ from robotics_utils.kinematics.kinematic_tree import KinematicTree
 @pytest.fixture
 def container_env_yaml() -> Path:
     """Return a path to a YAML file specifying an environment with containers."""
-    env_yaml = Path(__file__).parent / "test_data/filing_cabinets_env.yaml"
+    env_yaml = Path(__file__).parent / "test_data/yaml/filing_cabinets_env.yaml"
     assert env_yaml.exists(), f"Expected to find file: {env_yaml}"
     return env_yaml
 

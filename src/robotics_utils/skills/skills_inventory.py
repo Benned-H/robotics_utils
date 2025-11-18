@@ -84,10 +84,13 @@ class SkillsInventory:
         :param protocol: Python protocol specifying skill signatures
         :return: Constructed SkillsInventory instance
         """
+        if not isinstance(protocol, type):
+            raise TypeError(f"Type of provided skills protocol: {type(protocol)}")
+
         skill_methods = get_skill_methods(protocol)
         skills = [Skill.from_method(method) for method in skill_methods]
 
-        return SkillsInventory(name=type(protocol).__name__, skills=skills)
+        return SkillsInventory(name=protocol.__name__, skills=skills)
 
     def get_skill(self, skill_name: str) -> Skill:
         """Retrieve the named skill from the inventory."""

@@ -97,7 +97,7 @@ class PlanningSceneManager(KinematicSimulator):
         if removed:
             self._added_objects.discard(obj_name)
 
-        return removed
+        return remove
 
     def hide_object(self, obj_name: str) -> bool:
         """Hide the named object for the purposes of collision checking.
@@ -166,7 +166,7 @@ class PlanningSceneManager(KinematicSimulator):
 
         return True
 
-    def unapply_query_ignores(self, query: MotionPlanningQuery) -> bool:
+    def revert_query_ignores(self, query: MotionPlanningQuery) -> bool:
         """Unhide objects as indicated by the given motion planning query."""
         if query.ignore_all_collisions:
             return self.unhide_all_objects()
@@ -200,7 +200,8 @@ class PlanningSceneManager(KinematicSimulator):
         move_object_msg.header.frame_id = self.planning_frame
         move_object_msg.header.stamp = rospy.Time.now()
 
-        self.planning_scene.add_object(move_object_msg)
+        if not self.add_object_msg(move_object_msg):
+            raise RuntimeError(f"Unable to set the pose of object '{obj_name}'.")
 
     def set_collision_model(self, obj_name: str, collision_model: CollisionModel) -> None:
         """Replace the collision geometry of the named object in the MoveIt planning scene."""
@@ -214,7 +215,9 @@ class PlanningSceneManager(KinematicSimulator):
 
         obj_state = ObjectKinematicState(obj_name, obj_pose, collision_model)
         collision_obj_msg = self.make_collision_object_msg(obj_state)
-        self.add_object_msg(collision_obj_msg)
+
+        if not self.add_object_msg(collision_obj_msg):
+            raise RuntimeError(f"Unable to set the collision model for object '{obj_name}'.")
 
     def synchronize_state(self, tree: KinematicTree, attempts_per_obj: int = 3) -> bool:
         """Update the MoveIt planning scene to reflect the given kinematic state."""
