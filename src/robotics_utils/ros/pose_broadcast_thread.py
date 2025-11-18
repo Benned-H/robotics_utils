@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import rospy
 
-from robotics_utils.ros import TransformManager
+from robotics_utils.ros.transform_manager import TransformManager
 
 if TYPE_CHECKING:
     from robotics_utils.kinematics import Pose3D

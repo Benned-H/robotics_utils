@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
-from robotics_utils.collision_models import CollisionModel
 from robotics_utils.io.logging import log_info
-from robotics_utils.kinematics import Pose3D
-from robotics_utils.kinematics.kinematic_tree import KinematicTree
 from robotics_utils.states.object_kinematic_state import ObjectKinematicState
+
+if TYPE_CHECKING:
+    from robotics_utils.collision_models import CollisionModel
+    from robotics_utils.kinematics import Pose3D
+    from robotics_utils.kinematics.kinematic_tree import KinematicTree
 
 ContainerStatus = Literal["open", "closed"]
 """Status describing whether a physical container is open or closed."""

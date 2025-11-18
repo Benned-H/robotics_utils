@@ -8,8 +8,8 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
+from robotics_utils.io import console
 from robotics_utils.io.cli_handlers import INPUT_HANDLERS, ParamUI, SkillsUI
-from robotics_utils.io.logging import console
 from robotics_utils.skills import Skill, SkillsInventory, SkillsProtocol, find_default_param_values
 
 

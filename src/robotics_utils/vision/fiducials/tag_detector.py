@@ -11,11 +11,10 @@ import numpy as np
 import pupil_apriltags
 
 from robotics_utils.kinematics import Point3D, Pose3D, Quaternion
-from robotics_utils.vision import PixelXY, RGBCamera, RGBImage
+from robotics_utils.vision import CameraIntrinsics, PixelXY, RGBCamera, RGBImage
 
 if TYPE_CHECKING:
-    from robotics_utils.vision import CameraIntrinsics
-    from robotics_utils.vision.fiducials import FiducialSystem
+    from robotics_utils.vision.fiducials.visual_fiducials import FiducialSystem
 
 
 @dataclass

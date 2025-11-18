@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from types import FunctionType
-from typing import Any, Iterator, Tuple
+from typing import TYPE_CHECKING, Any, Iterator, Tuple
 
 from robotics_utils.io.string_utils import snake_to_pascal
 from robotics_utils.meta import get_default_values
 from robotics_utils.skills.skill import Skill
+
+if TYPE_CHECKING:
+    from types import FunctionType
 
 SkillsProtocol = object
 """Represents an arbitrary protocol defining skills for a particular domain."""

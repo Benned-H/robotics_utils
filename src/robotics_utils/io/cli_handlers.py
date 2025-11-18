@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 
 from click import confirm
 from rich.prompt import FloatPrompt, IntPrompt, Prompt
 
-from robotics_utils.io.logging import console
+from robotics_utils.io import console
 from robotics_utils.kinematics import Pose3D
-from robotics_utils.skills import SkillParamKey
+
+if TYPE_CHECKING:
+    from robotics_utils.skills import SkillParamKey
+
 
 InputT = TypeVar("InputT")
 """The type of an input being requested via CLI."""

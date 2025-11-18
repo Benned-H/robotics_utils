@@ -2,7 +2,7 @@
 
 import torch
 
-from robotics_utils.io.logging import log_info
+from robotics_utils.io import log_info
 from robotics_utils.math.conversions import Gi_TO_B
 from robotics_utils.vision import determine_pytorch_device
 

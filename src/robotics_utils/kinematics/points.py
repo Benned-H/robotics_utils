@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import astuple, dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -12,6 +11,7 @@ from robotics_utils.io.yaml_utils import load_yaml_data
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
+    from pathlib import Path
 
     from numpy.typing import NDArray
 
