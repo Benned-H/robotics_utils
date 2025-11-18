@@ -35,4 +35,4 @@ class PoseBroadcastThread:
 
                 rate_hz.sleep()
         except rospy.ROSInterruptException as ros_exc:
-            rospy.logwarn(f"[PoseBroadcastThread._broadcast_poses] {ros_exc}")
+            rospy.logwarn(f"[PoseBroadcastThread] {ros_exc}")
