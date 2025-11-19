@@ -11,11 +11,8 @@ from moveit_commander import RobotCommander
 from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
 
 from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.kinematics import Configuration, Pose3D
+from robotics_utils.kinematics import Pose3D
 from robotics_utils.math.distances import angle_between_quaternions_deg, euclidean_distance_3d_m
-from robotics_utils.motion_planning import MotionPlanningQuery
-from robotics_utils.ros.moveit_motion_planner import MoveItMotionPlanner
-from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
 from robotics_utils.ros.transform_manager import TransformManager
 
 if TYPE_CHECKING:
@@ -26,7 +23,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class RelativeTrajectoryConfig:
-    """Configures the trajectory replayer when loading a relative trajectory from file."""
+    """Configures the trajectory replayer when filtering and executing trajectories."""
 
     min_pose_diff_m: float = 0.02
     """Minimum distance (meters) between filtered consecutive poses."""
@@ -48,11 +45,6 @@ class TrajectoryPlayback:
 
         self.robot = RobotCommander()
         self.manipulator = manipulator
-
-        self.moveit_planner = MoveItMotionPlanner(
-            self.manipulator,
-            PlanningSceneManager(move_group_name=self.manipulator.name),
-        )
 
         self.display_trajectory_pub = rospy.Publisher(
             "/move_group/display_planned_path",
@@ -117,34 +109,19 @@ class TrajectoryPlayback:
         if not waypoints:
             return None, 0
 
-        plan, fraction = self.moveit_planner.compute_cartesian_plan(
+        plan_msg, fraction = self.manipulator.motion_planner.compute_cartesian_plan(
             waypoints,
             ee_step_m=self.config.plan_ee_step_m,
             avoid_collisions=False,
         )
 
-        if plan is not None:
-            self.visualize_plan(plan)
-        rospy.logwarn(f"MoveIt's plan followed {fraction * 100.0:.2f}% of the trajectory.")
+        if plan_msg is not None:
+            self.visualize_plan(plan_msg)
+
+        rospy.loginfo(f"MoveIt's plan followed {fraction * 100.0:.2f}% of the trajectory.")
 
         n = floor(fraction * len(waypoints))
-        return (plan if n > 0 else None, n)
-
-    def _bridge_ik(self, pose: Pose3D) -> bool:
-        """Attempt to reach the given end-effector pose using an IK solution."""
-        q = self.manipulator.compute_ik(pose)
-        if q is None:
-            return False
-
-        # Plan to the IK solution
-        query = MotionPlanningQuery(q)
-        plan = self.moveit_planner.compute_motion_plan(query)
-        if plan is None:
-            return False
-
-        # Execute the plan
-        self.manipulator.execute_motion_plan(plan)
-        return True
+        return (plan_msg if n > 0 else None, n)
 
     def execute_hybrid_cartesian_sequence(self, poses: list[Pose3D]) -> bool:
         """Compute and execute a Cartesian trajectory through the given end-effector poses.
@@ -157,12 +134,10 @@ class TrajectoryPlayback:
         next_idx = 0  # Index of the earliest unreached waypoint
         while next_idx < len(filtered_poses):
             waypoints_left = filtered_poses[next_idx:]
-            plan, n = self._compute_cartesian_prefix(waypoints_left)
+            plan_msg, n = self._compute_cartesian_prefix(waypoints_left)
 
-            if plan is not None:  # Visualize and execute the prefix if successful
-                self.visualize_plan(plan)
-
-                if not self.manipulator.execute_trajectory_msg(plan):
+            if plan_msg is not None:  # Execute the prefix if successful
+                if not self.manipulator.execute_trajectory_msg(plan_msg):
                     rospy.logwarn(f"Failed to execute trajectory starting at waypoint {next_idx}.")
                     return False
 
@@ -171,7 +146,7 @@ class TrajectoryPlayback:
 
             # Otherwise, we failed to find a plan, so attempt to bridge using IK
             next_pose = filtered_poses[next_idx]
-            if not self._bridge_ik(next_pose):
+            if not self.manipulator.go_to(target=next_pose, max_retries=1):
                 rospy.logwarn(f"Failed to bridge using IK solution for pose {next_idx}.")
                 return False
             next_idx += 1
@@ -184,22 +159,3 @@ class TrajectoryPlayback:
         display_trajectory.trajectory_start = self.robot.get_current_state()
         display_trajectory.trajectory = [plan]
         self.display_trajectory_pub.publish(display_trajectory)
-
-    def go_to(self, config: Configuration, max_retries: int = 3) -> bool:
-        """Plan and execute a motion to bring the manipulator to the given configuration.
-
-        :param config: Target joint configuration
-        :param max_retries: Maximum number of planning attempts
-        :return: True if motion was successfully planned and executed, False otherwise
-        """
-        query = MotionPlanningQuery(config)
-
-        for attempt in range(max_retries):
-            plan = self.moveit_planner.compute_motion_plan(query)
-            if plan is not None:
-                self.manipulator.execute_motion_plan(plan)
-                return True
-            rospy.logwarn(f"Motion planning attempt {attempt + 1}/{max_retries} failed.")
-
-        rospy.logerr(f"Failed to plan motion to configuration after {max_retries} attempts.")
-        return False

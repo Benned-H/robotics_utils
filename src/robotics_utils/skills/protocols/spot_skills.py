@@ -27,8 +27,6 @@ from robotics_utils.kinematics.kinematic_tree import KinematicTree
 from robotics_utils.motion_planning import MotionPlanningQuery
 from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import (
-    MoveItMotionPlanner,
-    PlanningSceneManager,
     PoseBroadcastThread,
     ServiceCaller,
     trigger_service,
@@ -104,8 +102,6 @@ class SpotSkillsProtocol(SkillsProtocol):
         )
 
         self._arm = MoveItManipulator(name="arm", base_frame="body", gripper=self._gripper)
-        self._planning_scene = PlanningSceneManager(move_group_name=self._arm.name)
-        self._motion_planner = MoveItMotionPlanner(self._arm, self._planning_scene)
 
         self._pose_broadcaster = PoseBroadcastThread()
 
@@ -249,14 +245,14 @@ class SpotSkillsProtocol(SkillsProtocol):
         """
         query = MotionPlanningQuery(ee_target)
 
-        plan = self._motion_planner.compute_motion_plan(query)
-        if plan is None:
+        plan_msg = self._arm.motion_planner.compute_motion_plan(query)
+        if plan_msg is None:
             return SkillOutcome(success=False, message="No motion plan found.")
 
         with console.status("Executing trajectory..."):
-            self._arm.execute_motion_plan(plan)
+            success = self._arm.execute_trajectory_msg(plan_msg)
 
-        return SkillOutcome(success=True, message="Motion plan has been executed.")
+        return SkillOutcome(success=success, message="Motion plan has been executed.")
 
     @skill_method
     def _lookup_pose(self, frame: str, ref_frame: str) -> SkillOutcome:

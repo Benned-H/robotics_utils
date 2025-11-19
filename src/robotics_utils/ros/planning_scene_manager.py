@@ -7,7 +7,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import rospy
-from moveit_commander import MoveGroupCommander, PlanningSceneInterface
+from moveit_commander import PlanningSceneInterface
 from moveit_msgs.msg import CollisionObject
 
 from robotics_utils.kinematics import Pose3D
@@ -32,17 +32,14 @@ if TYPE_CHECKING:
 class PlanningSceneManager(KinematicSimulator):
     """A manager to update the state of the MoveIt planning scene."""
 
-    def __init__(self, move_group_name: str = "arm") -> None:
+    def __init__(self, *, planning_frame: str = "body") -> None:
         """Initialize an interface for the MoveIt planning scene.
 
-        :param move_group_name: Name of the move group controlled by MoveIt
+        :param planning_frame: Reference frame used by MoveIt for motion planning
         """
+        self.planning_frame = planning_frame
         self.planning_scene = PlanningSceneInterface()
         rospy.sleep(3)  # Allow time for the scene to initialize
-
-        self._move_group = MoveGroupCommander(move_group_name)
-        self.planning_frame = str(self._move_group.get_planning_frame())
-        rospy.loginfo(f"MoveIt planning frame: '{self.planning_frame}'.")
 
         self._added_objects: set[str] = set()
         """Names of all objects added to the planning scene (doesn't include hidden objects)."""
@@ -54,10 +51,10 @@ class PlanningSceneManager(KinematicSimulator):
         """Maps each robot name to the names of objects attached to that robot."""
 
     @classmethod
-    def populate_from_yaml(cls, yaml_path: Path) -> tuple[bool, str]:
+    def populate_from_yaml(cls, yaml_path: Path, *, planning_frame: str) -> tuple[bool, str]:
         """Populate the MoveIt planning scene by loading from the given YAML file."""
         tree = KinematicTree.from_yaml(yaml_path)
-        scene = PlanningSceneManager()
+        scene = PlanningSceneManager(planning_frame=planning_frame)
         success = scene.synchronize_state(tree)
         message = (
             f"Loaded MoveIt planning scene from YAML file: {yaml_path}."

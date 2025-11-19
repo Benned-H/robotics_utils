@@ -10,8 +10,10 @@ import rospy
 from moveit_commander import MoveGroupCommander, roscpp_initialize
 from trac_ik_python.trac_ik import IK
 
+from robotics_utils.motion_planning import MotionPlanningQuery
 from robotics_utils.robots import Manipulator
 from robotics_utils.ros import TransformManager, get_ros_param
+from robotics_utils.ros.moveit_motion_planner import MoveItMotionPlanner
 from robotics_utils.ros.msg_conversion import trajectory_to_msg
 
 if TYPE_CHECKING:
@@ -38,6 +40,8 @@ class MoveItManipulator(Manipulator):
         roscpp_initialize(sys.argv)
         self.move_group = MoveGroupCommander(move_group_name, wait_for_servers=30)
         self.move_group.set_pose_reference_frame(self.base_frame)
+
+        self.motion_planner = MoveItMotionPlanner(self.move_group, planning_frame=self.base_frame)
 
         self._ee_link: str = self.move_group.get_end_effector_link()
 
@@ -77,7 +81,7 @@ class MoveItManipulator(Manipulator):
         return dict(zip(self.joint_names, joint_values))
 
     def get_current_ee_pose(self, timeout_s: float = 3.0) -> Pose3D | None:
-        """Find the current pose of the end-effector pose w.r.t. the base frame.
+        """Find the current pose of the end-effector w.r.t. the base frame.
 
         :param timeout_s: Duration (seconds) after which the pose lookup times out
         :return: End-effector pose in the manipulator's base frame, or None if /tf lookup fails
@@ -119,6 +123,24 @@ class MoveItManipulator(Manipulator):
         success = self.move_group.execute(traj_msg, wait=wait)
         self.move_group.stop()  # Ensure there's no residual movement
         return success
+
+    def go_to(self, target: Configuration | Pose3D, max_retries: int = 3) -> bool:
+        """Plan and execute a motion to bring the manipulator to an end-effector target.
+
+        :param target: Target joint configuration or end-effector pose
+        :param max_retries: Maximum number of planning attempts (defaults to 3)
+        :return: True if motion was successfully planned and executed, False otherwise
+        """
+        query = MotionPlanningQuery(ee_target=target)
+
+        for attempt in range(max_retries):
+            plan_msg = self.motion_planner.compute_motion_plan(query)
+            if plan_msg is not None:
+                return self.execute_trajectory_msg(plan_msg)
+            rospy.logwarn(f"Motion planning attempt {attempt + 1}/{max_retries} failed.")
+
+        rospy.logerr(f"Failed to plan motion to configuration after {max_retries} attempts.")
+        return False
 
     def compute_ik(self, ee_target: Pose3D) -> Configuration | None:
         """Compute an inverse kinematics solution to place the end-effector at the given pose.

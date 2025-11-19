@@ -9,14 +9,15 @@ from moveit_msgs.msg import MoveItErrorCodes, RobotTrajectory
 
 from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros.msg_conversion import pose_to_msg, pose_to_stamped_msg
+from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
 from robotics_utils.ros.transform_manager import TransformManager as TFManager
 
 if TYPE_CHECKING:
     from geometry_msgs.msg import Pose as PoseMsg
+    from moveit_commander import MoveGroupCommander
 
     from robotics_utils.motion_planning import MotionPlanningQuery
-    from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
-    from robotics_utils.ros.robots import MoveItManipulator
+
 
 MoveItResult = Tuple[bool, RobotTrajectory, float, MoveItErrorCodes]
 """Boolean success, trajectory message, planning time (s), and error codes.
@@ -28,10 +29,11 @@ Reference: https://tinyurl.com/moveit-noetic-plan
 class MoveItMotionPlanner:
     """An interface for computing motion plans using MoveIt."""
 
-    def __init__(self, manipulator: MoveItManipulator, psm: PlanningSceneManager) -> None:
-        """Initialize the motion planner with the manipulator it will plan for."""
-        self._manipulator = manipulator
-        self._planning_scene = psm
+    def __init__(self, move_group: MoveGroupCommander, planning_frame: str) -> None:
+        """Initialize the MoveIt motion planner with an interface to the relevant move group."""
+        self._move_group = move_group
+        self.planning_frame = planning_frame
+        self._planning_scene = PlanningSceneManager(planning_frame=planning_frame)
 
     def compute_motion_plan(self, query: MotionPlanningQuery) -> RobotTrajectory | None:
         """Compute a motion plan (i.e., trajectory) for the given planning query.
@@ -45,16 +47,16 @@ class MoveItMotionPlanner:
             raise RuntimeError(error_msg)
 
         if isinstance(query.ee_target, Pose3D):
-            target_b_ee = TFManager.convert_to_frame(query.ee_target, self._manipulator.base_frame)
+            target_b_ee = TFManager.convert_to_frame(query.ee_target, self.planning_frame)
             ee_target_msg = pose_to_stamped_msg(target_b_ee)
-            self._manipulator.move_group.set_pose_target(ee_target_msg)
+            self._move_group.set_pose_target(ee_target_msg)
         elif isinstance(query.ee_target, dict):  # Configuration maps joint names to their values
-            self._manipulator.move_group.set_joint_value_target(query.ee_target)
+            self._move_group.set_joint_value_target(query.ee_target)
         else:
             raise TypeError(f"Unrecognized end-effector target type: {type(query.ee_target)}.")
 
-        self._manipulator.move_group.set_start_state_to_current_state()
-        result: MoveItResult = self._manipulator.move_group.plan()
+        self._move_group.set_start_state_to_current_state()
+        result: MoveItResult = self._move_group.plan()
         success, robot_traj, planning_time_s, error_code = result
 
         outcome_desc = "succeeded" if success else "failed"
@@ -93,11 +95,11 @@ class MoveItMotionPlanner:
         # Convert waypoints to base frame and then to messages
         waypoint_msgs: list[PoseMsg] = []
         for wp in waypoints:
-            pose_b_ee = TFManager.convert_to_frame(wp, self._manipulator.base_frame)
+            pose_b_ee = TFManager.convert_to_frame(wp, self.planning_frame)
             waypoint_msgs.append(pose_to_msg(pose_b_ee))
 
-        self._manipulator.move_group.set_start_state_to_current_state()
-        plan, fraction = self._manipulator.move_group.compute_cartesian_path(
+        self._move_group.set_start_state_to_current_state()
+        plan, fraction = self._move_group.compute_cartesian_path(
             waypoint_msgs,
             eef_step=ee_step_m,
             avoid_collisions=avoid_collisions,
