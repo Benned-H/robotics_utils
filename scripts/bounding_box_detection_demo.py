@@ -9,7 +9,7 @@ import click
 from robotics_utils.io.repls import ObjectDetectionREPL
 from robotics_utils.vision import RGBImage
 from robotics_utils.vision.vlms import DetectedBoundingBoxes, OwlViTBoundingBoxDetector
-from robotics_utils.vision.vlms.gemini_robotics_er import GeminiRoboticsER
+from robotics_utils.vision.vlms.gemini import GeminiRoboticsER
 from robotics_utils.visualization import display_in_window
 
 

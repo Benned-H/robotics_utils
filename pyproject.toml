@@ -17,7 +17,7 @@ dependencies = ["click", "rich", "numpy", "trimesh", "pyquaternion"]
 
 # Optional dependencies to support computer vision applications
 vision = [
-    "torch",
+    "torch == 2.4.1",         # Last version of PyTorch to support Python 3.8
     "torchvision",
     "transformers >= 4.21.3", # OwlViTProcessor was introduced in 4.21
     "pillow",

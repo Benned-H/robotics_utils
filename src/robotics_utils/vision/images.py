@@ -25,12 +25,14 @@ class Image(ABC, Displayable):
     def convert_for_visualization(self) -> NDArray[np.uint8]:
         """Convert the image data into a form that can be visualized."""
 
-    def __init__(self, data: NDArray) -> None:
+    def __init__(self, data: NDArray, filepath: Path | None = None) -> None:
         """Initialize the image using the given array."""
         if len(data.shape) < 2:
             raise ValueError(f"Image expects at least 2-dim. data, got {data.shape}")
 
         self.data = data
+        self.filepath = filepath
+        """Optional filepath from which this image was loaded."""
 
     @property
     def height(self) -> int:
@@ -49,11 +51,11 @@ class Image(ABC, Displayable):
 
     def clip_x(self, pixel_x: int) -> int:
         """Clip a pixel x-coordinate into the image."""
-        return np.clip(pixel_x, a_min=0, a_max=self.width - 1)
+        return max(0, min(pixel_x, self.width - 1))
 
     def clip_y(self, pixel_y: int) -> int:
         """Clip a pixel y-coordinate into the image."""
-        return np.clip(pixel_y, a_min=0, a_max=self.height - 1)
+        return max(0, min(pixel_y, self.height - 1))
 
     def clip_pixel(self, pixel_xy: PixelXY) -> PixelXY:
         """Clip the given (x,y) coordinate of a pixel into the image."""
@@ -91,9 +93,9 @@ class Image(ABC, Displayable):
 class RGBImage(Image):
     """An RGB image represented as a NumPy array of shape (H, W, 3)."""
 
-    def __init__(self, data: NDArray) -> None:
+    def __init__(self, data: NDArray, filepath: Path | None = None) -> None:
         """Initialize the RGB image using the given array of data."""
-        super().__init__(data)
+        super().__init__(data, filepath)
 
         # Verify expected properties of RGB image data
         if len(self.data.shape) != 3:
@@ -122,7 +124,7 @@ class RGBImage(Image):
             raise RuntimeError(f"Failed to load image from path: {image_path}")
 
         rgb_data = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        return RGBImage(rgb_data)
+        return RGBImage(rgb_data, image_path)
 
     def to_file(self, image_path: str | Path) -> None:
         """Save the RGB image to the given filepath."""
@@ -138,9 +140,9 @@ class RGBImage(Image):
 class DepthImage(Image):
     """A depth image represented as a NumPy array of shape (H, W)."""
 
-    def __init__(self, data: NDArray) -> None:
+    def __init__(self, data: NDArray, filepath: Path | None = None) -> None:
         """Initialize the depth image using an array of shape (H, W) of depth data (in meters)."""
-        super().__init__(data)
+        super().__init__(data, filepath)
 
         # Verify expected properties of depth image data
         if len(self.data.shape) != 2:
@@ -212,9 +214,18 @@ class PixelXY:
     @property
     def x(self) -> int:
         """Retrieve the x-coordinate of this pixel."""
-        return self.xy[0]
+        return self.xy[0].item()
 
     @property
     def y(self) -> int:
         """Retrieve the y-coordinate of this pixel."""
-        return self.xy[1]
+        return self.xy[1].item()
+
+    @classmethod
+    def from_json(cls, json_data: dict) -> PixelXY:
+        """Construct a PixelXY from JSON data."""
+        return PixelXY((int(json_data["x"]), int(json_data["y"])))
+
+    def to_json(self) -> dict:
+        """Convert the PixelXY to a dictionary of JSON data."""
+        return {"x": self.x, "y": self.y}

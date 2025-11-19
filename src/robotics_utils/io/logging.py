@@ -13,6 +13,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 console = Console()
+error_console = Console(stderr=True)
 
 
 def log_info(message: str) -> None:

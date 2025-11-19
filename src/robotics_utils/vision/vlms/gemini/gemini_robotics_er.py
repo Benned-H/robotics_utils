@@ -33,8 +33,8 @@ from robotics_utils.vision.vlms.bounding_box_detection import (
     DetectedBoundingBoxes,
 )
 from robotics_utils.vision.vlms.keypoint_detection import (
-    DetectedKeypoint,
-    DetectedKeypoints,
+    KeypointDetection,
+    KeypointDetections,
     KeypointDetector,
 )
 
@@ -149,7 +149,7 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
         console.print(f"\nTotal processing time: {(time.time() - start_time):.4f} seconds.")
         return output
 
-    def detect_keypoints(self, image: RGBImage, queries: list[str]) -> DetectedKeypoints:
+    def detect_keypoints(self, image: RGBImage, queries: list[str]) -> KeypointDetections:
         """Detect object keypoints matching text queries in the given image.
 
         :param image: RGB image to detect objects within
@@ -174,7 +174,7 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
         points_data = self.call(copied, prompt)
         if points_data is None or not isinstance(points_data, list):
             console.print(f"Unexpected output from Gemini: {points_data}")
-            return DetectedKeypoints([], image)
+            return KeypointDetections([], image)
 
         # Convert the JSON data to object keypoints (i.e., convert 0-1000 to image pixel coords)
         keypoints = []
@@ -188,9 +188,9 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
             pixel_y = int(y_ratio * image.height)
             pixel_xy = image.clip_pixel(PixelXY((pixel_x, pixel_y)))
 
-            keypoints.append(DetectedKeypoint(query=det["label"], keypoint=pixel_xy))
+            keypoints.append(KeypointDetection(query=det["label"], keypoint=pixel_xy))
 
-        return DetectedKeypoints(detections=keypoints, image=image)
+        return KeypointDetections(detections=keypoints, image=image)
 
     def detect_bounding_boxes(self, image: RGBImage, queries: list[str]) -> DetectedBoundingBoxes:
         """Detect object bounding boxes matching text queries in the given image.

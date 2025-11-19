@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import platform
+from typing import Tuple
 
 import torch
+
+RGB = Tuple[int, int, int]
 
 
 def determine_pytorch_device() -> torch.device:

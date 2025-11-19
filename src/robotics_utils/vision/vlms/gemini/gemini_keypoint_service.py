@@ -2,15 +2,17 @@
 
 # /// script
 # dependencies = [
-#   "google-genai>=0.2.0",
+#   "google-genai>=1.39.0", # Gemini Robotics-ER 1.5 was introduced on 9/25/25 (circa 1.39.0)
 #   "numpy>=1.24.0",
 #   "pillow>=10.0.0",
+#   "robotics_utils[gemini] @ file:///${ROBOTICS_UTILS_ROOT}",
 # ]
-# requires-python = ">=3.10"
+# requires-python = ">=3.10" # Needed to support the latest version of google-genai
 # ///
+
 """Standalone service for Gemini keypoint detection.
 
-This script runs in a modern Python environment (3.12+) with google-genai installed.
+This script runs in a modern Python environment (3.10+) with google-genai installed.
 It's designed to be called from older Python environments (like ROS 1 Noetic's Python 3.8)
 via subprocess, communicating through JSON I/O.
 
@@ -18,7 +20,7 @@ The dependencies are specified inline using PEP 723 script metadata, so uv will
 automatically handle the virtual environment and package installation.
 
 Usage:
-    uv run --python 3.12 gemini_keypoint_service.py <image_path> <query1> [query2] [...]
+    uv run gemini_keypoint_service.py <image_path> <query1> [query2] [...]
 
 Environment Variables:
     GEMINI_API_KEY or GOOGLE_API_KEY: Required API key for Gemini access
@@ -31,13 +33,15 @@ import os
 import sys
 from pathlib import Path
 
+from robotics_utils.io import error_console
 from robotics_utils.vision import RGBImage
-from robotics_utils.vision.vlms.gemini_robotics_er import GeminiRoboticsER
+from robotics_utils.vision.vlms.gemini import GeminiRoboticsER
 
 
 def propagate_error(message: str) -> None:
-    """Propagate the error message to stderr so that caller processes can access it, then exit."""
-    print(json.dumps({"error": message}), file=sys.stderr)
+    """Propagate the error message as JSON to the parent process, then exit."""
+    error_output = {"success": False, "error": message}
+    error_console.print(json.dumps(error_output))
     sys.exit(1)
 
 
@@ -60,25 +64,25 @@ def main() -> None:
     try:
         image = RGBImage.from_file(image_path)
         detector = GeminiRoboticsER(api_key=api_key, timeout_s=30.0)
-        result = detector.detect_keypoints(image, queries)
+        detections = detector.detect_keypoints(image, queries)
 
-        # Convert result to JSON-serializable format
-        output = {
-            "success": True,
-            "detections": [
-                {
-                    "query": det.query,
-                    "keypoint": {"x": det.keypoint.x, "y": det.keypoint.y},
-                }
-                for det in result.detections
-            ],
-        }
+        json_data = detections.to_json()
+        json_output = {"success": True, "output": json_data}
 
-        # Output JSON to stdout
-        print(json.dumps(output))
+        # Ensure that the JSON is the last line of stdout (for parent process to parse)
+        dumped_json = json.dumps(json_output).replace("\n", "")
+        print(dumped_json)  # noqa: T201
 
-    except Exception as e:  # On error, output error JSON to stderr
-        propagate_error(f"{type(e).__name__}: {e!s}")
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        if exc_tb is None:
+            file_line = ""
+        else:
+            exc_file = Path(exc_tb.tb_frame.f_code.co_filename).name
+            exc_line = exc_tb.tb_lineno
+            file_line = f" ({exc_file}, line {exc_line})"
+
+        propagate_error(f"{type(e).__name__}: {e!s}{file_line}")
 
 
 if __name__ == "__main__":

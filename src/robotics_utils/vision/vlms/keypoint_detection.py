@@ -9,19 +9,36 @@ from typing import TYPE_CHECKING, Protocol
 import cv2
 import numpy as np
 
+from robotics_utils.vision import PixelXY, RGBImage
 from robotics_utils.visualization import Displayable
 
 if TYPE_CHECKING:
-    from robotics_utils.vision import RGB, PixelXY, RGBImage
+    from robotics_utils.vision import RGB
 
 
 @dataclass(frozen=True)
-class DetectedKeypoint:
+class KeypointDetection:
     """A pixel keypoint for a detected object in an image."""
 
     query: str
     keypoint: PixelXY
     score: float | None = None
+
+    @classmethod
+    def from_json(cls, json_data: dict) -> KeypointDetection:
+        """Construct a KeypointDetection from JSON data."""
+        return KeypointDetection(
+            query=json_data["query"],
+            keypoint=PixelXY.from_json(json_data["keypoint"]),
+            score=float(json_data["score"]) if "score" in json_data else None,
+        )
+
+    def to_json(self) -> dict:
+        """Convert the detected keypoint to a dictionary of JSON data."""
+        json_data = {"query": self.query, "keypoint": self.keypoint.to_json()}
+        if self.score is not None:
+            json_data["score"] = self.score
+        return json_data
 
     def draw(self, image: RGBImage, color: RGB, radius: int = 5, thickness: int = 3) -> None:
         """Draw the object keypoint as a labeled circle on the given image.
@@ -39,10 +56,10 @@ class DetectedKeypoint:
 
 
 @dataclass(frozen=True)
-class DetectedKeypoints(Displayable):
+class KeypointDetections(Displayable):
     """A collection of detected object keypoints in an image."""
 
-    detections: list[DetectedKeypoint]
+    detections: list[KeypointDetection]
     image: RGBImage
     """Image in which the object keypoints were found."""
 
@@ -65,15 +82,33 @@ class DetectedKeypoints(Displayable):
         bgr_data = cv2.cvtColor(rgb_image.data, cv2.COLOR_RGB2BGR)
         return bgr_data.astype(np.uint8)
 
+    @classmethod
+    def from_json(cls, json_data: dict) -> KeypointDetections:
+        """Construct a KeypointDetections from JSON data."""
+        return KeypointDetections(
+            detections=[KeypointDetection.from_json(d) for d in json_data["detections"]],
+            image=RGBImage.from_file(json_data["image_path"]),
+        )
+
+    def to_json(self) -> dict:
+        """Convert the collection of keypoint detections into a dictionary of JSON data."""
+        if self.image.filepath is None:
+            raise ValueError("Cannot convert keypoint detections to JSON; image has no filepath.")
+
+        return {
+            "detections": [det.to_json() for det in self.detections],
+            "image_path": str(self.image.filepath.resolve()),
+        }
+
 
 class KeypointDetector(Protocol):
     """Detect keypoints for objects in images based on text queries."""
 
-    def detect_keypoints(self, image: RGBImage, queries: list[str]) -> DetectedKeypoints:
+    def detect_keypoints(self, image: RGBImage, queries: list[str]) -> KeypointDetections:
         """Detect object keypoints matching text queries in the given image.
 
         :param image: RGB image to detect objects within
         :param queries: Text queries describing the object(s) to be detected
-        :return: Collection of detected object keypoints matching the queries
+        :return: Collection of object keypoint detections matching the queries
         """
         ...

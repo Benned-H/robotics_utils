@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import tkinter as tk
+from os import environ
+from pathlib import Path
+from sys import base_prefix
 from typing import TYPE_CHECKING, Protocol
 
 import cv2
@@ -13,7 +16,19 @@ if TYPE_CHECKING:
 
 
 def find_screen_resolution() -> tuple[int, int]:
-    """Find the resolution (H, W) of the current screen."""
+    """Find the resolution (H, W) of the current screen.
+
+    Reference for fixing tkinter installation issues:
+        https://github.com/astral-sh/uv/issues/7036#issuecomment-2440145724
+    """
+    if not ("TCL_LIBRARY" in environ and "TK_LIBRARY" in environ):
+        try:
+            tk.Tk()
+        except tk.TclError:
+            tk_path = Path(base_prefix) / "lib"
+            environ["TCL_LIBRARY"] = str(next(tk_path.glob("tcl8.*")))
+            environ["TK_LIBRARY"] = str(next(tk_path.glob("tk8.*")))
+
     root = tk.Tk()
     h_px = root.winfo_screenheight()
     w_px = root.winfo_screenwidth()
