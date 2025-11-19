@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import cv2
-import numpy as np
-from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    import numpy as np
+    from numpy.typing import NDArray
 
 
 def find_screen_resolution() -> tuple[int, int]:

@@ -29,6 +29,8 @@ from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import (
     PoseBroadcastThread,
     ServiceCaller,
+    TransformManager,
+    TransformRecorder,
     trigger_service,
 )
 from robotics_utils.ros.msg_conversion import pose_from_msg
@@ -51,6 +53,8 @@ class SpotSkillsConfig:
     markers_yaml: Path
     """Path to a YAML file specifying a fiducial marker system."""
 
+    robot_name: str = "Spot"
+
     pose_estimate_window_size: int = 15
     """Number of poses used in the rolling average estimate for each frame."""
 
@@ -71,7 +75,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
     def __init__(self, config: SpotSkillsConfig) -> None:
         """Initialize the Spot skills executor."""
-        self.robot_name = "Spot"
+        self.robot_name = config.robot_name
 
         self._waypoints = Waypoints.from_yaml(config.env_yaml)
 
@@ -79,14 +83,17 @@ class SpotSkillsProtocol(SkillsProtocol):
             "/spot/navigation/to_waypoint",
             NameService,
         )
+
         self._traj_playback_caller = ServiceCaller[
             PlaybackTrajectoryRequest,
             PlaybackTrajectoryResponse,
-        ]("spot/playback_trajectory", PlaybackTrajectory)
+        ]("spot/playback_trajectory", PlaybackTrajectory)  # TODO: Is this needed?
+
         self._open_door_caller = ServiceCaller[OpenDoorRequest, OpenDoorResponse](
             "spot/open_door",
             OpenDoor,
         )
+
         self._pose_lookup_caller = ServiceCaller[PoseLookupRequest, PoseLookupResponse](
             "pose_lookup",
             PoseLookup,
@@ -227,14 +234,16 @@ class SpotSkillsProtocol(SkillsProtocol):
     @skill_method
     def open_gripper(self) -> SkillOutcome:
         """Open Spot's gripper."""
-        self._gripper.open()
-        return SkillOutcome(success=True, message="Opened Spot's gripper.")
+        success = self._gripper.open()
+        message = "Opened Spot's gripper." if success else "Could not open Spot's gripper."
+        return SkillOutcome(success, message)
 
     @skill_method
     def close_gripper(self) -> SkillOutcome:
         """Close Spot's gripper."""
-        self._gripper.close()
-        return SkillOutcome(success=True, message="Closed Spot's gripper.")
+        success = self._gripper.close()
+        message = "Closed Spot's gripper." if success else "Could not close Spot's gripper."
+        return SkillOutcome(success, message)
 
     @skill_method
     def _move_ee_to_pose(self, ee_target: Pose3D) -> SkillOutcome:
@@ -292,7 +301,13 @@ class SpotSkillsProtocol(SkillsProtocol):
         return SkillOutcome(response.success, response.message)
 
     @skill_method
-    def open_door(self, body_pitch_rad: float, is_pull: bool, hinge_on_left: bool) -> SkillOutcome:
+    def open_door(
+        self,
+        body_pitch_rad: float,
+        *,
+        is_pull: bool,
+        hinge_on_left: bool,
+    ) -> SkillOutcome:
         """Open a door using the Spot SDK.
 
         :param body_pitch_rad: Pitch (radians) of Spot's body when taking the door handle image
@@ -305,3 +320,40 @@ class SpotSkillsProtocol(SkillsProtocol):
         if response is None:
             return SkillOutcome(False, "OpenDoor service response was None.")
         return SkillOutcome(response.success, response.message)
+
+    @skill_method
+    def _record_trajectory(
+        self,
+        output_path: Path,
+        ref_frame: str,
+        tracked_frame: str,
+        *,
+        overwrite: bool = False,
+    ) -> SkillOutcome:
+        """Record an end-effector relative trajectory and save it to YAML.
+
+        :param output_path: Path to the output YAML file
+        :param ref_frame: Reference frame used for the initial relative pose
+        :param tracked_frame: Frame tracked during the recording
+        :param overwrite: Whether to allow overwriting the output path, defaults to False
+        :return: Boolean success indicator and an outcome message
+        """
+        if not overwrite and output_path.exists():
+            return SkillOutcome(False, f"Cannot overwrite existing output path: {output_path}")
+
+        config_before = self._arm.configuration
+
+        recorder = TransformRecorder(reference_frame=ref_frame, tracked_frame=tracked_frame)
+
+        rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
+        try:
+            while not rospy.is_shutdown_requested():
+                recorder.update()
+                rate_hz.sleep()
+        except rospy.ROSInterruptException as ros_exc:
+            return SkillOutcome(False, f"{ros_exc}")
+        finally:
+            config_after = self._arm.configuration
+            recorder.save_to_file(output_path=output_path)  # TODO: Add before/after configs
+
+        return SkillOutcome(success=True, message=f"Saved to YAML file: {output_path}")

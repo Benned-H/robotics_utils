@@ -19,7 +19,7 @@ dependencies = ["click", "rich", "numpy", "trimesh", "pyquaternion"]
 vision = [
     "torch",
     "torchvision",
-    "transformers",
+    "transformers >= 4.21.3", # OwlViTProcessor was introduced in 4.21
     "pillow",
     "opencv-python",
     "pupil-apriltags",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import rospy
 from actionlib.simple_action_client import SimpleActionClient
+from actionlib_msgs.msg import GoalStatus
 from control_msgs.msg import GripperCommandAction, GripperCommandGoal
 from moveit_commander import RobotCommander
 
@@ -37,14 +38,17 @@ class ROSAngularGripper(AngularGripper):
         """Retrieve the names of the links in the gripper."""
         return list(self._robot_commander.get_link_names(group=self.grasping_group))
 
-    def move_to_angle_rad(self, target_rad: float, timeout_s: float = 10.0) -> None:
+    def move_to_angle_rad(self, target_rad: float, timeout_s: float = 10.0) -> bool:
         """Move the gripper to a target angle (radians).
 
         :param target_rad: Target angle (radians) for the gripper
         :param timeout_s: Duration (seconds) after which the motion times out (defaults to 10 sec)
+        :return: True if the action succeeded, otherwise False
         """
         goal_msg = GripperCommandGoal()
         goal_msg.command.position = target_rad
         timeout_ros = rospy.Duration.from_sec(timeout_s)
 
-        self._client.send_goal_and_wait(goal_msg, execute_timeout=timeout_ros)
+        goal_status = self._client.send_goal_and_wait(goal_msg, execute_timeout=timeout_ros)
+        rospy.loginfo(f"Outcome status of gripper command: {goal_status}.")
+        return goal_status == GoalStatus.SUCCEEDED

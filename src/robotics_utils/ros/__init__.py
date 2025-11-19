@@ -8,4 +8,7 @@ from .services import ServiceCaller as ServiceCaller
 from .services import WaitUntilServiceCalled as WaitUntilServiceCalled
 from .services import trigger_service as trigger_service
 from .tag_tracker import TagTracker as TagTracker
+from .trajectory_playback import RelativeTrajectoryConfig as RelativeTrajectoryConfig
+from .trajectory_playback import TrajectoryPlayback as TrajectoryPlayback
 from .transform_manager import TransformManager as TransformManager
+from .transform_recorder import TransformRecorder as TransformRecorder

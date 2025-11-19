@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 from PIL import Image
-from transformers import OwlViTForObjectDetection, OwlViTImageProcessorFast, OwlViTProcessor
+from transformers import OwlViTForObjectDetection, OwlViTProcessor
 
 from robotics_utils.vision import (
     BoundingBox,
@@ -28,7 +28,6 @@ class OwlViTBoundingBoxDetector(BoundingBoxDetector):
         self.model = OwlViTForObjectDetection.from_pretrained(model_name).to(self.device)
         self.model.eval()  # Set the model into evaluation mode
         self.processor = OwlViTProcessor.from_pretrained(model_name)
-        self.fast_image_processor = OwlViTImageProcessorFast()
 
     def detect_bounding_boxes(self, image: RGBImage, queries: list[str]) -> DetectedBoundingBoxes:
         """Detect object bounding boxes matching text queries in the given image.

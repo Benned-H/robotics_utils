@@ -6,9 +6,6 @@ import platform
 
 import torch
 
-RGB = tuple[int, int, int]
-"""A tuple of (red, green, blue) integer values between 0 and 255."""
-
 
 def determine_pytorch_device() -> torch.device:
     """Determine which PyTorch device to use."""

@@ -14,5 +14,4 @@ from .images import PixelXY as PixelXY
 from .images import RGBDImage as RGBDImage
 from .images import RGBImage as RGBImage
 from .pointcloud import Pointcloud as Pointcloud
-from .vision_utils import RGB as RGB
 from .vision_utils import determine_pytorch_device as determine_pytorch_device

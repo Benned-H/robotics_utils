@@ -58,7 +58,7 @@ class SkillInstance:
             )
 
         bindings: dict[str, object] = {}
-        for bound_arg_name, param in zip(args_names, skill.parameters, strict=True):
+        for bound_arg_name, param in zip(args_names, skill.parameters):  # Avoid strict=True
             if bound_arg_name not in universe:
                 raise ValueError(f"Argument '{bound_arg_name}' not found in the universe.")
 

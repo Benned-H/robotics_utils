@@ -18,16 +18,16 @@ SkillParamKey = Tuple[str, str]
 """A key identifying a skill parameter using the tuple (skill name, parameter name)."""
 
 
-def get_skill_methods(protocol: SkillsProtocol) -> list[FunctionType]:
-    """Find all skill methods specified by the given protocol."""
+def get_skill_methods(protocol: type[SkillsProtocol]) -> list[FunctionType]:
+    """Find all skill methods specified by the given protocol type."""
     all_methods = [getattr(protocol, method_name) for method_name in dir(protocol)]
     return [method for method in all_methods if hasattr(method, "_is_skill")]
 
 
-def find_default_param_values(protocol: SkillsProtocol) -> dict[SkillParamKey, Any]:
+def find_default_param_values(protocol: type[SkillsProtocol]) -> dict[SkillParamKey, Any]:
     """Find default parameter values (where specified) for skills in the given protocol.
 
-    :param protocol: Python protocol specifying skill signatures
+    :param protocol: Python protocol type specifying skill signatures
     :return: Map from (skill name, param name) keys to that parameter's default value
     """
     default_param_values = {}
@@ -78,10 +78,10 @@ class SkillsInventory:
         yield from self.skills.values()
 
     @classmethod
-    def from_protocol(cls, protocol: SkillsProtocol) -> SkillsInventory:
+    def from_protocol(cls, protocol: type[SkillsProtocol]) -> SkillsInventory:
         """Extract a skills inventory from the methods of a Python protocol.
 
-        :param protocol: Python protocol specifying skill signatures
+        :param protocol: Python protocol type specifying skill signatures
         :return: Constructed SkillsInventory instance
         """
         if not isinstance(protocol, type):

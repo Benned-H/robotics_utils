@@ -31,18 +31,19 @@ class AngularGripper(ABC):
         ...
 
     @abstractmethod
-    def move_to_angle_rad(self, target_rad: float, timeout_s: float) -> None:
+    def move_to_angle_rad(self, target_rad: float, timeout_s: float) -> bool:
         """Move the gripper to a target angle (radians).
 
         :param target_rad: Target angle (radians) for the gripper
         :param timeout_s: Duration (seconds) after which the motion times out
+        :return: True if the action succeeded, otherwise False
         """
         ...
 
-    def open(self, timeout_s: float = 10.0) -> None:
+    def open(self, timeout_s: float = 10.0) -> bool:
         """Open the gripper to its fully-open position."""
-        self.move_to_angle_rad(self.joint_limits.open_rad, timeout_s)
+        return self.move_to_angle_rad(self.joint_limits.open_rad, timeout_s)
 
-    def close(self, timeout_s: float = 10.0) -> None:
+    def close(self, timeout_s: float = 10.0) -> bool:
         """Close the gripper to its fully-closed position."""
-        self.move_to_angle_rad(self.joint_limits.closed_rad, timeout_s)
+        return self.move_to_angle_rad(self.joint_limits.closed_rad, timeout_s)

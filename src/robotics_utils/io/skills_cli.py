@@ -21,7 +21,7 @@ def _idx_to_skill(inventory: SkillsInventory) -> dict[int, Skill]:
     """
     sorted_names = sorted(skill.name for skill in inventory)
 
-    return {idx: inventory.skills[skill_name] for idx, skill_name in enumerate(sorted_names)}
+    return {idx + 1: inventory.skills[skill_name] for idx, skill_name in enumerate(sorted_names)}
 
 
 def _render_selection_table(inv: SkillsInventory) -> Table:
@@ -60,16 +60,16 @@ def _prompt_for_bindings(skill: Skill, skills_ui: SkillsUI) -> dict[str, object]
     return bindings
 
 
-def build_cli(protocol: SkillsProtocol) -> click.Command:
+def build_cli(protocol_instance: SkillsProtocol) -> click.Command:
     """Create a Click command that exposes an interactive CLI for a skills inventory.
 
-    :param protocol: Class with methods defining the structure of available skills
+    :param protocol_instance: Instance of a protocol with methods defining available skills
     :return: A Click command that can be used as an entry point or subcommand
     """
-    inventory = SkillsInventory.from_protocol(protocol)
+    inventory = SkillsInventory.from_protocol(protocol_instance.__class__)
     idx_to_skill = _idx_to_skill(inventory)
 
-    default_param_values = find_default_param_values(protocol)
+    default_param_values = find_default_param_values(protocol_instance.__class__)
     skills_ui = SkillsUI(INPUT_HANDLERS, default_param_values)
 
     unhandled_types = inventory.all_argument_types - set(skills_ui.handlers.keys())
@@ -106,7 +106,7 @@ def build_cli(protocol: SkillsProtocol) -> click.Command:
 
             console.print(Padding(f"Bindings: {bindings}", (1, 1)))
             if yes or Confirm(f"[bold]Execute {skill.name}?[/]"):
-                outcome = skill.execute(protocol, bindings)
+                outcome = skill.execute(protocol_instance, bindings)
                 color = "green" if outcome.success else "red"
                 console.print(f"[{color}]{outcome.message}[/]")
 

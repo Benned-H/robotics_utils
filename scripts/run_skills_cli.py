@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from robotics_utils.io import build_cli
+from robotics_utils.io.skills_cli import build_cli
 from robotics_utils.ros import TransformManager
 from robotics_utils.skills.protocols.spot_skills import SpotSkillsConfig, SpotSkillsProtocol
 
