@@ -81,7 +81,7 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
         api_key: str,
         model_id: str = "gemini-robotics-er-1.5-preview",
         object_limit: int = 20,
-        timeout_s: float = 10.0,
+        timeout_s: float = 20.0,
     ) -> None:
         """Initialize an interface for Gemini Robotics-ER 1.5 (preview version).
 

@@ -3669,7 +3669,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click" },
-    { name = "google-genai", marker = "python_full_version >= '3.9' and extra == 'gemini'" },
+    { name = "google-genai", marker = "python_full_version >= '3.9' and extra == 'gemini'", specifier = ">=1.39.0" },
     { name = "httpx", marker = "extra == 'gemini'" },
     { name = "numpy" },
     { name = "open3d", marker = "extra == 'realsense'" },

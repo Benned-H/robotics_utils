@@ -23,7 +23,8 @@ def find_screen_resolution() -> tuple[int, int]:
     """
     if not ("TCL_LIBRARY" in environ and "TK_LIBRARY" in environ):
         try:
-            tk.Tk()
+            root = tk.Tk()
+            root.destroy()
         except tk.TclError:
             tk_path = Path(base_prefix) / "lib"
             environ["TCL_LIBRARY"] = str(next(tk_path.glob("tcl8.*")))
