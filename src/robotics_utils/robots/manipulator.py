@@ -44,8 +44,11 @@ class Manipulator(ABC):
         return tuple(self.configuration[joint_name] for joint_name in self.joint_names)
 
     @abstractmethod
-    def execute_motion_plan(self, trajectory: Trajectory) -> None:
-        """Execute the given trajectory using the manipulator."""
+    def execute_motion_plan(self, trajectory: Trajectory) -> bool:
+        """Execute the given trajectory using the manipulator.
+
+        :return: True if execution succeeded, False otherwise
+        """
         ...
 
     @abstractmethod

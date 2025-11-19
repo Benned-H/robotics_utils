@@ -8,11 +8,13 @@ import rospy
 from moveit_msgs.msg import MoveItErrorCodes, RobotTrajectory
 
 from robotics_utils.kinematics import Pose3D
-from robotics_utils.ros.msg_conversion import pose_to_stamped_msg, trajectory_from_msg
+from robotics_utils.ros.msg_conversion import pose_to_msg, pose_to_stamped_msg
 from robotics_utils.ros.transform_manager import TransformManager as TFManager
 
 if TYPE_CHECKING:
-    from robotics_utils.motion_planning import MotionPlanningQuery, Trajectory
+    from geometry_msgs.msg import Pose as PoseMsg
+
+    from robotics_utils.motion_planning import MotionPlanningQuery
     from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
     from robotics_utils.ros.robots import MoveItManipulator
 
@@ -31,11 +33,11 @@ class MoveItMotionPlanner:
         self._manipulator = manipulator
         self._planning_scene = psm
 
-    def compute_motion_plan(self, query: MotionPlanningQuery) -> Trajectory | None:
+    def compute_motion_plan(self, query: MotionPlanningQuery) -> RobotTrajectory | None:
         """Compute a motion plan (i.e., trajectory) for the given planning query.
 
         :param query: Specifies an end-effector target and (optionally) objects to ignore
-        :return: Planned trajectory, or None if no plan is found
+        :return: Message containing the planned trajectory, or None if no plan is found
         """
         if not self._planning_scene.apply_query_ignores(query):
             error_msg = f"Unable to ignore collisions for motion planning: {query}"
@@ -51,6 +53,7 @@ class MoveItMotionPlanner:
         else:
             raise TypeError(f"Unrecognized end-effector target type: {type(query.ee_target)}.")
 
+        self._manipulator.move_group.set_start_state_to_current_state()
         result: MoveItResult = self._manipulator.move_group.plan()
         success, robot_traj, planning_time_s, error_code = result
 
@@ -66,4 +69,38 @@ class MoveItMotionPlanner:
             rospy.logerr(error_msg)
             raise RuntimeError(error_msg)
 
-        return trajectory_from_msg(robot_traj.joint_trajectory) if success else None
+        return robot_traj if success else None
+
+    def compute_cartesian_plan(
+        self,
+        waypoints: list[Pose3D],
+        ee_step_m: float = 0.01,
+        *,
+        avoid_collisions: bool = True,
+    ) -> tuple[RobotTrajectory | None, float]:
+        """Compute a Cartesian path through the given waypoints.
+
+        :param waypoints: List of target end-effector poses to follow
+        :param ee_step_m: Maximum distance (meters) between consecutive planned configurations
+        :param avoid_collisions: Whether to check for collisions during planning (defaults to True)
+        :return: Tuple containing:
+            Robot trajectory if planning succeeded, else None
+            Fraction of the path successfully computed (0.0 to 1.0)
+        """
+        if not waypoints:
+            return None, 0.0
+
+        # Convert waypoints to base frame and then to messages
+        waypoint_msgs: list[PoseMsg] = []
+        for wp in waypoints:
+            pose_b_ee = TFManager.convert_to_frame(wp, self._manipulator.base_frame)
+            waypoint_msgs.append(pose_to_msg(pose_b_ee))
+
+        self._manipulator.move_group.set_start_state_to_current_state()
+        plan, fraction = self._manipulator.move_group.compute_cartesian_path(
+            waypoint_msgs,
+            eef_step=ee_step_m,
+            avoid_collisions=avoid_collisions,
+        )
+
+        return (plan if fraction > 0.0 else None, fraction)
