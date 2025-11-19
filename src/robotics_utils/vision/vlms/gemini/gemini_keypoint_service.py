@@ -2,9 +2,6 @@
 
 # /// script
 # dependencies = [
-#   "google-genai>=1.39.0", # Gemini Robotics-ER 1.5 was introduced on 9/25/25 (circa 1.39.0)
-#   "numpy>=1.24.0",
-#   "pillow>=10.0.0",
 #   "robotics_utils[gemini] @ file:///${ROBOTICS_UTILS_ROOT}",
 # ]
 # requires-python = ">=3.10" # Needed to support the latest version of google-genai

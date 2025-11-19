@@ -51,11 +51,11 @@ class Image(ABC, Displayable):
 
     def clip_x(self, pixel_x: int) -> int:
         """Clip a pixel x-coordinate into the image."""
-        return max(0, min(pixel_x, self.width - 1))
+        return np.clip(pixel_x, a_min=0, a_max=self.width - 1)
 
     def clip_y(self, pixel_y: int) -> int:
         """Clip a pixel y-coordinate into the image."""
-        return max(0, min(pixel_y, self.height - 1))
+        return np.clip(pixel_y, a_min=0, a_max=self.height - 1)
 
     def clip_pixel(self, pixel_xy: PixelXY) -> PixelXY:
         """Clip the given (x,y) coordinate of a pixel into the image."""

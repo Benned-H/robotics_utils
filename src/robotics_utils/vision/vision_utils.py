@@ -8,6 +8,7 @@ from typing import Tuple
 import torch
 
 RGB = Tuple[int, int, int]
+"""A tuple of (red, green, blue) integer values between 0 and 255."""
 
 
 def determine_pytorch_device() -> torch.device:

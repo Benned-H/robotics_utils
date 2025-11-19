@@ -39,10 +39,10 @@ class GeminiRoboticsBridge:
 
     @staticmethod
     def call_script(api_key: str, script: Path, image_path: Path, queries: list[str]) -> dict:
-        """Call Gemini Robotics-ER using the specified script using the given inputs.
+        """Call Gemini Robotics-ER using the specified script and the given inputs.
 
         :param api_key: Google API key used to access Gemini Robotics-ER 1.5
-        :param script: Path to the Python executable that will call Gemini in a subprocess
+        :param script: Path to the Python executable to be run as a subprocess
         :param image_path: Path to the RGB image used in the relevant detections
         :param queries: List of object text queries passed to Gemini
         :return: Dictionary of JSON data output from the subprocess

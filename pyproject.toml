@@ -31,7 +31,9 @@ realsense = ["robotics-utils[vision]", "pyrealsense2", "open3d"]
 # Optional dependencies to use Gemini Robotics-ER 1.5
 gemini = [
     "robotics-utils[vision]",
-    "google-genai; python_version >= '3.9'",
+
+    # Gemini Robotics-ER 1.5 was introduced on 9/25/25 (circa 1.39.0)
+    "google-genai>=1.39.0; python_version >= '3.9'",
     "httpx",
 ]
 
