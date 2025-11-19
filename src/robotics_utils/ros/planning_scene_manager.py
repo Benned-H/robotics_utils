@@ -186,6 +186,13 @@ class PlanningSceneManager(KinematicSimulator):
         object_msgs: dict[str, CollisionObject] = self.planning_scene.get_objects([obj_name])
         return object_msgs[obj_name]
 
+    def get_object_pose(self, obj_name: str) -> Pose3D:
+        """Retrieve the pose of the named object from the MoveIt planning scene."""
+        obj_pose_msg = self.planning_scene.get_object_poses([obj_name])[obj_name]
+        obj_pose = pose_from_msg(obj_pose_msg)
+        obj_pose.ref_frame = self.planning_frame
+        return obj_pose
+
     def set_object_pose(self, obj_name: str, pose: Pose3D) -> None:
         """Update the pose of the named object in the MoveIt planning scene."""
         pose_p_o = TransformManager.convert_to_frame(pose, self.planning_frame)
@@ -202,14 +209,10 @@ class PlanningSceneManager(KinematicSimulator):
 
     def set_collision_model(self, obj_name: str, collision_model: CollisionModel) -> None:
         """Replace the collision geometry of the named object in the MoveIt planning scene."""
-        obj_pose_msg = self.planning_scene.get_object_poses([obj_name])[obj_name]
-        obj_pose = pose_from_msg(obj_pose_msg)
-        obj_pose.ref_frame = self.planning_frame
-
-        # Remove then ADD back the object with the same pose baked into new collision meshes
         self.planning_scene.remove_world_object(obj_name)
         self.wait_until_object_removed(obj_name)
 
+        obj_pose = self.get_object_pose(obj_name)
         obj_state = ObjectKinematicState(obj_name, obj_pose, collision_model)
         collision_obj_msg = self.make_collision_object_msg(obj_state)
 
