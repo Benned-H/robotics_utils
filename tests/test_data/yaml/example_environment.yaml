@@ -16,7 +16,7 @@ waypoints:
 collision_models:
   table1:
     meshes:
-      - filepath: meshes/table.glb
+      - filepath: ../meshes/table.glb
         transforms:
           - center_bounds
           - bottom_at_zero_z
