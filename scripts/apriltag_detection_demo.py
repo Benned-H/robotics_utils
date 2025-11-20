@@ -35,8 +35,8 @@ def main() -> None:
     vis_image = deepcopy(image)
 
     detections = detector._detect(image, INTRINSICS)  # noqa: SLF001
-    for d in detections:
-        d.draw_on_image(vis_image)
+    for i, det in enumerate(detections):
+        display_in_window(det, f"Detection {i + 1}/{len(detections)}")
 
     display_in_window(vis_image, window_title="AprilTag Detections")
 

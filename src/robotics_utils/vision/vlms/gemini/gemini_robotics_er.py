@@ -21,7 +21,7 @@ try:
     from httpx import ConnectTimeout
 
     GEN_AI_PRESENT = True
-except ModuleNotFoundError:
+except ImportError:
     GEN_AI_PRESENT = False
 
 

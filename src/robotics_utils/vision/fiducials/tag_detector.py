@@ -3,22 +3,27 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from copy import deepcopy
 from dataclasses import astuple, dataclass
 from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
 import pupil_apriltags
+from numpy.typing import NDArray
 
 from robotics_utils.kinematics import Point3D, Pose3D, Quaternion
 from robotics_utils.vision import CameraIntrinsics, PixelXY, RGBCamera, RGBImage
+from robotics_utils.visualization import Displayable
 
 if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
     from robotics_utils.vision.fiducials.visual_fiducials import FiducialSystem
 
 
 @dataclass
-class TagDetection:
+class TagDetection(Displayable):
     """An AprilTag detected in an image."""
 
     id: int
@@ -27,20 +32,27 @@ class TagDetection:
     hamming: int  # How many error bits were corrected?
     corners: list[PixelXY]  # Pixel coordinates of detection corners (wraps counter-clockwise)
     center: PixelXY  # Pixel coordinate of the detection's center
+    visualized: RGBImage  # Image in which the AprilTag detection has been visualized
 
     @classmethod
-    def from_pupil_apriltags(cls, d: pupil_apriltags.Detection) -> TagDetection:
-        """Construct a TagDetection instance from a pupil_apriltags.Detection object.
+    def from_pupil_apriltags(cls, d: pupil_apriltags.Detection, image: RGBImage) -> TagDetection:
+        """Construct a TagDetection from a pupil_apriltags.Detection and an RGB image.
 
         :param d: AprilTag detection in the pupil_apriltags format
+        :param image: Image in which the detection occurred
         :return: Tag detection in this dataclass format
         """
         translation = Point3D.from_array(np.asarray(d.pose_t))
         rotation = Quaternion.from_rotation_matrix(np.asarray(d.pose_R))
 
-        corners = np.asarray(d.corners).reshape((4, 2))
+        corners = np.asarray(d.corners, dtype=np.float32).reshape((4, 2))
         corner_pixels = [PixelXY(corners[row, :]) for row in range(4)]
         center_pixel = PixelXY(np.asarray(d.center))
+
+        # Draw the detection on the provided image using its corners
+        visualized_data = deepcopy(image.data)
+        ids = np.asarray([[d.tag_id]], dtype=np.int32)
+        cv2.aruco.drawDetectedMarkers(visualized_data, [corners], ids)
 
         return TagDetection(
             id=d.tag_id,
@@ -49,19 +61,12 @@ class TagDetection:
             hamming=d.hamming,
             corners=corner_pixels,
             center=center_pixel,
+            visualized=RGBImage(visualized_data),
         )
 
-    def draw_on_image(self, image: RGBImage) -> None:
-        """Visualize the AprilTag detection by drawing it on the given image.
-
-        :param image: Image drawn upon (modified in-place)
-        """
-        corners_data = [list(c) for c in self.corners]
-        corners = [np.asarray(corners_data, dtype=np.float32).reshape(4, 1, 2)]
-
-        ids = np.asarray([[self.id]], dtype=np.int32)
-
-        cv2.aruco.drawDetectedMarkers(image.data, corners, ids)
+    def convert_for_visualization(self) -> NDArray[np.uint8]:
+        """Return an image visualizing the AprilTag detection."""
+        return self.visualized.data
 
 
 class AprilTagDetector:
@@ -133,7 +138,7 @@ class AprilTagDetector:
 
             tags_of_size_cm = self._tag_ids_per_size_cm[idx]
             for raw_det in raw_detections:
-                det = TagDetection.from_pupil_apriltags(raw_det)
+                det = TagDetection.from_pupil_apriltags(raw_det, image)
                 if det.id in tags_of_size_cm:
                     output.append(det)
 
