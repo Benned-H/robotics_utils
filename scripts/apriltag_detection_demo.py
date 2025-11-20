@@ -7,7 +7,7 @@ An example image is available here:
 from copy import deepcopy
 from pathlib import Path
 
-from robotics_utils.vision import CameraIntrinsics, RGBImage
+from robotics_utils.vision import CameraIntrinsics, RGBImage, draw_axes
 from robotics_utils.vision.fiducials import (
     AprilTagDetector,
     FiducialMarker,
@@ -22,23 +22,24 @@ MARKERS = [
     FiducialMarker(42, TAG_SIZE_CM, {}),
     FiducialMarker(422, TAG_SIZE_CM, {}),
 ]
-CAMERAS = {"camera"}
+CAMERA_NAMES = {"camera"}
 INTRINSICS = CameraIntrinsics(fx=1607.36, fy=1607.36, x0=1024.0, y0=768.0)
 
 
 def main() -> None:
     """Attempt to detect AprilTags in an image loaded from a hard-coded filepath."""
-    system = FiducialSystem({m.id: m for m in MARKERS}, CAMERAS)
+    system = FiducialSystem({m.id: m for m in MARKERS}, CAMERA_NAMES)
     detector = AprilTagDetector(system)
 
     image = RGBImage.from_file(IMAGE_PATH)
-    vis_image = deepcopy(image)
+    axes_image = deepcopy(image)
 
-    detections = detector._detect(image, INTRINSICS)  # noqa: SLF001
+    detections = detector.detect_in_image(image, INTRINSICS)
     for i, det in enumerate(detections):
         display_in_window(det, f"Detection {i + 1}/{len(detections)}")
+        axes_image = draw_axes(0.15, det.pose, INTRINSICS, axes_image)
 
-    display_in_window(vis_image, window_title="AprilTag Detections")
+    display_in_window(axes_image, "Axes of Detected AprilTag Frames")
 
 
 if __name__ == "__main__":

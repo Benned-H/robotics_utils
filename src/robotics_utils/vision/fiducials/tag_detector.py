@@ -28,7 +28,7 @@ class TagDetection(Displayable):
 
     id: int
     family: str
-    pose: Pose3D
+    pose: Pose3D  # Estimated pose of the tag (x = right, y = down, z = through the tag)
     hamming: int  # How many error bits were corrected?
     corners: list[PixelXY]  # Pixel coordinates of detection corners (wraps counter-clockwise)
     center: PixelXY  # Pixel coordinate of the detection's center
@@ -45,8 +45,8 @@ class TagDetection(Displayable):
         translation = Point3D.from_array(np.asarray(d.pose_t))
         rotation = Quaternion.from_rotation_matrix(np.asarray(d.pose_R))
 
-        corners = np.asarray(d.corners, dtype=np.float32).reshape((4, 2))
-        corner_pixels = [PixelXY(corners[row, :]) for row in range(4)]
+        corners = np.asarray(d.corners, dtype=np.float32).reshape((4, 1, 2))
+        corner_pixels = [PixelXY(corners[row, :, :]) for row in range(4)]
         center_pixel = PixelXY(np.asarray(d.center))
 
         # Draw the detection on the provided image using its corners
@@ -66,7 +66,7 @@ class TagDetection(Displayable):
 
     def convert_for_visualization(self) -> NDArray[np.uint8]:
         """Return an image visualizing the AprilTag detection."""
-        return self.visualized.data
+        return self.visualized.convert_for_visualization()
 
 
 class AprilTagDetector:
@@ -114,7 +114,7 @@ class AprilTagDetector:
             decode_sharpening=decode_sharpening,
         )
 
-    def _detect(self, image: RGBImage, intrinsics: CameraIntrinsics) -> list[TagDetection]:
+    def detect_in_image(self, image: RGBImage, intrinsics: CameraIntrinsics) -> list[TagDetection]:
         """Detect AprilTags in an image taken with the given camera intrinsics.
 
         :param image: RGB image to detect AprilTags in
@@ -150,7 +150,7 @@ class AprilTagDetector:
         :return: List of AprilTag detections, with their estimated poses w.r.t. the camera
         """
         rgb_image = camera.get_image()
-        detections = self._detect(rgb_image, camera.intrinsics)
+        detections = self.detect_in_image(rgb_image, camera.intrinsics)
         for d in detections:
             d.pose.ref_frame = camera.name
         return detections

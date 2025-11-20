@@ -84,7 +84,7 @@ class Quaternion:
         """
         if not isinstance(other, Quaternion):
             raise TypeError(f"Cannot multiply a Quaternion with a {type(other)}: {other}.")
-        product = Q(self.w, self.x, self.y, self.z) * Q(other.w, other.x, other.y, other.z)
+        product = self.to_pyquaternion() * other.to_pyquaternion()
         return Quaternion(product.x, product.y, product.z, product.w)
 
     def normalize(self) -> None:
@@ -138,6 +138,10 @@ class Quaternion:
 
         return cls.from_homogeneous_matrix(matrix)
 
+    def to_rotation_matrix(self) -> NDArray[np.float64]:
+        """Convert the quaternion to a 3x3 rotation matrix."""
+        return self.to_pyquaternion().rotation_matrix
+
     @classmethod
     def from_homogeneous_matrix(cls, matrix: NDArray[np.float64]) -> Quaternion:
         """Construct a quaternion from a 4x4 homogeneous transformation matrix."""
@@ -149,6 +153,10 @@ class Quaternion:
     def to_homogeneous_matrix(self) -> NDArray[np.float64]:
         """Convert the quaternion to a 4x4 homogeneous transformation matrix."""
         return quaternion_matrix(quaternion=[self.w, self.x, self.y, self.z])
+
+    def to_pyquaternion(self) -> Q:
+        """Convert the quaternion to a pyquaternion.Quaternion object."""
+        return Q(self.w, self.x, self.y, self.z)
 
     def approx_equal(self, other: Quaternion, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Quaternion is approximately equal to this one.
