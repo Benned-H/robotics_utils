@@ -9,7 +9,7 @@ import rospy
 import yaml
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
-from robotics_utils.kinematics import DEFAULT_FRAME
+from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D
 from robotics_utils.ros.call_loop_thread import CallLoopThread
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
@@ -38,6 +38,13 @@ class TagTracker:
         self.system = system
         self.rgb_cameras = cameras
         self.pose_averager = PoseEstimateAverager(window_size)
+        self.known_poses: dict[str, Pose3D] = {}
+        """A map from frame names to their known, fixed poses (possibly empty)."""
+
+        # Check if there's a YAML file specifying known object poses
+        known_poses_param = get_ros_param("/tag_tracker/known_poses_yaml_path", str, "")
+        if known_poses_param:
+            self.known_poses = Pose3D.load_named_poses(Path(known_poses_param), "object_poses")
 
         self.detector = AprilTagDetector(self.system)
 
@@ -90,16 +97,20 @@ class TagTracker:
         """Broadcast the current averaged marker and object frames to /tf."""
         curr_pose_averages = self.pose_averager.compute_all_averages()
 
-        # Publish all pose estimates available from the pose averager
+        # Publish all pose estimates available from the pose averager (skip known poses)
         for frame_name, pose_avg in curr_pose_averages.items():
-            if pose_avg is None:
+            if pose_avg is None or frame_name in self.known_poses:
                 continue
             TransformManager.broadcast_transform(frame_name, pose_avg)
 
-            # Publish all marker-relative poses in the fiducial system
-            for marker in self.system.markers.values():
-                for obj_name, rel_pose in marker.relative_frames.items():
-                    TransformManager.broadcast_transform(obj_name, rel_pose)
+        # Publish all marker-relative poses in the fiducial system
+        for marker in self.system.markers.values():
+            for obj_name, rel_pose in marker.relative_frames.items():
+                TransformManager.broadcast_transform(obj_name, rel_pose)
+
+        # Publish all known poses as currently stored
+        for frame_name, known_pose in self.known_poses.items():
+            TransformManager.broadcast_transform(frame_name, known_pose)
 
     def update(self) -> None:
         """Collect new images, update pose estimates, and broadcast current estimates."""

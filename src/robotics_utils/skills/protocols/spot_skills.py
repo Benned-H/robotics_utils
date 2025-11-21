@@ -124,6 +124,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param waypoint: Name of a navigation waypoint
         :return: Boolean success indicator and an outcome message
         """
+        console.print(f"Navigating to waypoint '{waypoint}'...")
         if waypoint not in self._waypoints:
             return SkillOutcome(
                 success=False,
@@ -144,6 +145,7 @@ class SpotSkillsProtocol(SkillsProtocol):
     @skill_method
     def stow_arm(self) -> SkillOutcome:
         """Stow Spot's arm."""
+        console.print("Stowing Spot's arm...")
         success = trigger_service("spot/stow_arm")
         if success:
             self._gripper.close()
@@ -191,6 +193,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param drawer_object_name: Object name of the container that has the drawer
         :return: Boolean success indicator and an outcome message
         """
+        console.print(f"Preparing to open the drawer of '{drawer_object_name}'...")
         stow_outcome = self.stow_arm()
         if not stow_outcome.success:
             return stow_outcome
@@ -199,7 +202,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not nav_outcome.success:
             return nav_outcome
 
-        self._gripper.open()  # Open Spot's gripper before approaching the dresser
+        self.open_gripper()  # Open Spot's gripper before it nears the dresser
 
         self._pose_broadcaster.poses["pregrasp_drawer"] = pregrasp_pose_ee
         pre_outcome = self._move_ee_to_pose(pregrasp_pose_ee)
@@ -243,6 +246,7 @@ class SpotSkillsProtocol(SkillsProtocol):
     @skill_method
     def _take_control(self) -> SkillOutcome:
         """Take control of the Spot and unlock its arm, if necessary."""
+        console.print("Taking control of Spot...")
         if not trigger_service("spot/take_control"):
             return SkillOutcome(False, "Unable to take control of Spot.")
         if not trigger_service("spot/unlock_arm"):
@@ -252,6 +256,7 @@ class SpotSkillsProtocol(SkillsProtocol):
     @skill_method
     def open_gripper(self) -> SkillOutcome:
         """Open Spot's gripper."""
+        console.print("Opening Spot's gripper...")
         success = self._gripper.open()
         message = "Opened Spot's gripper." if success else "Could not open Spot's gripper."
         return SkillOutcome(success, message)
@@ -259,6 +264,7 @@ class SpotSkillsProtocol(SkillsProtocol):
     @skill_method
     def close_gripper(self) -> SkillOutcome:
         """Close Spot's gripper."""
+        console.print("Closing Spot's gripper...")
         success = self._gripper.close()
         message = "Closed Spot's gripper." if success else "Could not close Spot's gripper."
         return SkillOutcome(success, message)
@@ -270,6 +276,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param ee_target: End-effector target pose
         :return: Boolean success indicator and an outcome message
         """
+        console.print(f"Moving Spot's end-effector to pose: {ee_target.to_list()}")
         query = MotionPlanningQuery(ee_target)
 
         plan_msg = self._arm.motion_planner.compute_motion_plan(query)
