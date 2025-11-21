@@ -64,7 +64,7 @@ class FiducialSystem:
     """A system of known visual fiducial markers and fiducial-detecting cameras."""
 
     markers: dict[int, FiducialMarker]  # Map marker IDs to FiducialMarker instances
-    camera_names: set[str]  # Set of camera names used for detections
+    camera_names: set[str]
 
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> FiducialSystem:

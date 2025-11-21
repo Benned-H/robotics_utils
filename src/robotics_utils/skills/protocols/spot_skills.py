@@ -36,7 +36,6 @@ from robotics_utils.ros import (
 from robotics_utils.ros.msg_conversion import pose_from_msg
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.skills import SkillOutcome, SkillsProtocol, skill_method
-from robotics_utils.vision.fiducials import AprilTagDetector
 
 SPOT_GRIPPER_OPEN_RAD = -1.5707
 SPOT_GRIPPER_CLOSED_RAD = 0.0
@@ -164,10 +163,25 @@ class SpotSkillsProtocol(SkillsProtocol):
     @skill_method
     def open_drawer(
         self,
-        pregrasp_pose_ee: Pose3D,
-        grasp_pose_ee: Pose3D,
-        pull_pose_ee: Pose3D,
-        drawer_object_name: str,
+        pregrasp_pose_ee: Pose3D = Pose3D.from_xyz_rpy(
+            x=0.68,
+            z=0.56,
+            yaw_rad=3.1416,
+            ref_frame="black_dresser",
+        ),
+        grasp_pose_ee: Pose3D = Pose3D.from_xyz_rpy(
+            x=0.47,
+            z=0.56,
+            yaw_rad=3.1416,
+            ref_frame="black_dresser",
+        ),
+        pull_pose_ee: Pose3D = Pose3D.from_xyz_rpy(
+            x=0.68,
+            z=0.63,
+            yaw_rad=3.1416,
+            ref_frame="black_dresser",
+        ),
+        drawer_object_name: str = "black_dresser",
     ) -> SkillOutcome:
         """Open a drawer using Spot's end-effector.
 
@@ -177,9 +191,13 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param drawer_object_name: Object name of the container that has the drawer
         :return: Boolean success indicator and an outcome message
         """
+        stow_outcome = self.stow_arm()
+        if not stow_outcome.success:
+            return stow_outcome
+
         nav_outcome = self.navigate_to_waypoint("open_drawer")
         if not nav_outcome.success:
-            return SkillOutcome(success=False, message=nav_outcome.message)
+            return nav_outcome
 
         self._gripper.open()  # Open Spot's gripper before approaching the dresser
 

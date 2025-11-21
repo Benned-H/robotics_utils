@@ -12,7 +12,7 @@ import numpy as np
 import pupil_apriltags
 from numpy.typing import NDArray
 
-from robotics_utils.kinematics import Point3D, Pose3D, Quaternion
+from robotics_utils.kinematics import EulerRPY, Point3D, Pose3D, Quaternion
 from robotics_utils.vision import CameraIntrinsics, PixelXY, RGBCamera, RGBImage
 from robotics_utils.visualization import Displayable
 
@@ -28,7 +28,9 @@ class TagDetection(Displayable):
 
     id: int
     family: str
-    pose: Pose3D  # Estimated pose of the tag (x = right, y = down, z = through the tag)
+    pose: Pose3D
+    """Estimated pose of the tag (x = right, y = down, z = through the tag)."""
+
     hamming: int  # How many error bits were corrected?
     corners: list[PixelXY]  # Pixel coordinates of detection corners (wraps counter-clockwise)
     center: PixelXY  # Pixel coordinate of the detection's center
@@ -43,7 +45,11 @@ class TagDetection(Displayable):
         :return: Tag detection in this dataclass format
         """
         translation = Point3D.from_array(np.asarray(d.pose_t))
-        rotation = Quaternion.from_rotation_matrix(np.asarray(d.pose_R))
+
+        # Apply 180° rotation about the z-axis to correct for pupil_apriltags convention
+        rotation_correction = EulerRPY(0, 0, np.pi).to_quaternion().to_rotation_matrix()
+        corrected_matrix = np.asarray(d.pose_R) @ rotation_correction
+        corrected_rotation = Quaternion.from_rotation_matrix(corrected_matrix)
 
         corners = np.asarray(d.corners, dtype=np.float32).reshape((4, 1, 2))
         corner_pixels = [PixelXY(corners[row, :, :]) for row in range(4)]
@@ -57,7 +63,7 @@ class TagDetection(Displayable):
         return TagDetection(
             id=d.tag_id,
             family=d.tag_family,
-            pose=Pose3D(translation, rotation),
+            pose=Pose3D(translation, corrected_rotation),
             hamming=d.hamming,
             corners=corner_pixels,
             center=center_pixel,
@@ -149,8 +155,11 @@ class AprilTagDetector:
 
         :return: List of AprilTag detections, with their estimated poses w.r.t. the camera
         """
+        if camera.frame_name is None:
+            raise ValueError(f"Cannot estimate AprilTag poses w/o frame for camera: {camera.name}")
+
         rgb_image = camera.get_image()
         detections = self.detect_in_image(rgb_image, camera.intrinsics)
         for d in detections:
-            d.pose.ref_frame = camera.name
+            d.pose.ref_frame = camera.frame_name
         return detections
