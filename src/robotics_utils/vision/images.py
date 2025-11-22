@@ -136,6 +136,10 @@ class RGBImage(Image):
         if not success:
             raise RuntimeError(f"Failed to save image to path: {image_path}")
 
+        # Populate the image's filepath if it doesn't have one
+        if self.filepath is None:
+            self.filepath = image_path
+
 
 class DepthImage(Image):
     """A depth image represented as a NumPy array of shape (H, W)."""

@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "robotics_utils"
 version = "0.0.1"
 description = "General-purpose robotics utilities"
-requires-python = ">=3.8"
+requires-python = ">=3.8, <3.13"                   # Torch 2.4.1 doesn't support Python 3.13
 
 # Core dependencies - Always installed
 dependencies = ["click", "rich", "numpy", "trimesh", "pyquaternion"]

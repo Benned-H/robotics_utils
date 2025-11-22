@@ -64,7 +64,7 @@ class GeminiRoboticsBridge:
         env["GOOGLE_API_KEY"] = api_key
         env["ROBOTICS_UTILS_ROOT"] = str(ROBOTICS_UTILS_ROOT.resolve())
 
-        # Run the subprocess with streaming output and a 60-second timeout
+        # Run the subprocess with a 3-minute timeout (gives uv time to set up its venv)
         process = subprocess.Popen(
             cmd,
             env=env,  # Pass the API key while preserving PATH (allows finding uv)
@@ -104,7 +104,7 @@ class GeminiRoboticsBridge:
             stderr_thread.start()
 
             # Wait for process to complete with timeout
-            process.wait(timeout=60.0)
+            process.wait(timeout=180.0)
 
             # Wait for threads to finish reading all output
             stdout_thread.join()

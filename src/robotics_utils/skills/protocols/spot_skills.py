@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import rospy
 from spot_skills.srv import (
     NameService,
@@ -141,6 +142,26 @@ class SpotSkillsProtocol(SkillsProtocol):
             return SkillOutcome(False, "NavigateToWaypoint service response was None.")
 
         return SkillOutcome(response.success, response.message)
+
+    @skill_method
+    def undock(self) -> SkillOutcome:
+        """Undock Spot from its charging dock."""
+        console.print("Undocking Spot...")
+        success = trigger_service("spot/undock")
+        message = "Successfully undocked Spot." if success else "Unable to undock Spot."
+        return SkillOutcome(success, message)
+
+    @skill_method
+    def dock(self) -> SkillOutcome:
+        """Dock Spot onto its charging dock."""
+        console.print("Docking Spot...")
+        nav_outcome = self.navigate_to_waypoint("dock")
+        if not nav_outcome.success:
+            return nav_outcome
+
+        success = trigger_service("spot/dock")
+        message = "Successfully docked Spot." if success else "Unable to dock Spot."
+        return SkillOutcome(success, message)
 
     @skill_method
     def stow_arm(self) -> SkillOutcome:
@@ -328,16 +349,15 @@ class SpotSkillsProtocol(SkillsProtocol):
     @skill_method
     def open_door(
         self,
-        body_pitch_rad: float,
-        *,
         is_pull: bool,
         hinge_on_left: bool,
+        body_pitch_rad: float = -np.pi / 6.0,
     ) -> SkillOutcome:
         """Open a door using the Spot SDK.
 
-        :param body_pitch_rad: Pitch (radians) of Spot's body when taking the door handle image
         :param is_pull: Whether the door opens by pulling toward Spot
         :param hinge_on_left: Whether the door's hinge is on the left, from Spot's perspective
+        :param body_pitch_rad: Pitch (radians) of Spot's body when taking the door handle image
         :return: Boolean success indicator and an outcome message
         """
         request = OpenDoorRequest(body_pitch_rad, is_pull, hinge_on_left)

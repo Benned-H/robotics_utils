@@ -4,7 +4,7 @@
 # dependencies = [
 #   "robotics_utils[gemini] @ file:///${ROBOTICS_UTILS_ROOT}",
 # ]
-# requires-python = ">=3.10" # Needed to support the latest version of google-genai
+# requires-python = ">=3.10, <3.13" # PyTorch 2.4.1 doesn't have wheels for Python 3.13
 # ///
 
 """Standalone service for Gemini keypoint detection.
