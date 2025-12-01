@@ -1,5 +1,7 @@
 """Unit tests for Pose3D, a class representing poses in 3D space."""
 
+from dataclasses import replace
+
 import hypothesis.strategies as st
 from hypothesis import given
 
@@ -21,14 +23,14 @@ def test_pose3d_to_homogeneous_matrix_and_back(pose: Pose3D) -> None:
 
 
 @given(poses_3d())
-def test_pose3d_to_list_and_back(pose: Pose3D) -> None:
-    """Verify that any Pose3D is unchanged after converting to and from an equivalent list."""
-    # Arrange/Act - Given a 3D pose, convert to and from a list of [x, y, z, roll, pitch, yaw]
-    pose_list = pose.to_list()
-    result_pose = Pose3D.from_list(pose_list, ref_frame=pose.ref_frame)
+def test_pose3d_to_xyz_rpy_and_back(pose: Pose3D) -> None:
+    """Verify that any Pose3D is unchanged after converting to and from XYZ-RPY values."""
+    # Arrange/Act - Given a 3D pose, convert to and from an [x, y, z, roll, pitch, yaw] tuple
+    xyz_rpy = pose.to_xyz_rpy()
+    result_pose = Pose3D.from_sequence(xyz_rpy, ref_frame=pose.ref_frame)
 
-    # Assert - Expect that the list has length six and the resulting Pose3D equals the original
-    assert len(pose_list) == 6, "Expected pose list of the form [x, y, z, roll, pitch, yaw]"
+    # Assert - Expect that the tuple has length six and the resulting Pose3D equals the original
+    assert len(xyz_rpy) == 6, "Expected pose tuple of the form (x, y, z, roll, pitch, yaw)"
     assert pose.approx_equal(result_pose, atol=1e-07)
 
 
@@ -54,7 +56,7 @@ def test_pose3d_identity_multiplication(pose: Pose3D) -> None:
     right_result = pose @ identity_pose
 
     # Replace the frame of the left-side result; it won't match the original pose otherwise
-    left_result.ref_frame = pose.ref_frame
+    left_result = replace(left_result, ref_frame=pose.ref_frame)
 
     # Assert - Expect that both multiplication results equal the original pose
     assert pose.approx_equal(left_result)

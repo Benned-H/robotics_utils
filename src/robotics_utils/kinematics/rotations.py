@@ -6,7 +6,7 @@ from dataclasses import astuple, dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
-from pyquaternion import Quaternion as Q
+from pyquaternion import Quaternion as PyQ
 from trimesh.transformations import (
     euler_from_matrix,
     euler_from_quaternion,
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 
-@dataclass
+@dataclass(frozen=True)
 class EulerRPY:
     """A 3D rotation represented using three fixed-frame Euler angles."""
 
@@ -32,7 +32,7 @@ class EulerRPY:
 
     def __iter__(self) -> Iterator[float]:
         """Provide an iterator over the roll, pitch, and yaw values."""
-        yield from astuple(self)
+        yield from self.to_tuple()
 
     @classmethod
     def identity(cls) -> EulerRPY:
@@ -45,6 +45,10 @@ class EulerRPY:
         if len(values) != 3:
             raise ValueError(f"EulerRPY expects 3 values, got {len(values)}")
         return EulerRPY(values[0], values[1], values[2])
+
+    def to_tuple(self) -> tuple[float, float, float]:
+        """Convert the Euler angles into a tuple of (roll, pitch, yaw) values."""
+        return astuple(self)
 
     @classmethod
     def from_homogeneous_matrix(cls, matrix: NDArray[np.float64]) -> EulerRPY:
@@ -64,7 +68,7 @@ class EulerRPY:
         return Quaternion(x=x, y=y, z=z, w=w)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Quaternion:
     """A unit quaternion representing a 3D orientation."""
 
@@ -75,7 +79,14 @@ class Quaternion:
 
     def __post_init__(self) -> None:
         """Normalize the quaternion after it is initialized."""
-        self.normalize()
+        norm = float(np.linalg.norm(self.to_array()))
+        if norm == 0:
+            raise ValueError(f"Cannot normalize a zero-valued quaternion: {self}")
+
+        object.__setattr__(self, "x", self.x / norm)
+        object.__setattr__(self, "y", self.y / norm)
+        object.__setattr__(self, "z", self.z / norm)
+        object.__setattr__(self, "w", self.w / norm)
 
     def __mul__(self, other: Quaternion) -> Quaternion:
         """Return the Hamilton product of this quaternion and another.
@@ -86,17 +97,6 @@ class Quaternion:
             raise TypeError(f"Cannot multiply a Quaternion with a {type(other)}: {other}.")
         product = self.to_pyquaternion() * other.to_pyquaternion()
         return Quaternion(product.x, product.y, product.z, product.w)
-
-    def normalize(self) -> None:
-        """Normalize the quaternion to ensure it is a unit quaternion."""
-        norm = float(np.linalg.norm(self.to_array()))
-        if norm == 0:
-            raise ValueError(f"Cannot normalize a zero-valued quaternion: {self}")
-
-        self.x /= norm
-        self.y /= norm
-        self.z /= norm
-        self.w /= norm
 
     def conjugate(self) -> Quaternion:
         """Compute the conjugate of this quaternion.
@@ -156,7 +156,7 @@ class Quaternion:
 
     def to_pyquaternion(self) -> Q:
         """Convert the quaternion to a pyquaternion.Quaternion object."""
-        return Q(self.w, self.x, self.y, self.z)
+        return PyQ(self.w, self.x, self.y, self.z)
 
     def approx_equal(self, other: Quaternion, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Quaternion is approximately equal to this one.

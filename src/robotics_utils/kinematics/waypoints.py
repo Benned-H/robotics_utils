@@ -46,3 +46,8 @@ class Waypoints(Dict[str, Pose2D]):
         :return: Dictionary mapping waypoint names to their Pose2D data
         """
         return {name: pose.to_yaml_data(default_frame) for name, pose in self.items()}
+
+    @property
+    def waypoint_names(self) -> list[str]:
+        """Retrieve the list of all waypoint names in the collection."""
+        return list(self.keys())

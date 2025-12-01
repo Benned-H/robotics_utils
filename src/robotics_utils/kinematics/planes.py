@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 
-@dataclass
+@dataclass(frozen=True)
 class Plane3D:
     """A plane in 3D space defined by a point and normal vector.
 
@@ -24,7 +27,7 @@ class Plane3D:
         return float(np.dot(self.normal, self.point))
 
 
-@dataclass
+@dataclass(frozen=True)
 class Rectangle3D:
     """A rectangle in 3D space, defined by corner points on a plane."""
 

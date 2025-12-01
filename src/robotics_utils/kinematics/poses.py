@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Tuple, TypeVar
 
 import numpy as np
 
@@ -18,8 +18,11 @@ if TYPE_CHECKING:
 
 MultiplyT = TypeVar("MultiplyT", "Pose3D", Point3D)
 
+XYZ_RPY = Tuple[float, float, float, float, float, float]
+"""A 6-tuple of (x, y, z, roll, pitch, yaw) values."""
 
-@dataclass
+
+@dataclass(frozen=True)
 class Pose2D:
     """A position and orientation on the 2D plane."""
 
@@ -30,7 +33,7 @@ class Pose2D:
 
     def __iter__(self) -> Iterator[float]:
         """Provide an iterator over the (x,y,yaw) values of the 2D pose."""
-        yield from [self.x, self.y, self.yaw_rad]
+        yield from self.to_tuple()
 
     @classmethod
     def from_sequence(cls, pose_seq: Sequence[float], ref_frame: str = DEFAULT_FRAME) -> Pose2D:
@@ -44,6 +47,10 @@ class Pose2D:
             raise ValueError(f"Pose2D expects 3 values, got {len(pose_seq)}")
 
         return Pose2D(pose_seq[0], pose_seq[1], pose_seq[2], ref_frame)
+
+    def to_tuple(self) -> tuple[float, float, float]:
+        """Convert the 2D pose into an (x,y,yaw) tuple."""
+        return (float(self.x), float(self.y), float(self.yaw_rad))
 
     @property
     def position(self) -> Point2D:
@@ -71,7 +78,7 @@ class Pose2D:
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class Pose3D:
     """A position and orientation in 3D space."""
 
@@ -152,30 +159,25 @@ class Pose3D:
 
         return Pose3D(position, orientation, ref_frame)
 
-    def to_xyz_rpy(self) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
-        """Convert the pose into the corresponding (x, y, z) and (roll, pitch, yaw) tuples.
+    def to_xyz_rpy(self) -> XYZ_RPY:
+        """Convert the pose into a tuple of its (x, y, z, roll, pitch, yaw) values.
 
-        :return: Pair of tuples (x, y, z) and (roll, pitch, yaw) with angles in radians
+        :return: 6-tuple of (x, y, z, roll, pitch, yaw) values with angles in radians
         """
-        return (tuple(self.position), tuple(self.orientation.to_euler_rpy()))
+        return (*self.position.to_tuple(), *self.orientation.to_euler_rpy().to_tuple())
 
     @classmethod
-    def from_list(cls, xyz_rpy: list[float], ref_frame: str = DEFAULT_FRAME) -> Pose3D:
-        """Construct a Pose3D from the given list of XYZ-RPY data.
+    def from_sequence(cls, data: XYZ_RPY | list[float], ref_frame: str = DEFAULT_FRAME) -> Pose3D:
+        """Construct a Pose3D from the given sequence of XYZ-RPY data.
 
-        :param xyz_rpy: List of six floats specifying (x, y, z, roll, pitch, yaw)
+        :param data: Sequence of six floats specifying (x, y, z, roll, pitch, yaw)
         :param ref_frame: Reference frame of the constructed Pose3D
         :return: Constructed Pose3D instance
         """
-        if len(xyz_rpy) != 6:
-            raise ValueError(f"Cannot construct Pose3D from list of length {len(xyz_rpy)}.")
-        x, y, z, roll, pitch, yaw = xyz_rpy
+        if len(data) != 6:
+            raise ValueError(f"Cannot construct Pose3D from sequence of length {len(data)}.")
+        x, y, z, roll, pitch, yaw = data
         return Pose3D.from_xyz_rpy(x, y, z, roll, pitch, yaw, ref_frame)
-
-    def to_list(self) -> list[float]:
-        """Convert the Pose3D into a list of the form [x, y, z, roll (radians), pitch, yaw]."""
-        (x, y, z), (roll_rad, pitch_rad, yaw_rad) = self.to_xyz_rpy()
-        return [float(x), float(y), float(z), float(roll_rad), float(pitch_rad), float(yaw_rad)]
 
     @classmethod
     def from_homogeneous_matrix(cls, matrix: np.ndarray, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
@@ -203,19 +205,19 @@ class Pose3D:
         :raises TypeError: If the given YAML data has an unsupported type
         """
         if isinstance(pose_data, dict):
-            pose_list = pose_data["xyz_rpy"]
+            xyz_rpy = pose_data["xyz_rpy"]
             ref_frame = pose_data["frame"]
         elif isinstance(pose_data, list):
-            pose_list = pose_data
+            xyz_rpy = pose_data
             ref_frame = default_frame
         else:
             raise TypeError(f"Cannot load Pose3D from YAML data of type {type(pose_data)}")
 
-        return Pose3D.from_list(pose_list, ref_frame)
+        return Pose3D.from_sequence(xyz_rpy, ref_frame)
 
     def to_yaml_data(self) -> dict[str, Any]:
         """Convert the pose into a dictionary suitable for export to YAML."""
-        return {"xyz_rpy": self.to_list(), "frame": self.ref_frame}
+        return {"xyz_rpy": self.to_xyz_rpy(), "frame": self.ref_frame}
 
     @classmethod
     def load_named_poses(cls, yaml_path: Path, collection_name: str) -> dict[str, Pose3D]:
@@ -236,8 +238,8 @@ class Pose3D:
 
     def to_2d(self) -> Pose2D:
         """Convert the 3D pose into a 2D pose by discarding its z-coordinate, roll, and pitch."""
-        (x, y, _), (_, _, yaw_rad) = self.to_xyz_rpy()
-        return Pose2D(x=x, y=y, yaw_rad=yaw_rad, ref_frame=self.ref_frame)
+        (x, y, z, roll, pitch, yaw) = self.to_xyz_rpy()
+        return Pose2D(x=x, y=y, yaw_rad=yaw, ref_frame=self.ref_frame)
 
     def inverse(self, pose_frame: str) -> Pose3D:
         """Return a pose representing the inverse transformation of this pose.

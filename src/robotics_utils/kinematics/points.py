@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import astuple, dataclass
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 
-@dataclass
+@dataclass(frozen=True)
 class Point2D:
     """An (x,y) position on the 2D plane."""
 
@@ -36,7 +36,7 @@ class Point2D:
         return np.array([self.x, self.y], dtype=np.float64)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Point3D:
     """An (x,y,z) position in 3D space."""
 
@@ -46,7 +46,7 @@ class Point3D:
 
     def __iter__(self) -> Iterator[float]:
         """Provide an iterator over the point's (x,y,z) coordinates."""
-        yield from astuple(self)
+        yield from self.to_tuple()
 
     @classmethod
     def identity(cls) -> Point3D:
@@ -85,6 +85,10 @@ class Point3D:
         if len(values) != 3:
             raise ValueError(f"Point3D expects 3 values, got {len(values)}")
         return Point3D(float(values[0]), float(values[1]), float(values[2]))
+
+    def to_tuple(self) -> tuple[float, float, float]:
+        """Convert the 3D point to an (x,y,z) tuple."""
+        return (float(self.x), float(self.y), float(self.z))
 
     @classmethod
     def load_points_from_yaml(cls, yaml_path: Path, collection_name: str) -> list[Point3D]:
