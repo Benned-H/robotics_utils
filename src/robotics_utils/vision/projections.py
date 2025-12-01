@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 import cv2
 import numpy as np
 
-from robotics_utils.io import console
 from robotics_utils.kinematics import Point3D, Pose3D
 from robotics_utils.vision.images import PixelXY, RGBImage
 
@@ -19,22 +18,20 @@ if TYPE_CHECKING:
 def project_3d_to_image(
     points: list[Point3D],
     intrinsics: CameraIntrinsics,
-    pose_wrt_camera: Pose3D,
+    frame_wrt_camera: Pose3D,
 ) -> list[PixelXY]:
-    """Project 3D points onto the image plane based on the given intrinsics and transform.
+    """Project 3D points onto the image plane using the given intrinsics and relative frame.
 
-    :param points: 3D points in the world frame to be projected to the image plane
+    :param points: 3D points in some reference frame to be projected to the image plane
     :param intrinsics: Camera intrinsics used for projection
-    :param pose_wrt_camera: Pose of the frame used for the points (w.r.t. camera)
+    :param frame_wrt_camera: Camera-relative pose of the frame in which the points are expressed
     :return: List of (x,y) pixel coordinates corresponding to the 3D points
     """
     points_arr = np.stack([p.to_array() for p in points], axis=0).astype(np.float32)  # N x 3
     points_arr = points_arr.reshape(-1, 1, 3)  # Reshape to (N, 1, 3) for cv2.projectPoints
-    rvec, _ = cv2.Rodrigues(pose_wrt_camera.orientation.to_rotation_matrix())
-    tvec = pose_wrt_camera.position.to_array()
+    rvec, _ = cv2.Rodrigues(frame_wrt_camera.orientation.to_rotation_matrix())
+    tvec = frame_wrt_camera.position.to_array()
     distortion = np.zeros((4, 1), dtype=np.float32)
-
-    console.print(f"{rvec} {tvec} {distortion}")
 
     projections, _ = cv2.projectPoints(points_arr, rvec, tvec, intrinsics.to_matrix(), distortion)
     return [PixelXY(row.ravel()) for row in projections]

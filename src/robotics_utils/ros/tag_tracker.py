@@ -9,7 +9,7 @@ import rospy
 import yaml
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
-from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D
+from robotics_utils.kinematics import DEFAULT_FRAME, XYZ_RPY, Pose3D
 from robotics_utils.ros.call_loop_thread import CallLoopThread
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
@@ -61,7 +61,7 @@ class TagTracker:
         if yaml_path.suffix not in {".yaml", ".yml"}:
             return TriggerResponse(success=False, message=f"Invalid YAML file suffix: {yaml_path}")
 
-        poses_data: dict[str, tuple[float, float, float, float, float, float]] = {}
+        poses_data: dict[str, XYZ_RPY] = {}
 
         for marker in self.system.markers.values():
             pose_w_m = self.pose_averager.get(marker.frame_name)

@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
-from dataclasses import astuple, dataclass
+from dataclasses import astuple, dataclass, replace
 from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
 import pupil_apriltags
-from numpy.typing import NDArray
 
 from robotics_utils.kinematics import EulerRPY, Point3D, Pose3D, Quaternion
 from robotics_utils.vision import CameraIntrinsics, PixelXY, RGBCamera, RGBImage
@@ -161,5 +160,5 @@ class AprilTagDetector:
         rgb_image = camera.get_image()
         detections = self.detect_in_image(rgb_image, camera.intrinsics)
         for d in detections:
-            d.pose.ref_frame = camera.frame_name
+            d.pose = replace(d.pose, ref_frame=camera.frame_name)
         return detections
