@@ -14,7 +14,7 @@ RGB = Tuple[int, int, int]
 def determine_pytorch_device() -> torch.device:
     """Determine which PyTorch device to use."""
     if torch.cuda.is_available():  # Use CUDA on Linux if available
-        return torch.device("cuda")
+        return torch.device("cuda:0")  # Specify device index for CUDA operations
     if (
         platform.system() == "Darwin"
         and torch.backends.mps.is_available()

@@ -9,7 +9,7 @@ from robotics_utils.skills import SkillInstance, SkillsInventory, SkillsProtocol
 
 
 @pytest.fixture
-def example_skills_protocol() -> SkillsProtocol:
+def example_skills_protocol() -> type[SkillsProtocol]:
     """Construct an example skills protocol as a Python class."""
 
     class ExampleSkills(SkillsProtocol):
@@ -31,7 +31,7 @@ def example_skills_protocol() -> SkillsProtocol:
     return ExampleSkills
 
 
-def test_skills_inventory_from_protocol(example_skills_protocol: SkillsProtocol) -> None:
+def test_skills_inventory_from_protocol(example_skills_protocol: type[SkillsProtocol]) -> None:
     """Verify that a SkillsInventory is correctly constructed from an example Python protocol."""
     # Arrange/Act - An example skills protocol is provided by a pytest fixture
     inventory = SkillsInventory.from_protocol(example_skills_protocol)
@@ -51,9 +51,10 @@ def test_skills_inventory_from_protocol(example_skills_protocol: SkillsProtocol)
     assert int in inventory.all_argument_types
 
 
-def test_skill_execution(example_skills_protocol: SkillsProtocol) -> None:
+def test_skill_execution(example_skills_protocol: type[SkillsProtocol]) -> None:
     """Verify that skills constructed from a skills protocol can be executed."""
     # Arrange - Convert the skills protocol into an inventory of skills
+    executor_instance = example_skills_protocol()  # Instantiate the protocol class
     inventory = SkillsInventory.from_protocol(example_skills_protocol)
 
     return_true = inventory.skills.get("ReturnTrue")
@@ -62,8 +63,8 @@ def test_skill_execution(example_skills_protocol: SkillsProtocol) -> None:
     assert add_one is not None
 
     # Act - Attempt to execute the constructed skills
-    expected_true = return_true.execute(example_skills_protocol, bindings={})
-    expected_two = add_one.execute(example_skills_protocol, bindings={"value": 1})
+    expected_true = return_true.execute(executor_instance, bindings={})
+    expected_two = add_one.execute(executor_instance, bindings={"value": 1})
 
     # Assert
     assert expected_true
@@ -84,7 +85,7 @@ def example_universe() -> dict[str, object]:
 
 def test_skill_instance_from_string(
     example_skill_instance_strings: list[str],
-    example_skills_protocol: SkillsProtocol,
+    example_skills_protocol: type[SkillsProtocol],
     example_universe: dict[str, object],
 ) -> None:
     """Verify that SkillInstances can be constructed from strings."""
