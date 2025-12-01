@@ -147,7 +147,7 @@ def handle_pose_3d(ui: ParamUI[Pose3D]) -> Pose3D:
         ref_frame_ui = ParamUI("ref_frame", None if ui.default is None else ui.default.ref_frame)
         ref_frame = handle_string(ref_frame_ui)
 
-        pose = Pose3D.from_list([x, y, z, roll, pitch, yaw], ref_frame=ref_frame)
+        pose = Pose3D.from_sequence([x, y, z, roll, pitch, yaw], ref_frame=ref_frame)
         if validate(pose, ui.validators):
             return pose
 

@@ -61,18 +61,18 @@ class TagTracker:
         if yaml_path.suffix not in {".yaml", ".yml"}:
             return TriggerResponse(success=False, message=f"Invalid YAML file suffix: {yaml_path}")
 
-        poses_data: dict[str, list[float]] = {}
+        poses_data: dict[str, tuple[float, float, float, float, float, float]] = {}
 
         for marker in self.system.markers.values():
             pose_w_m = self.pose_averager.get(marker.frame_name)
             if pose_w_m is None:
                 continue
 
-            poses_data[marker.frame_name] = pose_w_m.to_list()
+            poses_data[marker.frame_name] = pose_w_m.to_xyz_rpy()
 
             for obj_name, pose_m_o in marker.relative_frames.items():
                 pose_w_o = pose_w_m @ pose_m_o
-                poses_data[obj_name] = pose_w_o.to_list()
+                poses_data[obj_name] = pose_w_o.to_xyz_rpy()
 
         yaml_data = {"poses": poses_data, "default_frame": DEFAULT_FRAME}
 

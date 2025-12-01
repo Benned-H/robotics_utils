@@ -68,6 +68,15 @@ unfixable = ["F401"] # Disable 'fix' for unused imports
 # Allow omission of return type on __init__
 flake8-annotations = { mypy-init-return = true }
 
+[tool.ruff.lint.flake8-bugbear]
+# Allow frozen dataclass constructors in default arguments (they're immutable)
+extend-immutable-calls = [
+    "robotics_utils.kinematics.Pose3D.from_xyz_rpy",
+    "robotics_utils.kinematics.Pose3D.from_sequence",
+    "robotics_utils.kinematics.Pose3D.from_homogeneous_matrix",
+    "robotics_utils.kinematics.Pose3D.identity",
+]
+
 [tool.ruff.lint.per-file-ignores]
 "**/tests/*" = ["S101"]   # Allow assertions in test files
 "**/scripts/*" = ["T201"] # Allow print statements in scripts

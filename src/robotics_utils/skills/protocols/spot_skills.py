@@ -2,7 +2,7 @@
 
 import time
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -22,8 +22,8 @@ from spot_skills.srv import (
     PoseLookupResponse,
 )
 
-from robotics_utils.io.logging import console
-from robotics_utils.kinematics import Pose3D, Waypoints
+from robotics_utils.io import console
+from robotics_utils.kinematics import Point3D, Pose3D, Waypoints
 from robotics_utils.kinematics.kinematic_tree import KinematicTree
 from robotics_utils.motion_planning import MotionPlanningQuery
 from robotics_utils.robots import GripperAngleLimits
@@ -87,7 +87,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         self._traj_playback_caller = ServiceCaller[
             PlaybackTrajectoryRequest,
             PlaybackTrajectoryResponse,
-        ]("spot/playback_trajectory", PlaybackTrajectory)  # TODO: Is this needed?
+        ]("spot/playback_trajectory", PlaybackTrajectory)
 
         self._open_door_caller = ServiceCaller[OpenDoorRequest, OpenDoorResponse](
             "spot/open_door",
@@ -115,8 +115,8 @@ class SpotSkillsProtocol(SkillsProtocol):
         self._kinematic_tree = KinematicTree.from_yaml(config.env_yaml)
 
     def spin_once(self, duration_s: float = 0.1) -> None:
-        """Sleep for the given duration to allow background processing."""
-        rospy.sleep(duration_s)
+        """Sleep for the given duration (in seconds) to allow background processing."""
+        rospy.sleep(duration_s)  # TODO: When should this be called?
 
     @skill_method
     def navigate_to_waypoint(self, waypoint: str) -> SkillOutcome:
@@ -131,7 +131,7 @@ class SpotSkillsProtocol(SkillsProtocol):
                 success=False,
                 message=(
                     f"Cannot navigate to unknown waypoint: '{waypoint}'. "
-                    f"Available waypoints: {list(self._waypoints.keys())}."
+                    f"Available waypoints: {self._waypoints.waypoint_names}."
                 ),
             )
 
@@ -169,7 +169,10 @@ class SpotSkillsProtocol(SkillsProtocol):
         console.print("Stowing Spot's arm...")
         success = trigger_service("spot/stow_arm")
         if success:
-            self._gripper.close()
+            close_outcome = self.close_gripper()
+            if not close_outcome.success:
+                return close_outcome
+
         message = "Spot's arm was stowed." if success else "Could not stow Spot's arm."
         return SkillOutcome(success=success, message=message)
 
@@ -179,6 +182,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         :return: Boolean success indicator and an outcome message
         """
+        console.print("Erasing the board...")
         success = trigger_service("spot/erase_board")
         message = "Erased the board." if success else "Unable to erase the board."
         return SkillOutcome(success, message)
@@ -204,17 +208,17 @@ class SpotSkillsProtocol(SkillsProtocol):
             yaw_rad=3.1416,
             ref_frame="black_dresser",
         ),
-        drawer_object_name: str = "black_dresser",
+        container_name: str = "black_dresser",
     ) -> SkillOutcome:
         """Open a drawer using Spot's end-effector.
 
         :param pregrasp_pose_ee: Intermediate end-effector pose before Spot grasps the drawer
         :param grasp_pose_ee: Target end-effector pose when Spot grasps the drawer handle
         :param pull_pose_ee: Target end-effector pose after Spot pulls the drawer open
-        :param drawer_object_name: Object name of the container that has the drawer
+        :param container_name: Name of the container that has the drawer
         :return: Boolean success indicator and an outcome message
         """
-        console.print(f"Preparing to open the drawer of '{drawer_object_name}'...")
+        console.print(f"Preparing to open the drawer of '{container_name}'...")
         stow_outcome = self.stow_arm()
         if not stow_outcome.success:
             return stow_outcome
@@ -223,7 +227,9 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not nav_outcome.success:
             return nav_outcome
 
-        self.open_gripper()  # Open Spot's gripper before it nears the dresser
+        open_outcome = self.open_gripper()  # Open Spot's gripper before it nears the dresser
+        if not open_outcome.success:
+            return open_outcome
 
         self._pose_broadcaster.poses["pregrasp_drawer"] = pregrasp_pose_ee
         pre_outcome = self._move_ee_to_pose(pregrasp_pose_ee)
@@ -235,7 +241,9 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not grasp_outcome.success:
             return grasp_outcome
 
-        self._gripper.close()
+        close_outcome = self.close_gripper()
+        if not close_outcome.success:
+            return close_outcome
         time.sleep(3)  # Wait a few seconds for the gripper to settle
 
         self._pose_broadcaster.poses["pull_drawer"] = pull_pose_ee
@@ -243,12 +251,15 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not pull_outcome.success:
             return pull_outcome
 
-        self._gripper.open()
+        open_outcome = self.open_gripper()
+        if not open_outcome.success:
+            return open_outcome
 
-        # TODO: What frame is the pull pose specified in? And how does that frame work?
         # After letting go, pull the gripper farther back and then stow the arm
-        post_pull_pose = deepcopy(pull_pose_ee)
-        post_pull_pose.position.x += 0.1
+        # Compute the post-pull end-effector pose based on its pull pose
+        post_pull_x = pull_pose_ee.position.x + 0.1
+        post_pull_position = replace(pull_pose_ee.position, x=post_pull_x)
+        post_pull_pose = replace(pull_pose_ee, position=post_pull_position)
 
         self._pose_broadcaster.poses["postpull_drawer"] = post_pull_pose
         post_outcome = self._move_ee_to_pose(post_pull_pose)
@@ -260,7 +271,7 @@ class SpotSkillsProtocol(SkillsProtocol):
             return stow_outcome
 
         # Update the mesh of the opened drawer's container in MoveIt
-        self._kinematic_tree.open_container(drawer_object_name)
+        self._kinematic_tree.open_container(container_name)
 
         return SkillOutcome(success=True, message="Successfully opened the drawer.")
 
@@ -297,7 +308,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param ee_target: End-effector target pose
         :return: Boolean success indicator and an outcome message
         """
-        console.print(f"Moving Spot's end-effector to pose: {ee_target.to_list()}")
+        console.print(f"Moving Spot's end-effector to pose: {ee_target.to_xyz_rpy()}")
         query = MotionPlanningQuery(ee_target)
 
         plan_msg = self._arm.motion_planner.compute_motion_plan(query)
@@ -310,16 +321,17 @@ class SpotSkillsProtocol(SkillsProtocol):
         return SkillOutcome(success=success, message="Motion plan has been executed.")
 
     @skill_method
-    def _lookup_pose(self, frame: str, ref_frame: str) -> SkillOutcome:
+    def _lookup_pose(self, child_frame: str, parent_frame: str) -> SkillOutcome:
         """Look up the pose of a frame w.r.t. a reference frame.
 
-        :param frame: Name of the frame whose pose is found
-        :param ref_frame: Reference frame used for the lookup
+        :param child_frame: Name of the frame whose pose is found
+        :param parent_frame: Reference frame used for the lookup
         :return: Boolean success indicator and an outcome message
         """
+        console.print(f"Finding pose of frame '{child_frame}' w.r.t. frame '{parent_frame}'...")
         request = PoseLookupRequest()
-        request.source_frame = frame
-        request.target_frame = ref_frame
+        request.source_frame = child_frame
+        request.target_frame = parent_frame
 
         response = self._pose_lookup_caller(request)
         if response is None:
@@ -327,7 +339,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         if response.success:
             pose = pose_from_msg(response.relative_pose)
-            console.print(f"[cyan]Pose of {frame} w.r.t. {ref_frame}: {pose}.[/]")
+            console.print(f"[cyan]Pose of {child_frame} w.r.t. {parent_frame}: {pose}.[/]")
 
         return SkillOutcome(response.success, response.message)
 
@@ -338,6 +350,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param yaml_path: YAML file specifying a relative end-effector trajectory
         :return: Boolean success indicator and an outcome message
         """
+        console.print(f"Playing back trajectory from file: {yaml_path}...")
         request = PlaybackTrajectoryRequest(str(yaml_path))
         response = self._traj_playback_caller(request)
 
@@ -349,6 +362,7 @@ class SpotSkillsProtocol(SkillsProtocol):
     @skill_method
     def open_door(
         self,
+        *,
         is_pull: bool,
         hinge_on_left: bool,
         body_pitch_rad: float = -np.pi / 6.0,
@@ -360,6 +374,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param body_pitch_rad: Pitch (radians) of Spot's body when taking the door handle image
         :return: Boolean success indicator and an outcome message
         """
+        console.print("Commanding Spot to open the door...")
         request = OpenDoorRequest(body_pitch_rad, is_pull, hinge_on_left)
         response = self._open_door_caller(request)
         if response is None:
@@ -370,7 +385,7 @@ class SpotSkillsProtocol(SkillsProtocol):
     def _record_trajectory(
         self,
         output_path: Path,
-        ref_frame: str,
+        fixed_frame: str,
         tracked_frame: str,
         *,
         overwrite: bool = False,
@@ -378,7 +393,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         """Record an end-effector relative trajectory and save it to YAML.
 
         :param output_path: Path to the output YAML file
-        :param ref_frame: Reference frame used for the initial relative pose
+        :param fixed_frame: Fixed reference frame in which the relative trajectory is expressed
         :param tracked_frame: Frame tracked during the recording
         :param overwrite: Whether to allow overwriting the output path, defaults to False
         :return: Boolean success indicator and an outcome message
@@ -386,9 +401,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not overwrite and output_path.exists():
             return SkillOutcome(False, f"Cannot overwrite existing output path: {output_path}")
 
-        config_before = self._arm.configuration
-
-        recorder = TransformRecorder(reference_frame=ref_frame, tracked_frame=tracked_frame)
+        recorder = TransformRecorder(reference_frame=fixed_frame, tracked_frame=tracked_frame)
 
         rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
         try:
@@ -396,9 +409,8 @@ class SpotSkillsProtocol(SkillsProtocol):
                 recorder.update()
                 rate_hz.sleep()
         except rospy.ROSInterruptException as ros_exc:
-            return SkillOutcome(False, f"{ros_exc}")
+            return SkillOutcome(success=False, message=f"Failed to record trajectory: {ros_exc}")
         finally:
-            config_after = self._arm.configuration
-            recorder.save_to_file(output_path=output_path)  # TODO: Add before/after configs
+            recorder.save_to_file(output_path=output_path)  # TODO: Add before/after configurations
 
         return SkillOutcome(success=True, message=f"Saved to YAML file: {output_path}")

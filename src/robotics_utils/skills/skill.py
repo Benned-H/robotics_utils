@@ -102,8 +102,7 @@ class Skill:
             if skill_method is None:
                 raise NotImplementedError(f"Skills protocol has no method: {self.method_name}.")
 
-        args = [bindings[param.name] for param in self.parameters]
-        return skill_method(*args)
+        return skill_method(**bindings)
 
     def create_all_instances(self, objects: list[object]) -> list[SkillInstance]:
         """Compute all valid instantiations of the skill using the given Python objects.
