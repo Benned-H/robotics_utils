@@ -13,6 +13,7 @@ from robotics_utils.meta import parse_docstring_params
 from robotics_utils.skills.skill_instance import SkillInstance
 
 if TYPE_CHECKING:
+    from robotics_utils.skills.outcome import Outcome
     from robotics_utils.skills.skills_inventory import SkillsProtocol
 
 
@@ -20,16 +21,6 @@ def skill_method(m: Callable) -> Callable:
     """Mark a method as implementing a skill."""
     m._is_skill = True
     return m
-
-
-@dataclass
-class SkillOutcome:
-    """An outcome (and optional output value) from a skill execution."""
-
-    success: bool
-    message: str
-    output: object | None = None
-    """Optional output value from a skill execution (defaults to None)."""
 
 
 @dataclass(frozen=True)
@@ -90,7 +81,7 @@ class Skill:
         """Retrieve the method name corresponding to this skill."""
         return pascal_to_snake(self.name)  # PascalCase skill name -> snake_case method name
 
-    def execute(self, executor: SkillsProtocol, bindings: Mapping[str, object]) -> SkillOutcome:
+    def execute(self, executor: SkillsProtocol, bindings: Mapping[str, object]) -> Outcome:
         """Execute this skill under the given parameter bindings.
 
         :param executor: Instance of a protocol defining an interface for skill execution

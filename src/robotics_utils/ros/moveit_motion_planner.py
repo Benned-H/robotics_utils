@@ -9,7 +9,6 @@ from moveit_msgs.msg import MoveItErrorCodes, RobotTrajectory
 
 from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros.msg_conversion import pose_to_msg, pose_to_stamped_msg
-from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
 from robotics_utils.ros.transform_manager import TransformManager as TFManager
 
 if TYPE_CHECKING:
@@ -17,6 +16,7 @@ if TYPE_CHECKING:
     from moveit_commander import MoveGroupCommander
 
     from robotics_utils.motion_planning import MotionPlanningQuery
+    from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
 
 
 MoveItResult = Tuple[bool, RobotTrajectory, float, MoveItErrorCodes]
@@ -33,15 +33,19 @@ class MoveItMotionPlanner:
         """Initialize the MoveIt motion planner with an interface to the relevant move group."""
         self._move_group = move_group
         self.planning_frame = planning_frame
-        self._planning_scene = PlanningSceneManager(planning_frame=planning_frame)
 
-    def compute_motion_plan(self, query: MotionPlanningQuery) -> RobotTrajectory | None:
+    def compute_motion_plan(
+        self,
+        query: MotionPlanningQuery,
+        planning_scene: PlanningSceneManager,
+    ) -> RobotTrajectory | None:
         """Compute a motion plan (i.e., trajectory) for the given planning query.
 
         :param query: Specifies an end-effector target and (optionally) objects to ignore
+        :param planning_scene: Interface to the MoveIt planning scene used to ignore objects
         :return: Message containing the planned trajectory, or None if no plan is found
         """
-        if not self._planning_scene.apply_query_ignores(query):
+        if not planning_scene.apply_query_ignores(query):
             error_msg = f"Unable to ignore collisions for motion planning: {query}"
             rospy.logerr(error_msg)
             raise RuntimeError(error_msg)
@@ -66,7 +70,7 @@ class MoveItMotionPlanner:
             rospy.logerr(f"Motion planning error code: {error_code}.")
 
         # Reset any modifications to the planning scene before exiting
-        if not self._planning_scene.revert_query_ignores(query):
+        if not planning_scene.revert_query_ignores(query):
             error_msg = f"Unable to revert collision ignores for motion planning: {query}"
             rospy.logerr(error_msg)
             raise RuntimeError(error_msg)

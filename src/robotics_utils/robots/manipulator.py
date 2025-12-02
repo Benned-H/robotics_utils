@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from robotics_utils.kinematics import Configuration, Pose3D
     from robotics_utils.motion_planning import Trajectory
     from robotics_utils.robots.angular_gripper import AngularGripper
+    from robotics_utils.skills import Outcome
 
 
 class Manipulator(ABC):
@@ -57,5 +58,21 @@ class Manipulator(ABC):
 
         :param ee_target: Target pose of the end-effector
         :return: Manipulator configuration solving the IK problem (else None)
+        """
+        ...
+
+    @abstractmethod
+    def grasp(self, object_name: str) -> Outcome:
+        """Grasp the named object using the manipulator's gripper.
+
+        :return: Boolean success of the grasp and an outcome message
+        """
+        ...
+
+    @abstractmethod
+    def release(self, object_name: str) -> Outcome:
+        """Release the named object using the manipulator's gripper.
+
+        :return: Boolean success of the release and an outcome message
         """
         ...

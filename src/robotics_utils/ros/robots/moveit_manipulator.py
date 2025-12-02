@@ -12,9 +12,10 @@ from trac_ik_python.trac_ik import IK
 
 from robotics_utils.motion_planning import MotionPlanningQuery
 from robotics_utils.robots import Manipulator
-from robotics_utils.ros import TransformManager, get_ros_param
+from robotics_utils.ros import PlanningSceneManager, TransformManager, get_ros_param
 from robotics_utils.ros.moveit_motion_planner import MoveItMotionPlanner
 from robotics_utils.ros.msg_conversion import trajectory_to_msg
+from robotics_utils.skills import Outcome
 
 if TYPE_CHECKING:
     from moveit_msgs.msg import RobotTrajectory
@@ -27,21 +28,29 @@ if TYPE_CHECKING:
 class MoveItManipulator(Manipulator):
     """A MoveIt-based interface for a robot manipulator."""
 
-    def __init__(self, name: str, base_frame: str, gripper: AngularGripper | None) -> None:
+    def __init__(
+        self,
+        name: str,
+        robot_name: str,
+        base_frame: str,
+        gripper: AngularGripper | None,
+    ) -> None:
         """Initialize the manipulator with its base frame and gripper.
 
         :param name: Name of the manipulator (used as its move group name)
+        :param robot_name: Name of the robot the manipulator belongs to
         :param base_frame: Base frame of the manipulator's move group
         :param gripper: Interface for the end-effector of the manipulator
         """
         super().__init__(name, base_frame, gripper)
-        move_group_name = self.name
+        self.robot_name = robot_name
 
         roscpp_initialize(sys.argv)
-        self.move_group = MoveGroupCommander(move_group_name, wait_for_servers=30)
+        self.move_group = MoveGroupCommander(self.name, wait_for_servers=30)
         self.move_group.set_pose_reference_frame(self.base_frame)
 
         self.motion_planner = MoveItMotionPlanner(self.move_group, planning_frame=self.base_frame)
+        self.planning_scene = PlanningSceneManager(planning_frame=base_frame)
 
         self._ee_link: str = self.move_group.get_end_effector_link()
 
@@ -134,7 +143,7 @@ class MoveItManipulator(Manipulator):
         query = MotionPlanningQuery(ee_target=target)
 
         for attempt in range(max_retries):
-            plan_msg = self.motion_planner.compute_motion_plan(query)
+            plan_msg = self.motion_planner.compute_motion_plan(query, self.planning_scene)
             if plan_msg is not None:
                 return self.execute_trajectory_msg(plan_msg)
             rospy.logwarn(f"Motion planning attempt {attempt + 1}/{max_retries} failed.")
@@ -167,3 +176,48 @@ class MoveItManipulator(Manipulator):
             return None
 
         return dict(zip(self.joint_names, list(ik_solution)))
+
+    def grasp(self, object_name: str) -> Outcome:
+        """Grasp the named object using the manipulator's gripper.
+
+        :return: Boolean success of the grasp and an outcome message
+        """
+        if self.gripper is None:
+            return Outcome(False, f"Cannot grasp '{object_name}' because gripper is None.")
+
+        if not self.gripper.close():
+            return Outcome(False, f"Failed to close gripper when grasping '{object_name}'.")
+
+        # Find the current pose of the grasped object w.r.t. the end-effector
+        pose_ee_o = TransformManager.lookup_transform(object_name, self.ee_link_name)
+        if pose_ee_o is None:
+            return Outcome(False, f"Failed to look up pose when grasping '{object_name}'.")
+
+        # Update the pose of the object in TF and MoveIt
+        TransformManager.broadcast_transform(object_name, pose_ee_o)
+        success = self.planning_scene.grasp_object(object_name, self.robot_name, self)
+        message = (
+            f"Successfully grasped '{object_name}'."
+            if success
+            else f"Failed to grasp '{object_name}' because the planning scene was not updated."
+        )
+        return Outcome(success=success, message=message)
+
+    def release(self, object_name: str) -> Outcome:
+        """Release the named object using the manipulator's gripper.
+
+        :return: Boolean success of the release and an outcome message
+        """
+        if self.gripper is None:
+            return Outcome(False, f"Cannot release '{object_name}' because gripper is None.")
+
+        if not self.gripper.open():
+            return Outcome(False, f"Failed to open gripper when grasping '{object_name}'.")
+
+        success = self.planning_scene.release_object(object_name, self.robot_name, self)
+        message = (
+            f"Successfully released '{object_name}'."
+            if success
+            else f"Failed to release '{object_name}' because the planning scene was not updated."
+        )
+        return Outcome(success=success, message=message)
