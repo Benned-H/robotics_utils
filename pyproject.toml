@@ -9,7 +9,14 @@ description = "General-purpose robotics utilities"
 requires-python = ">=3.8, <3.13"                   # Torch 2.4.1 doesn't support Python 3.13
 
 # Core dependencies - Always installed
-dependencies = ["click", "rich", "numpy", "trimesh", "pyquaternion"]
+dependencies = [
+    "click",
+    "rich",
+    "numpy",
+    "trimesh",
+    "pyquaternion",
+    "prompt-toolkit",
+]
 
 # Optional dependencies support optional user features
 # Reference: https://pydevtools.com/handbook/explanation/what-are-optional-dependencies-and-dependency-groups/

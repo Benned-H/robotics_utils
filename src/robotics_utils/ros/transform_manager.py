@@ -83,29 +83,32 @@ class TransformManager:
 
         TransformManager.tf_broadcaster().sendTransform(tf_stamped_msg)
 
+    # TODO: Source = child
+    # TODO: Target = Parent
+
     @staticmethod
     def lookup_transform(
-        source_frame: str,
-        target_frame: str,
+        child_frame: str,
+        parent_frame: str,
         when: rospy.Time | None = None,
         timeout_s: float = 5.0,
     ) -> Pose3D | None:
         """Look up the transform to convert from one frame to another using /tf.
 
-        Frame notation: Relative pose of some data (d), source frame (s), target frame (t).
+        Frame notation: Child frame (c) and parent frame (p).
 
-        Say our input data originates in the source frame: pose_s_d ("data w.r.t. source frame").
-        This function outputs transform_t_s ("source relative to target"), which lets us compute:
+        Say our data is originally expressed in the child frame (data_wrt_c).
+        This function outputs transform_p_c ("child relative to parent"), which lets us compute:
 
-            transform_t_s @ pose_s_d = pose_t_d (i.e., "data expressed in the target frame")
+            transform_p_c @ data_wrt_c = data_wrt_p (i.e., "data expressed in the parent frame")
 
         Reference: https://docs.ros.org/en/noetic/api/tf2_ros/html/c++/classtf2__ros_1_1Buffer.html#ada7f9d7d8d12655d7ce5c5f303303f5f
 
-        :param source_frame: Frame where the data originated
-        :param target_frame: Frame to which the data will be transformed
+        :param child_frame: Frame whose relative pose we want to find
+        :param parent_frame: Frame relative to which the transform is found
         :param when: Timestamp for which the relative transform is found (if None, use latest data)
         :param timeout_s: Duration (seconds) after which to abandon the lookup (defaults to 5)
-        :return: Pose3D representing transform (i.e., transform_t_s) or None (if lookup failed)
+        :return: Pose3D representing transform (i.e., transform_p_c) or None (if lookup failed)
         """
         if when is None:
             when = rospy.Time(0)
@@ -120,34 +123,34 @@ class TransformManager:
         while (rospy.get_time() < timeout_time_s) and (not rospy.is_shutdown_requested()):
             try:
                 tf_stamped_msg = TransformManager.tf_buffer().lookup_transform(
-                    target_frame=target_frame,
-                    source_frame=source_frame,
+                    target_frame=parent_frame,
+                    source_frame=child_frame,
                     time=when,
                     timeout=rate_hz.sleep_dur,
                 )
                 break
             except TransformException as t_exc:
                 rospy.logwarn(
-                    f"[TransformManager.lookup_transform] Lookup for '{source_frame}' to "
-                    f"'{target_frame}' at time {when.to_time():.2f} gave exception: {t_exc}",
+                    f"[TransformManager.lookup_transform] Lookup of '{child_frame}' w.r.t. "
+                    f"'{parent_frame}' at time {when.to_time():.2f} gave exception: {t_exc}",
                 )
                 rate_hz.sleep()
 
         if tf_stamped_msg is None:
             rospy.logerr(
-                f"[TransformManager.lookup_transform] Could not look up transform from "
-                f"'{source_frame}' to '{target_frame}' within {timeout_s} seconds.",
+                f"[TransformManager.lookup_transform] Could not look up transform of "
+                f"'{child_frame}' w.r.t. '{parent_frame}' within {timeout_s} seconds.",
             )
             return None
 
-        pose_t_s = pose_from_tf_stamped_msg(tf_stamped_msg)
+        pose_p_c = pose_from_tf_stamped_msg(tf_stamped_msg)
 
-        if target_frame != pose_t_s.ref_frame:
+        if parent_frame != pose_p_c.ref_frame:
             raise RuntimeError(
-                f"Expected result in '{target_frame}' but instead found '{pose_t_s.ref_frame}'",
+                f"Expected result in '{parent_frame}' but instead found '{pose_p_c.ref_frame}'",
             )
 
-        return pose_t_s
+        return pose_p_c
 
     @staticmethod
     def convert_to_frame(

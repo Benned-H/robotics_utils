@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import click
+from prompt_toolkit import prompt as pt_prompt
+from prompt_toolkit.completion import WordCompleter
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
@@ -69,6 +71,12 @@ def build_cli(protocol_instance: SkillsProtocol) -> click.Command:
     inventory = SkillsInventory.from_protocol(protocol_instance.__class__)
     idx_to_skill = _idx_to_skill(inventory)
 
+    exit_options = {"q", "quit", "exit"}
+
+    # Create a tab-completer for the skill names
+    skill_names = sorted(skill.name for skill in inventory)
+    skill_completer = WordCompleter([*skill_names, *exit_options], ignore_case=True)
+
     default_param_values = find_default_param_values(protocol_instance.__class__)
     skills_ui = SkillsUI(INPUT_HANDLERS, default_param_values)
 
@@ -78,36 +86,50 @@ def build_cli(protocol_instance: SkillsProtocol) -> click.Command:
         console.print(f"[yellow]Types missing input handlers: {unhandled_type_names}.[/]")
 
     @click.command()
-    @click.option("--yes", is_flag=True, help="Skip confirmation prompts.")
-    def cli(yes: bool) -> None:
+    def cli() -> None:
         """Create an interactive CLI for invoking skills with Python-typed parameters."""
         while True:
             console.print(_render_selection_table(inventory))
-            choice = Prompt.ask("Select a skill number (or 'q' to quit)").strip().lower()
-            if choice in {"q", "quit", "exit"}:
+            choice: str = pt_prompt(
+                "Select a skill by name or number (or 'q' to quit): ",
+                completer=skill_completer,
+            ).strip()
+
+            if choice.lower() in exit_options:
                 console.print("[dim]Bye.[/]")
                 break
 
-            if not choice.isdigit():
-                console.print("[red]Please enter an integer or 'q'.[/]")
+            # Try to match by name first (case-insensitive)
+            skill = inventory.skills.get(choice)
+
+            # Fall back to number matching
+            if skill is None and choice.isdigit():
+                idx = int(choice)
+                if idx < 1 or idx > len(inventory.skills):
+                    console.print("[red]Out of range.[/]")
+                    continue
+                skill = idx_to_skill[idx]
+
+            if skill is None:
+                console.print("[red]Please enter a skill name, an integer, or 'q'.[/]")
                 continue
 
-            idx = int(choice)
-            if idx < 1 or idx > len(inventory.skills):
-                console.print("[red]Out of range.[/]")
-                continue
-
-            skill = idx_to_skill[idx]
             try:
                 bindings = _prompt_for_bindings(skill, skills_ui)
             except KeyError as err:
-                console.print(f"[red]{err}[/]")
+                console.print(f"\n[red]{err}[/]")
+                continue
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Canceled.[/]")
                 continue
 
-            console.print(Padding(f"Bindings: {bindings}", (1, 1)))
-            if yes or Confirm(f"[bold]Execute {skill.name}?[/]"):
-                outcome = skill.execute(protocol_instance, bindings)
-                color = "green" if outcome.success else "red"
-                console.print(f"[{color}]{outcome.message}[/]")
+            console.print(Padding(f"Bindings: {bindings}", (1, 4)))
+            if Confirm(f"[bold]Execute {skill.name}?[/]"):
+                try:
+                    outcome = skill.execute(protocol_instance, bindings)
+                    color = "green" if outcome.success else "red"
+                    console.print(f"[{color}]{outcome.message}[/]")
+                except KeyboardInterrupt:
+                    console.print("\n[yellow]Execution interrupted.[/]")
 
     return cli

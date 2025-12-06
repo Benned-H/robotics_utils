@@ -334,8 +334,8 @@ class SpotSkillsProtocol(SkillsProtocol):
         """
         console.print(f"Finding pose of frame '{child_frame}' w.r.t. frame '{parent_frame}'...")
         request = PoseLookupRequest()
-        request.source_frame = child_frame
-        request.target_frame = parent_frame
+        request.child_frame = child_frame
+        request.parent_frame = parent_frame
 
         response = self._pose_lookup_caller(request)
         if response is None:
@@ -368,19 +368,29 @@ class SpotSkillsProtocol(SkillsProtocol):
     def open_door(
         self,
         *,
-        is_pull: bool,
-        hinge_on_left: bool,
-        body_pitch_rad: float = -np.pi / 6.0,
+        is_pull: bool = False,
+        hinge_on_left: bool = True,
+        body_pitch_rad: float = -0.1,
+        door_offset_m: float = 0.9,
+        ray_search_dist_m: float = 0.15,
     ) -> Outcome:
         """Open a door using the Spot SDK.
 
         :param is_pull: Whether the door opens by pulling toward Spot
         :param hinge_on_left: Whether the door's hinge is on the left, from Spot's perspective
         :param body_pitch_rad: Pitch (radians) of Spot's body when taking the door handle image
+        :param door_offset_m: Distance (m) Spot stands from the door when searching for the handle
+        :param ray_search_dist_m: Distance (m) searched along the ray to the door handle
         :return: Boolean success indicator and an outcome message
         """
         console.print("Commanding Spot to open the door...")
-        request = OpenDoorRequest(body_pitch_rad, is_pull, hinge_on_left)
+        request = OpenDoorRequest(
+            body_pitch_rad,
+            is_pull,
+            hinge_on_left,
+            door_offset_m,
+            ray_search_dist_m,
+        )
         response = self._open_door_caller(request)
         if response is None:
             return Outcome(False, "OpenDoor service response was None.")

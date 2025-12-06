@@ -11,7 +11,7 @@ def main() -> None:
     with RealSense(depth_spec=D455_SPEC) as sensor, PointcloudVisualizer() as vis:
         while True:
             rgbd = sensor.get_rgbd(timeout_ms=5000)
-            if not display_in_window(rgbd, "RGB-D Image ('q' to exit)", wait_for_input=False):
+            if not display_in_window(rgbd, "RGB-D Image ('q' to exit)", wait=False):
                 break
 
             log_info(f"Min depth: {rgbd.depth.min_depth_m} Max depth: {rgbd.depth.max_depth_m}")

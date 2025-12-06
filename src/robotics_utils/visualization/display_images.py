@@ -45,12 +45,12 @@ class Displayable(Protocol):
         ...
 
 
-def display_in_window(image: Displayable, window_title: str, wait_for_input: bool = True) -> bool:
+def display_in_window(image: Displayable, title: str, *, wait: bool = True) -> bool:
     """Display an image in an OpenCV window with the given title.
 
     :param image: Image supporting conversion into a displayable format
-    :param window_title: Title used for the display window (e.g., "Object Detections")
-    :param wait_for_input: Whether to display the image until user input (defaults to True)
+    :param title: Title used for the display window (e.g., "Object Detections")
+    :param wait: Whether to display the image until user input (defaults to True)
     :return: Boolean indicating if the window remains active (True = Active, False = Closed)
     """
     display_data = image.convert_for_visualization()
@@ -65,13 +65,13 @@ def display_in_window(image: Displayable, window_title: str, wait_for_input: boo
     else:
         new_h, new_w = h, w
 
-    title = f"{window_title} (press any key to exit)" if wait_for_input else window_title
+    full_title = f"{title} (press any key to exit)" if wait else title
 
-    cv2.namedWindow(title, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(title, new_w, new_h)
-    cv2.imshow(title, display_data)
+    cv2.namedWindow(full_title, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(full_title, new_w, new_h)
+    cv2.imshow(full_title, display_data)
 
-    if wait_for_input:
+    if wait:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
         return False

@@ -99,8 +99,8 @@ class MoveItManipulator(Manipulator):
         end_time_s = time.time() + timeout_s
         while pose_b_ee is None and time.time() < end_time_s:
             pose_b_ee = TransformManager.lookup_transform(
-                source_frame=self.ee_link_name,
-                target_frame=self.base_frame,
+                child_frame=self.ee_link_name,
+                parent_frame=self.base_frame,
                 timeout_s=0.2,
             )
 
