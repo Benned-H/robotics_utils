@@ -122,6 +122,12 @@ class Pose3D:
         result = self.to_homogeneous_matrix() @ other.to_homogeneous_coordinate()
         return Point3D.from_homogeneous_coordinate(result)
 
+    def __str__(self) -> str:
+        """Return a human-readable string representation of the Pose3D."""
+        xyz_rpy_strings = [f"{value:.3f}" for value in self.to_xyz_rpy()]
+        xyz_rpy = ", ".join(xyz_rpy_strings)
+        return f'Pose3D([{xyz_rpy}], ref_frame="{self.ref_frame}")'
+
     @property
     def yaw_rad(self) -> float:
         """Retrieve the yaw (radians) from the orientation of the pose."""

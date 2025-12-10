@@ -5,13 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, get_args
 
+from robotics_utils.collision_models import CollisionModel
 from robotics_utils.io.logging import log_info
-from robotics_utils.states.object_kinematic_state import ObjectKinematicState
 
 if TYPE_CHECKING:
-    from robotics_utils.collision_models import CollisionModel
-    from robotics_utils.kinematics import Pose3D
+    from pathlib import Path
+
     from robotics_utils.kinematics.kinematic_tree import KinematicTree
+    from robotics_utils.states.object_kinematic_state import ObjectKinematicState
 
 ContainerStatus = Literal["open", "closed"]
 """Status describing whether a physical container is open or closed."""
@@ -32,47 +33,46 @@ class ContainerState:
     @classmethod
     def from_yaml_data(
         cls,
-        name: str,
+        container_name: str,
         yaml_data: dict[str, Any],
-        collision_models: dict[str, CollisionModel],
-        object_poses: dict[str, Pose3D],
+        yaml_path: Path,
+        object_states: dict[str, ObjectKinematicState],
     ) -> ContainerState:
         """Construct a ContainerState instance from a dictionary of YAML data.
 
-        :param name: Name of the container
+        :param container_name: Name of the container
         :param yaml_data: YAML data specifying the initial state of the container
-        :param collision_models: Map from collision model names to previously loaded models
-        :param object_poses: Map from object names to previously loaded object poses
+        :param yaml_path: Path to the YAML file the YAML data was loaded from
+        :param object_states: Map from names of objects to their kinematic states
         :return: Constructed initial state of the container
+        :raises KeyError: If a contained object's kinematic state is not provided
         """
         for required_key in ["status", "open_model", "closed_model"]:
             if required_key not in yaml_data:
                 raise KeyError(f"ContainerState needs YAML key '{required_key}', got {yaml_data}")
 
-        initial_status = yaml_data["status"]
-        if initial_status not in get_args(ContainerStatus):
-            raise ValueError(f"Container must be 'open' or 'closed'; got '{initial_status}'.")
+        status = yaml_data["status"]
+        if status not in get_args(ContainerStatus):
+            raise ValueError(f"Container must be 'open' or 'closed'; got '{status}'.")
 
-        open_model = collision_models.get(yaml_data["open_model"])
-        if open_model is None:
-            model_name = yaml_data["open_model"]
-            raise KeyError(f"Missing open model '{model_name}' for container '{name}'.")
+        open_model_data = yaml_data["open_model"]
+        open_model = CollisionModel.from_yaml_data(open_model_data, yaml_path)
 
-        closed_model = collision_models.get(yaml_data["closed_model"])
-        if closed_model is None:
-            model_name = yaml_data["closed_model"]
-            raise KeyError(f"Missing closed model '{model_name}' for container '{name}'.")
+        closed_model_data = yaml_data["closed_model"]
+        closed_model = CollisionModel.from_yaml_data(closed_model_data, yaml_path)
 
-        contained_objects: dict[str, ObjectKinematicState] = {
-            obj_name: ObjectKinematicState(
-                obj_name,
-                object_poses[obj_name],
-                collision_models[obj_name],
-            )
-            for obj_name in yaml_data.get("contains", [])
-        }
+        contained_objects: dict[str, ObjectKinematicState] = {}
+        contained_object_names: list[str] = yaml_data.get("contains", [])
+        for obj_name in contained_object_names:
+            if obj_name not in object_states:
+                raise KeyError(
+                    f"The kinematic state of object '{obj_name}' is needed to "
+                    f"construct the container '{container_name}'.",
+                )
 
-        return ContainerState(name, initial_status, open_model, closed_model, contained_objects)
+            contained_objects[obj_name] = object_states[obj_name]
+
+        return ContainerState(container_name, status, open_model, closed_model, contained_objects)
 
     @property
     def is_open(self) -> bool:

@@ -15,10 +15,9 @@ if TYPE_CHECKING:
 class Manipulator(ABC):
     """An interface for a robot manipulator."""
 
-    def __init__(self, name: str, base_frame: str, gripper: AngularGripper | None) -> None:
-        """Initialize the manipulator with its base frame and gripper."""
+    def __init__(self, name: str, gripper: AngularGripper | None) -> None:
+        """Initialize the manipulator with an optional gripper."""
         self.name = name
-        self.base_frame = base_frame
         self.gripper = gripper
 
     @property

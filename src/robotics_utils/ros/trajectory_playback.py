@@ -109,7 +109,7 @@ class TrajectoryPlayback:
         if not waypoints:
             return None, 0
 
-        plan_msg, fraction = self.manipulator.motion_planner.compute_cartesian_plan(
+        plan_msg, fraction = self.manipulator.planner.compute_cartesian_plan(
             waypoints,
             ee_step_m=self.config.plan_ee_step_m,
             avoid_collisions=True,

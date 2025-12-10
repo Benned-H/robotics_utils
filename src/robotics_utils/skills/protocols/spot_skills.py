@@ -4,8 +4,8 @@ import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-import numpy as np
 import rospy
+from rich.prompt import Prompt
 from spot_skills.srv import (
     NameService,
     NameServiceRequest,
@@ -25,8 +25,10 @@ from robotics_utils.io import console
 from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D, Waypoints
 from robotics_utils.kinematics.kinematic_tree import KinematicTree
 from robotics_utils.motion_planning import MotionPlanningQuery
+from robotics_utils.motion_planning.grasping import PickPoses
 from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import (
+    PlanningSceneManager,
     PoseBroadcastThread,
     ServiceCaller,
     TransformManager,
@@ -54,6 +56,9 @@ class SpotSkillsConfig:
 
     robot_name: str = "Spot"
 
+    planning_frame: str = "map"
+    """Reference frame used for MoveIt motion planning."""
+
     pose_estimate_window_size: int = 15
     """Number of poses used in the rolling average estimate for each frame."""
 
@@ -74,8 +79,6 @@ class SpotSkillsProtocol(SkillsProtocol):
 
     def __init__(self, config: SpotSkillsConfig) -> None:
         """Initialize the Spot skills executor."""
-        self.robot_name = config.robot_name
-
         self._waypoints = Waypoints.from_yaml(config.env_yaml)
 
         self._nav_to_waypoint_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
@@ -98,6 +101,15 @@ class SpotSkillsProtocol(SkillsProtocol):
             PoseLookup,
         )
 
+        self._pause_est_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
+            "spot/pose_estimation/pause",
+            NameService,
+        )
+        self._resume_est_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
+            "spot/pose_estimation/resume",
+            NameService,
+        )  # TODO: When should this be called?
+
         self._gripper = ROSAngularGripper(
             limits=GripperAngleLimits(
                 open_rad=SPOT_GRIPPER_OPEN_RAD,
@@ -107,10 +119,12 @@ class SpotSkillsProtocol(SkillsProtocol):
             action_name="gripper_controller/gripper_action",
         )
 
+        self.planning_frame = config.planning_frame
         self._arm = MoveItManipulator(
             name="arm",
-            robot_name=self.robot_name,
+            robot_name=config.robot_name,
             base_frame="body",
+            planning_frame=self.planning_frame,
             gripper=self._gripper,
         )
 
@@ -143,7 +157,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         response = self._nav_to_waypoint_caller(request)
 
         if response is None:
-            return Outcome(False, "NavigateToWaypoint service response was None.")
+            return Outcome(success=False, message="NavigateToWaypoint service response was None.")
 
         return Outcome(response.success, response.message)
 
@@ -306,16 +320,21 @@ class SpotSkillsProtocol(SkillsProtocol):
         return Outcome(success, message)
 
     @skill_method
-    def _move_ee_to_pose(self, ee_target: Pose3D) -> Outcome:
+    def _move_ee_to_pose(self, ee_target: Pose3D, ignored_objects: str = "") -> Outcome:
         """Move Spot's end-effector to the specified pose.
 
         :param ee_target: End-effector target pose
+        :param ignored_objects: Comma-separated list of object names to ignore (defaults to "")
         :return: Boolean success indicator and an outcome message
         """
-        console.print(f"Moving Spot's end-effector to pose: {ee_target.to_xyz_rpy()}")
-        query = MotionPlanningQuery(ee_target)
+        console.print(f"Moving Spot's end-effector to pose: {ee_target}")
 
-        plan_msg = self._arm.motion_planner.compute_motion_plan(query, self._arm.planning_scene)
+        ignored_objects_set = set()
+        if ignored_objects.strip():
+            ignored_objects_set = set(ignored_objects.strip().split(","))
+        query = MotionPlanningQuery(ee_target, ignored_objects=ignored_objects_set)
+
+        plan_msg = self._arm.planner.compute_motion_plan(query)
         if plan_msg is None:
             return Outcome(success=False, message="No motion plan found.")
 
@@ -437,6 +456,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param object_name: Name of the object to be grasped
         :return: Boolean success indicator and an outcome message
         """
+        console.print(f"Grasping object '{object_name}'...")
         return self._arm.grasp(object_name=object_name)
 
     @skill_method
@@ -446,18 +466,20 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param object_name: Name of the object to be released
         :return: Boolean success indicator and an outcome message
         """
+        console.print(f"Releasing object '{object_name}'...")
         return self._arm.release(object_name=object_name)
 
     @skill_method
     def pick(
         self,
-        object_name: str,
-        open_gripper_rad: float,
-        pre_grasp_x_m: float,
-        pose_o_g: Pose3D,
-        lift_z_m: float,
+        object_name: str = "eraser1",
+        open_gripper_rad: float = SPOT_GRIPPER_HALF_OPEN_RAD,
+        pre_grasp_x_m: float = 0.07,
+        pose_o_g: Pose3D = Pose3D.from_xyz_rpy(z=0.36, pitch_rad=1.5708, ref_frame="eraser1"),
+        lift_z_m: float = 0.05,
         *,
-        stow_after: bool,
+        stow_after: bool = True,
+        yaw_symmetric: bool = True,
     ) -> Outcome:
         """Pick the named object using Spot's gripper.
 
@@ -476,64 +498,86 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param pose_o_g: Object-relative end-effector pose used to grasp the object
         :param lift_z_m: Offset (m) of the post-grasp pose "up" (+z) w.r.t. the world frame
         :param stow_after: If True, stow the arm after picking the object
+        :param yaw_symmetric: Indicates that the object is rotationally symmetric about its z-axis
         :return: Boolean success indicator and an outcome message
         """
-        if object_name != pose_o_g.ref_frame:
-            g_frame = pose_o_g.ref_frame
-            console.print(f"[yellow]Warning: Grasp pose given in frame '{g_frame}'.[/]")
-            pose_o_g = TransformManager.convert_to_frame(pose_o_g, target_frame=object_name)
+        console.print(f"Picking object '{object_name}'...")
 
-        # TODO: Possibly attempt to re-pose-estimate the object before or during the skill
+        if object_name != pose_o_g.ref_frame:
+            console.print(f"[yellow]Warning: Grasp pose given in frame '{pose_o_g.ref_frame}'.[/]")
+            pose_o_g = TransformManager.convert_to_frame(pose_o_g, target_frame=object_name)
 
         self._pose_broadcaster.poses["pose_o_g"] = pose_o_g  # Grasp pose w.r.t. object frame
 
-        # Check if we should "flip" the grasp pose to account for which side Spot is on
-        pose_o_spot = TransformManager.lookup_transform("body", object_name)
-        if pose_o_spot is None:
+        # Verify that IK solutions exist for the corresponding pre-grasp and post-grasp poses
+        original_poses = PickPoses.from_grasp_pose(pose_o_g, pre_grasp_x_m, lift_z_m)
+
+        validated_poses = None
+        if original_poses.validate_ik(manipulator=self._arm):
+            validated_poses = original_poses
+
+        # If the object is symmetric about its z-axis, consider the symmetric grasp pose
+        if validated_poses is None and yaw_symmetric:
+            rotate_object = Pose3D.from_xyz_rpy(yaw_rad=3.14159, ref_frame=object_name)
+            alternative_pose_o_g = rotate_object @ pose_o_g
+
+            self._pose_broadcaster.poses["alternative_pose_o_g"] = alternative_pose_o_g
+
+            alt_poses = PickPoses.from_grasp_pose(alternative_pose_o_g, pre_grasp_x_m, lift_z_m)
+            if alt_poses.validate_ik(self._arm):
+                validated_poses = alt_poses
+
+        if validated_poses is None:
             return Outcome(
                 success=False,
-                message=f"Unable to look up pose of 'body' frame w.r.t. '{object_name}'.",
+                message=f"Cannot pick '{object_name}' because no grasp poses were valid.",
             )
-        need_to_flip = pose_o_spot.position.y < 0.0
-        if need_to_flip:
-            console.print(f"Flipping grasp pose due to Spot's location w.r.t. '{object_name}'...")
-            flipped_pose_o_g = pose_o_g @ Pose3D.from_xyz_rpy(roll_rad=np.pi)
-            self._pose_broadcaster.poses["flipped_pose_o_g"] = flipped_pose_o_g
-            pose_o_g = flipped_pose_o_g
 
-        # Compute the pre-grasp and post-grasp poses using the updated grasp pose
-        pose_g_pregrasp = Pose3D.from_xyz_rpy(x=-abs(pre_grasp_x_m))  # pre-grasp w.r.t. grasp
-        pose_o_pregrasp = pose_o_g @ pose_g_pregrasp  # pre-grasp w.r.t. object
+        self._pose_broadcaster.poses[f"pre_grasp_{object_name}"] = validated_poses.pregrasp_pose
+        self._pose_broadcaster.poses[f"grasp_{object_name}"] = validated_poses.grasp_pose
+        self._pose_broadcaster.poses[f"post_grasp_{object_name}"] = validated_poses.postgrasp_pose
 
-        pose_w_g = TransformManager.convert_to_frame(pose_o_g, target_frame=DEFAULT_FRAME)
-        postgrasp_z = pose_w_g.position.z + lift_z_m  # z-coordinate w.r.t. world
-        postgrasp_xyz = replace(pose_w_g.position, z=postgrasp_z)
-        pose_w_postgrasp = replace(pose_w_g, position=postgrasp_xyz)  # post-grasp w.r.t. world
+        # Now that the grasp pose is validated, pause pose estimation for the object
+        Prompt.ask(f"Next: Pause pose estimation for '{object_name}'.")
+        pause_request = NameServiceRequest(name=object_name)
+        pause_response = self._pause_est_caller(pause_request)
+        if pause_response is None:
+            return Outcome(success=False, message="Pose estimation pause service returned None.")
 
-        self._pose_broadcaster.poses[f"pre_grasp_{object_name}"] = pose_o_pregrasp
-        self._pose_broadcaster.poses[f"grasp_{object_name}"] = pose_o_g
-        self._pose_broadcaster.poses[f"post_grasp_{object_name}"] = pose_w_postgrasp
+        if not pause_response.success:
+            return Outcome(success=False, message=pause_response.message)
 
-        if not self._gripper.move_to_angle_rad(target_rad=open_gripper_rad):
-            return Outcome(False, f"Unable to pick '{object_name}' because gripper didn't open.")
+        # Open the gripper to prepare for picking
+        Prompt.ask("Next: Open the gripper.")
+        if not self._gripper.move_to_angle_rad(open_gripper_rad):
+            return Outcome(
+                success=False,
+                message=f"Unable to pick '{object_name}' because the gripper didn't open.",
+            )
 
-        pre_outcome = self._move_ee_to_pose(ee_target=pose_o_pregrasp)
+        # Move the end-effector to the pre-grasp pose
+        Prompt.ask("Next: Move end-effector to pre-grasp pose.")
+        pre_outcome = self._move_ee_to_pose(validated_poses.pregrasp_pose)
         if not pre_outcome.success:
             return pre_outcome
 
-        move_to_grasp_outcome = self._move_ee_to_pose(ee_target=pose_o_g)
+        Prompt.ask("Next: Move end-effector to grasp pose.")
+        move_to_grasp_outcome = self._move_ee_to_pose(validated_poses.grasp_pose)
         if not move_to_grasp_outcome.success:
             return move_to_grasp_outcome
 
+        Prompt.ask(f"Next: Grasp '{object_name}'.")
         grasp_outcome = self._grasp_object(object_name)
         if not grasp_outcome.success:
             return grasp_outcome
 
-        post_outcome = self._move_ee_to_pose(ee_target=pose_w_postgrasp)
+        Prompt.ask("Next: Move end-effector to post-grasp pose.")
+        post_outcome = self._move_ee_to_pose(validated_poses.postgrasp_pose)
         if not post_outcome.success:
             return post_outcome
 
         if stow_after:
+            Prompt.ask("Next: Stow Spot's arm.")
             stow_outcome = self.stow_arm()
             if not stow_outcome.success:
                 return stow_outcome
@@ -561,6 +605,8 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param stow_after: If True, stow Spot's arm after placing the object
         :return: Boolean success indicator and outcome message
         """
+        console.print(f"Placing object '{object_name}' on surface '{surface_name}'...")
+
         grasped_pose_o_ee = TransformManager.lookup_transform(self._arm.ee_link_name, object_name)
         if grasped_pose_o_ee is None:
             return Outcome(False, f"Unable to place '{object_name}' due to pose lookup failure.")
@@ -610,3 +656,50 @@ class SpotSkillsProtocol(SkillsProtocol):
                 return stow_outcome
 
         return Outcome(success=True, message=f"Placed '{object_name}' on '{surface_name}'.")
+
+    @skill_method
+    def _populate_planning_scene(self, yaml_path: Path) -> Outcome:
+        """Populate the MoveIt planning scene from a YAML file.
+
+        :param yaml_path: Filepath to a YAML file specifying environment geometry
+        :return: Boolean success indicator and outcome message
+        """
+        console.print(f"Populating MoveIt planning scene from YAML file: {yaml_path}")
+        return PlanningSceneManager.populate_from_yaml(
+            yaml_path=yaml_path,
+            planning_frame=self.planning_frame,
+        )
+
+    @skill_method
+    def _pause_object_pose_estimation(self, object_name: str) -> Outcome:
+        """Pause pose estimation for the named object.
+
+        :param object_name: Name of an object
+        :return: Boolean success indicator and outcome message
+        """
+        console.print(f"Pausing pose estimation for object '{object_name}'...")
+
+        request = NameServiceRequest(name=object_name)
+        response = self._pause_est_caller(request)
+
+        if response is None:
+            return Outcome(success=False, message="Pose estimation pause service returned None.")
+
+        return Outcome(success=response.success, message=response.message)
+
+    @skill_method
+    def _resume_object_pose_estimation(self, object_name: str) -> Outcome:
+        """Resume pose estimation for the named object.
+
+        :param object_name: Name of an object
+        :return: Boolean success indicator and outcome message
+        """
+        console.print(f"Resuming pose estimation for object '{object_name}'...")
+
+        request = NameServiceRequest(name=object_name)
+        response = self._resume_est_caller(request)
+
+        if response is None:
+            return Outcome(success=False, message="Pose estimation resume service returned None.")
+
+        return Outcome(success=response.success, message=response.message)

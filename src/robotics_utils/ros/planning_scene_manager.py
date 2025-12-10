@@ -20,6 +20,7 @@ from robotics_utils.ros.msg_conversion import (
     trimesh_to_msg,
 )
 from robotics_utils.ros.transform_manager import TransformManager
+from robotics_utils.skills import Outcome
 from robotics_utils.states import KinematicSimulator, ObjectKinematicState
 
 if TYPE_CHECKING:
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 class PlanningSceneManager(KinematicSimulator):
     """A manager to update the state of the MoveIt planning scene."""
 
-    def __init__(self, *, planning_frame: str = "body") -> None:
+    def __init__(self, *, planning_frame: str) -> None:
         """Initialize an interface for the MoveIt planning scene.
 
         :param planning_frame: Reference frame used by MoveIt for motion planning
@@ -52,7 +53,7 @@ class PlanningSceneManager(KinematicSimulator):
         """Maps each robot name to the names of objects attached to that robot."""
 
     @classmethod
-    def populate_from_yaml(cls, yaml_path: Path, *, planning_frame: str) -> tuple[bool, str]:
+    def populate_from_yaml(cls, yaml_path: Path, *, planning_frame: str) -> Outcome:
         """Populate the MoveIt planning scene by loading from the given YAML file."""
         tree = KinematicTree.from_yaml(yaml_path)
         scene = PlanningSceneManager(planning_frame=planning_frame)
@@ -62,7 +63,7 @@ class PlanningSceneManager(KinematicSimulator):
             if success
             else f"Could not load MoveIt planning scene from the YAML file: {yaml_path}."
         )
-        return success, message
+        return Outcome(success, message)
 
     def set_object_state(self, obj_state: ObjectKinematicState) -> None:
         """Set the kinematic state of an object in the MoveIt planning scene."""
@@ -222,8 +223,29 @@ class PlanningSceneManager(KinematicSimulator):
 
     def synchronize_state(self, tree: KinematicTree, attempts_per_obj: int = 3) -> bool:
         """Update the MoveIt planning scene to reflect the given kinematic state."""
+        object_states = tree.known_object_states  # All fully known object states
+        unknown_state_objects = tree.object_names.difference(object_states.keys())
+
+        rospy.loginfo(f"Objects with fully known state: {object_states.keys()}")
+        rospy.loginfo(f"Objects with initially unknown state: {unknown_state_objects}")
+
+        # Check TF for the otherwise unknown poses of objects with collision models
+        for obj_name in unknown_state_objects:
+            collision_model = tree.get_collision_model(obj_name)
+            if collision_model is None:
+                continue
+
+            obj_pose = TransformManager.lookup_transform(
+                child_frame=obj_name,
+                parent_frame=self.planning_frame,
+            )
+            if obj_pose is None:
+                continue
+
+            object_states[obj_name] = ObjectKinematicState(obj_name, obj_pose, collision_model)
+
         all_added = True
-        for obj_name, obj_state in tree.object_states.items():
+        for obj_name, obj_state in object_states.items():
             attempts_left = attempts_per_obj
             object_added = False
             while attempts_left and not object_added:

@@ -33,24 +33,27 @@ class MoveItManipulator(Manipulator):
         name: str,
         robot_name: str,
         base_frame: str,
+        planning_frame: str,
         gripper: AngularGripper | None,
     ) -> None:
-        """Initialize the manipulator with its base frame and gripper.
+        """Initialize the manipulator with names, frames, and (optionally) a gripper.
 
         :param name: Name of the manipulator (used as its move group name)
         :param robot_name: Name of the robot the manipulator belongs to
         :param base_frame: Base frame of the manipulator's move group
+        :param planning_frame: Frame used when computing motion plans
         :param gripper: Interface for the end-effector of the manipulator
         """
-        super().__init__(name, base_frame, gripper)
+        super().__init__(name, gripper)
         self.robot_name = robot_name
+        self.base_frame = base_frame
 
         roscpp_initialize(sys.argv)
         self.move_group = MoveGroupCommander(self.name, wait_for_servers=30)
-        self.move_group.set_pose_reference_frame(self.base_frame)
+        self.move_group.set_pose_reference_frame(planning_frame)
 
-        self.motion_planner = MoveItMotionPlanner(self.move_group, planning_frame=self.base_frame)
-        self.planning_scene = PlanningSceneManager(planning_frame=base_frame)
+        self.planner = MoveItMotionPlanner(self.move_group, planning_frame=planning_frame)
+        self.planning_scene = PlanningSceneManager(planning_frame=planning_frame)
 
         self._ee_link: str = self.move_group.get_end_effector_link()
 
@@ -143,7 +146,7 @@ class MoveItManipulator(Manipulator):
         query = MotionPlanningQuery(ee_target=target)
 
         for attempt in range(max_retries):
-            plan_msg = self.motion_planner.compute_motion_plan(query, self.planning_scene)
+            plan_msg = self.planner.compute_motion_plan(query)
             if plan_msg is not None:
                 return self.execute_trajectory_msg(plan_msg)
             rospy.logwarn(f"Motion planning attempt {attempt + 1}/{max_retries} failed.")
@@ -178,7 +181,7 @@ class MoveItManipulator(Manipulator):
         return dict(zip(self.joint_names, list(ik_solution)))
 
     def grasp(self, object_name: str) -> Outcome:
-        """Grasp the named object using the manipulator's gripper.
+        """Grasp the named object using the manipulator's gripper (and close the gripper).
 
         :return: Boolean success of the grasp and an outcome message
         """
