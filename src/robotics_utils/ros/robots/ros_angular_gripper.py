@@ -10,6 +10,19 @@ from moveit_commander import RobotCommander
 
 from robotics_utils.robots import AngularGripper, GripperAngleLimits
 
+GOAL_STATE_STRING = {
+    GoalStatus.PENDING: "PENDING",
+    GoalStatus.ACTIVE: "ACTIVE",
+    GoalStatus.PREEMPTED: "PREEMPTED",
+    GoalStatus.SUCCEEDED: "SUCCEEDED",
+    GoalStatus.ABORTED: "ABORTED",
+    GoalStatus.REJECTED: "REJECTED",
+    GoalStatus.PREEMPTING: "PREEMPTING",
+    GoalStatus.RECALLING: "RECALLING",
+    GoalStatus.RECALLED: "RECALLED",
+    GoalStatus.LOST: "LOST",
+}
+
 
 class ROSAngularGripper(AngularGripper):
     """A ROS-based interface for an angular robot gripper."""
@@ -50,5 +63,8 @@ class ROSAngularGripper(AngularGripper):
         timeout_ros = rospy.Duration.from_sec(timeout_s)
 
         goal_status = self._client.send_goal_and_wait(goal_msg, execute_timeout=timeout_ros)
-        rospy.loginfo(f"Outcome status of gripper command: {goal_status}.")
+
+        status_string = GOAL_STATE_STRING.get(goal_status, f"UNKNOWN ({goal_status})")
+        rospy.loginfo(f"Outcome status of gripper command: {status_string}.")
+
         return goal_status == GoalStatus.SUCCEEDED

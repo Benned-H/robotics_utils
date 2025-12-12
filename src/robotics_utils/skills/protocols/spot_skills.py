@@ -19,10 +19,13 @@ from spot_skills.srv import (
     PoseLookup,
     PoseLookupRequest,
     PoseLookupResponse,
+    ProbeSurface,
+    ProbeSurfaceRequest,
+    ProbeSurfaceResponse,
 )
 
 from robotics_utils.io import console
-from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D, Waypoints
+from robotics_utils.kinematics import DEFAULT_FRAME, Point3D, Pose3D, Waypoints
 from robotics_utils.kinematics.kinematic_tree import KinematicTree
 from robotics_utils.motion_planning import MotionPlanningQuery
 from robotics_utils.motion_planning.grasping import PickPoses
@@ -35,7 +38,7 @@ from robotics_utils.ros import (
     TransformRecorder,
     trigger_service,
 )
-from robotics_utils.ros.msg_conversion import pose_from_msg
+from robotics_utils.ros.msg_conversion import point_to_vector3_msg, pose_from_msg
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.skills import Outcome, SkillsProtocol, skill_method
 
@@ -110,6 +113,11 @@ class SpotSkillsProtocol(SkillsProtocol):
             NameService,
         )  # TODO: When should this be called?
 
+        self._probe_caller = ServiceCaller[ProbeSurfaceRequest, ProbeSurfaceResponse](
+            "spot/probe_surface",
+            ProbeSurface,
+        )
+
         self._gripper = ROSAngularGripper(
             limits=GripperAngleLimits(
                 open_rad=SPOT_GRIPPER_OPEN_RAD,
@@ -165,9 +173,7 @@ class SpotSkillsProtocol(SkillsProtocol):
     def undock(self) -> Outcome:
         """Undock Spot from its charging dock."""
         console.print("Undocking Spot...")
-        success = trigger_service("spot/undock")
-        message = "Successfully undocked Spot." if success else "Unable to undock Spot."
-        return Outcome(success, message)
+        return trigger_service("spot/undock")
 
     @skill_method
     def dock(self) -> Outcome:
@@ -177,22 +183,23 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not nav_outcome.success:
             return nav_outcome
 
-        success = trigger_service("spot/dock")
-        message = "Successfully docked Spot." if success else "Unable to dock Spot."
-        return Outcome(success, message)
+        return trigger_service("spot/dock")
 
     @skill_method
-    def stow_arm(self) -> Outcome:
-        """Stow Spot's arm."""
+    def stow_arm(self, *, close_gripper: bool = False) -> Outcome:
+        """Stow Spot's arm and optionally close Spot's gripper.
+
+        :param close_gripper: If True, close Spot's gripper after stowing (defaults to False)
+        :return: Boolean success indicator and an outcome message
+        """
         console.print("Stowing Spot's arm...")
-        success = trigger_service("spot/stow_arm")
-        if success:
+        stow_outcome = trigger_service("spot/stow_arm")
+        if stow_outcome.success and close_gripper:
             close_outcome = self.close_gripper()
             if not close_outcome.success:
                 return close_outcome
 
-        message = "Spot's arm was stowed." if success else "Could not stow Spot's arm."
-        return Outcome(success=success, message=message)
+        return stow_outcome
 
     @skill_method
     def erase_board(self) -> Outcome:
@@ -201,9 +208,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         :return: Boolean success indicator and an outcome message
         """
         console.print("Erasing the board...")
-        success = trigger_service("spot/erase_board")
-        message = "Erased the board." if success else "Unable to erase the board."
-        return Outcome(success, message)
+        return trigger_service("spot/erase_board")
 
     @skill_method
     def open_drawer(
@@ -297,10 +302,14 @@ class SpotSkillsProtocol(SkillsProtocol):
     def _take_control(self) -> Outcome:
         """Take control of the Spot and unlock its arm, if necessary."""
         console.print("Taking control of Spot...")
-        if not trigger_service("spot/take_control"):
-            return Outcome(False, "Unable to take control of Spot.")
-        if not trigger_service("spot/unlock_arm"):
-            return Outcome(False, "Unable to unlock Spot's arm.")
+        control_outcome = trigger_service("spot/take_control")
+        if not control_outcome.success:
+            return control_outcome
+
+        unlock_outcome = trigger_service("spot/unlock_arm")
+        if not unlock_outcome.success:
+            return unlock_outcome
+
         return Outcome(True, "Successfully took control of Spot and unlocked Spot's arm.")
 
     @skill_method
@@ -475,11 +484,13 @@ class SpotSkillsProtocol(SkillsProtocol):
         object_name: str = "eraser1",
         open_gripper_rad: float = SPOT_GRIPPER_HALF_OPEN_RAD,
         pre_grasp_x_m: float = 0.07,
-        pose_o_g: Pose3D = Pose3D.from_xyz_rpy(z=0.36, pitch_rad=1.5708, ref_frame="eraser1"),
+        pose_o_g: Pose3D = Pose3D.from_xyz_rpy(z=0.4, pitch_rad=1.5708, ref_frame="eraser1"),
         lift_z_m: float = 0.05,
         *,
-        stow_after: bool = True,
+        pauses: bool = True,
         yaw_symmetric: bool = True,
+        pre_estimate: bool = True,
+        stow_after: bool = True,
     ) -> Outcome:
         """Pick the named object using Spot's gripper.
 
@@ -497,8 +508,10 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param pre_grasp_x_m: Offset (abs. m) of the pre-grasp pose "back" (-x) from the grasp pose
         :param pose_o_g: Object-relative end-effector pose used to grasp the object
         :param lift_z_m: Offset (m) of the post-grasp pose "up" (+z) w.r.t. the world frame
-        :param stow_after: If True, stow the arm after picking the object
+        :param pauses: If True, the skill will pause until user input between each major motion
+        :param pre_estimate: If True, re-pose-estimate from the pre-grasp pose (defaults to False)
         :param yaw_symmetric: Indicates that the object is rotationally symmetric about its z-axis
+        :param stow_after: If True, stow the arm after picking the object
         :return: Boolean success indicator and an outcome message
         """
         console.print(f"Picking object '{object_name}'...")
@@ -509,38 +522,30 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         self._pose_broadcaster.poses["pose_o_g"] = pose_o_g  # Grasp pose w.r.t. object frame
 
-        # Verify that IK solutions exist for the corresponding pre-grasp and post-grasp poses
-        original_poses = PickPoses.from_grasp_pose(pose_o_g, pre_grasp_x_m, lift_z_m)
-
-        validated_poses = None
-        if original_poses.validate_ik(manipulator=self._arm):
-            validated_poses = original_poses
-
-        # If the object is symmetric about its z-axis, consider the symmetric grasp pose
-        if validated_poses is None and yaw_symmetric:
+        candidates = [pose_o_g]
+        if yaw_symmetric:
             rotate_object = Pose3D.from_xyz_rpy(yaw_rad=3.14159, ref_frame=object_name)
             alternative_pose_o_g = rotate_object @ pose_o_g
-
             self._pose_broadcaster.poses["alternative_pose_o_g"] = alternative_pose_o_g
+            candidates.append(alternative_pose_o_g)
 
-            alt_poses = PickPoses.from_grasp_pose(alternative_pose_o_g, pre_grasp_x_m, lift_z_m)
-            if alt_poses.validate_ik(self._arm):
-                validated_poses = alt_poses
+        # Select a grasp pose with IK solutions for its pre-grasp and post-grasp poses
+        valid_grasp = PickPoses.select_grasp_pose(candidates, self._arm, pre_grasp_x_m, lift_z_m)
 
-        if validated_poses is None:
+        if valid_grasp is None:
             return Outcome(
                 success=False,
                 message=f"Cannot pick '{object_name}' because no grasp poses were valid.",
             )
 
-        self._pose_broadcaster.poses[f"pre_grasp_{object_name}"] = validated_poses.pregrasp_pose
-        self._pose_broadcaster.poses[f"grasp_{object_name}"] = validated_poses.grasp_pose
-        self._pose_broadcaster.poses[f"post_grasp_{object_name}"] = validated_poses.postgrasp_pose
+        valid_poses = PickPoses.from_grasp_pose(valid_grasp, pre_grasp_x_m, lift_z_m)
+        self._pose_broadcaster.poses[f"pre_grasp_{object_name}"] = valid_poses.pregrasp_pose
+        self._pose_broadcaster.poses[f"grasp_{object_name}"] = valid_poses.grasp_pose
+        self._pose_broadcaster.poses[f"post_grasp_{object_name}"] = valid_poses.postgrasp_pose
 
         # Now that the grasp pose is validated, pause pose estimation for the object
-        Prompt.ask(f"Next: Pause pose estimation for '{object_name}'.")
-        pause_request = NameServiceRequest(name=object_name)
-        pause_response = self._pause_est_caller(pause_request)
+        obj_name_request = NameServiceRequest(name=object_name)
+        pause_response = self._pause_est_caller(obj_name_request)
         if pause_response is None:
             return Outcome(success=False, message="Pose estimation pause service returned None.")
 
@@ -548,7 +553,6 @@ class SpotSkillsProtocol(SkillsProtocol):
             return Outcome(success=False, message=pause_response.message)
 
         # Open the gripper to prepare for picking
-        Prompt.ask("Next: Open the gripper.")
         if not self._gripper.move_to_angle_rad(open_gripper_rad):
             return Outcome(
                 success=False,
@@ -556,28 +560,66 @@ class SpotSkillsProtocol(SkillsProtocol):
             )
 
         # Move the end-effector to the pre-grasp pose
-        Prompt.ask("Next: Move end-effector to pre-grasp pose.")
-        pre_outcome = self._move_ee_to_pose(validated_poses.pregrasp_pose)
+        if pauses:
+            Prompt.ask("Press [bold]Enter[/] to move to the pre-grasp pose")
+        pre_outcome = self._move_ee_to_pose(valid_poses.pregrasp_pose)
         if not pre_outcome.success:
             return pre_outcome
 
-        Prompt.ask("Next: Move end-effector to grasp pose.")
-        move_to_grasp_outcome = self._move_ee_to_pose(validated_poses.grasp_pose)
+        if pre_estimate:
+            if pauses:
+                Prompt.ask(f"Press [bold]Enter[/] to re-pose-estimate [cyan]'{object_name}'[/]")
+
+            # First, resume pose estimation for the object to be picked
+            resume_response = self._resume_est_caller(obj_name_request)
+            if resume_response is None:
+                return Outcome(success=False, message="Resuming pose estimation returned None.")
+
+            if not resume_response.success:
+                return Outcome(success=False, message=resume_response.message)
+
+            # Provide time for pose estimation to update (say, 5 seconds)
+            time.sleep(5)
+
+            # Now re-pause pose estimation for the object
+            pause_response = self._pause_est_caller(obj_name_request)
+            if pause_response is None:
+                return Outcome(success=False, message="Pausing pose estimation returned None.")
+
+            if not pause_response.success:
+                return Outcome(success=False, message=pause_response.message)
+
+            # Update the grasp pose and post-grasp pose using the new transforms
+            new_grasp = PickPoses.select_grasp_pose(candidates, self._arm, pre_grasp_x_m, lift_z_m)
+            if new_grasp is None:
+                return Outcome(success=False, message="Updated pose estimate had no IK solutions.")
+
+            valid_poses = PickPoses.from_grasp_pose(new_grasp, pre_grasp_x_m, lift_z_m)
+            self._pose_broadcaster.poses[f"pre_grasp_{object_name}"] = valid_poses.pregrasp_pose
+            self._pose_broadcaster.poses[f"grasp_{object_name}"] = valid_poses.grasp_pose
+            self._pose_broadcaster.poses[f"post_grasp_{object_name}"] = valid_poses.postgrasp_pose
+
+        if pauses:
+            Prompt.ask("Press [bold]Enter[/] to move to the grasp pose")
+        move_to_grasp_outcome = self._move_ee_to_pose(valid_poses.grasp_pose)
         if not move_to_grasp_outcome.success:
             return move_to_grasp_outcome
 
-        Prompt.ask(f"Next: Grasp '{object_name}'.")
+        if pauses:
+            Prompt.ask(f"Press [bold]Enter[/] to grasp [cyan]'{object_name}'[/]")
         grasp_outcome = self._grasp_object(object_name)
         if not grasp_outcome.success:
             return grasp_outcome
 
-        Prompt.ask("Next: Move end-effector to post-grasp pose.")
-        post_outcome = self._move_ee_to_pose(validated_poses.postgrasp_pose)
+        if pauses:
+            Prompt.ask("Press [bold]Enter[/] to move to the post-grasp pose")
+        post_outcome = self._move_ee_to_pose(valid_poses.postgrasp_pose)
         if not post_outcome.success:
             return post_outcome
 
         if stow_after:
-            Prompt.ask("Next: Stow Spot's arm.")
+            if pauses:
+                Prompt.ask("Press [bold]Enter[/] to stow Spot's arm")
             stow_outcome = self.stow_arm()
             if not stow_outcome.success:
                 return stow_outcome
@@ -701,5 +743,71 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         if response is None:
             return Outcome(success=False, message="Pose estimation resume service returned None.")
+
+        return Outcome(success=response.success, message=response.message)
+
+    @skill_method
+    def _broadcast_pose(
+        self,
+        pose: Pose3D = Pose3D.from_xyz_rpy(x=0.21, z=0.015, ref_frame="arm_link_wr1"),
+        frame_name: str = "fingertip",
+    ) -> Outcome:
+        """Broadcast the given pose to /tf until the user presses Enter.
+
+        :param pose: Pose to be broadcast as a /tf frame
+        :param frame_name: Name of the published frame
+        :return: Boolean success indicator and outcome message
+        """
+        console.print(f"Broadcasting a transform for reference frame '{frame_name}'...")
+        if frame_name in self._pose_broadcaster.poses:
+            return Outcome(
+                success=False,
+                message=f"Cannot broadcast frame '{frame_name}' because it already exists.",
+            )
+
+        self._pose_broadcaster.poses[frame_name] = pose
+        Prompt.ask(f"[green]Press Enter to stop broadcasting frame '{frame_name}'[/]")
+
+        self._pose_broadcaster.poses.pop(frame_name, None)
+
+        return Outcome(success=True, message=f"Done broadcasting frame '{frame_name}'.")
+
+    @skill_method
+    def probe(
+        self,
+        direction: Point3D = Point3D(1.0, 0.0, 0.0),
+        max_distance_m: float = 0.2,
+        velocity_mps: float = 0.02,
+        force_threshold_n: float = 5.0,
+        force_check_hz: float = 50.0,
+        num_probes: int = 3,
+        probe_interval_s: float = 1.0,
+    ) -> Outcome:
+        """Use Spot's gripper to probe for a nearby surface.
+
+        :param direction: Direction vector in end-effector frame
+        :param max_distance_m: Maximum distance to probe forward (meters)
+        :param velocity_mps: Probing velocity (meters per second)
+        :param force_threshold_n: Force threshold to detect contact (Newtons)
+        :param force_check_hz: Frequency (Hz) to check force sensor
+        :param num_probes: Number of probes to perform for averaging
+        :param probe_interval_s: Time to wait between probes (seconds)
+        :return: Boolean success indicator and outcome message
+        """
+        console.print("Probing for a surface with Spot's end-effector...")
+
+        request = ProbeSurfaceRequest(
+            direction=point_to_vector3_msg(direction),
+            max_distance_m=max_distance_m,
+            velocity_mps=velocity_mps,
+            force_threshold_n=force_threshold_n,
+            force_check_hz=force_check_hz,
+            num_probes=num_probes,
+            probe_interval_s=probe_interval_s,
+        )
+
+        response = self._probe_caller(request)
+        if response is None:
+            return Outcome(success=False, message="Probe service response was None.")
 
         return Outcome(success=response.success, message=response.message)

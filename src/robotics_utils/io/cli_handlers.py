@@ -10,7 +10,7 @@ from click import confirm
 from rich.prompt import FloatPrompt, IntPrompt, Prompt
 
 from robotics_utils.io import console
-from robotics_utils.kinematics import Pose3D
+from robotics_utils.kinematics import Point3D, Pose3D
 
 if TYPE_CHECKING:
     from robotics_utils.skills import SkillParamKey
@@ -130,14 +130,28 @@ def handle_filepath(ui: ParamUI[Path]) -> Path:
             return path
 
 
+def handle_point_3d(ui: ParamUI[Point3D]) -> Point3D:
+    """Prompt the user for a 3D point using the CLI."""
+    while True:
+        console.print(f"[cyan]{ui.prompt}[/]")
+
+        x = handle_float(ParamUI("x (m)", 0.0 if ui.default is None else ui.default.x))
+        y = handle_float(ParamUI("y (m)", 0.0 if ui.default is None else ui.default.y))
+        z = handle_float(ParamUI("z (m)", 0.0 if ui.default is None else ui.default.z))
+
+        point = Point3D(x, y, z)
+        if validate(point, ui.validators):
+            return point
+
+
 def handle_pose_3d(ui: ParamUI[Pose3D]) -> Pose3D:
     """Prompt the user for a 3D pose using the CLI."""
     while True:
         console.print(f"[cyan]{ui.prompt}[/]")
 
-        x = handle_float(ParamUI("x (m)", 0.0 if ui.default is None else ui.default.position.x))
-        y = handle_float(ParamUI("y (m)", 0.0 if ui.default is None else ui.default.position.y))
-        z = handle_float(ParamUI("z (m)", 0.0 if ui.default is None else ui.default.position.z))
+        x = handle_float(ParamUI("x", 0.0 if ui.default is None else ui.default.position.x))
+        y = handle_float(ParamUI("y", 0.0 if ui.default is None else ui.default.position.y))
+        z = handle_float(ParamUI("z", 0.0 if ui.default is None else ui.default.position.z))
 
         rpy = None if ui.default is None else ui.default.orientation.to_euler_rpy()
         roll = handle_float(ParamUI("roll (rad)", 0.0 if rpy is None else rpy.roll_rad))
@@ -158,6 +172,7 @@ INPUT_HANDLERS = {
     float: handle_float,
     int: handle_int,
     Path: handle_filepath,
+    Point3D: handle_point_3d,
     Pose3D: handle_pose_3d,
 }
 

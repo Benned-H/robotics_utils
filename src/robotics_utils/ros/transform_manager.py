@@ -166,6 +166,7 @@ class TransformManager:
         :param target_frame: Target reference frame (frame t) of the output pose
         :param timeout_s: Duration (seconds) after which the conversion times out (default: 5 sec)
         :return: Pose3D relative to the target reference frame (i.e., pose_t_p)
+        :raises RuntimeError: If the transform lookup between the two frames fails
         """
         if isinstance(pose_c_p, Pose2D):
             pose_c_p = pose_c_p.to_3d()

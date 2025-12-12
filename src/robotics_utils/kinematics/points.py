@@ -66,7 +66,7 @@ class Point3D:
 
     def to_array(self) -> NDArray[np.float64]:
         """Convert the 3D point to a NumPy array."""
-        return np.array([self.x, self.y, self.z])
+        return np.asarray([self.x, self.y, self.z], dtype=np.float64)
 
     @classmethod
     def from_homogeneous_coordinate(cls, coord: NDArray) -> Point3D:
@@ -101,6 +101,11 @@ class Point3D:
         yaml_data = load_yaml_data(yaml_path, required_keys={collection_name})
         points_data = yaml_data[collection_name]
         return [Point3D.from_sequence(xyz) for xyz in points_data]
+
+    def normalized(self) -> Point3D:
+        """Compute the unit vector corresponding to the Point3D."""
+        arr = self.to_array()
+        return Point3D.from_array(arr / np.linalg.norm(arr))
 
     def approx_equal(self, other: Point3D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Point3D is approximately equal to this one."""

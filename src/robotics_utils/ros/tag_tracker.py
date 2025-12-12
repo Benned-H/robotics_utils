@@ -53,6 +53,8 @@ class TagTracker:
 
         # Check if there's a YAML file specifying known object poses
         known_poses_param = get_ros_param("/tag_tracker/known_poses_yaml_path", str, "")
+        if known_poses_param:
+            rospy.loginfo(f"Loading known object poses from file: {known_poses_param}")
         self.kinematic_state = (
             KinematicTree.from_yaml(Path(known_poses_param))
             if known_poses_param
@@ -169,9 +171,12 @@ class TagTracker:
 
             TransformManager.broadcast_transform(frame_name, pose_avg)
 
-        # Publish all marker-relative poses in the fiducial system
+        # Publish all marker-relative poses in the fiducial system (skip known poses)
         for marker in self.system.markers.values():
             for obj_name, rel_pose in marker.relative_frames.items():
+                if obj_name in known_object_poses:
+                    continue
+
                 TransformManager.broadcast_transform(obj_name, rel_pose)
 
         # Publish all known poses as currently stored
@@ -188,11 +193,9 @@ class TagTracker:
         if not self.simulators:
             return
 
-        current_object_poses = self.all_object_poses
-        for obj_name, obj_pose in current_object_poses.items():
+        for obj_name, obj_pose in self.all_object_poses.items():
             if obj_pose is None:
                 continue
 
-            rospy.loginfo(f"Setting pose of '{obj_name}' as: {obj_pose}")
             for sim in self.simulators:
                 sim.set_object_pose(obj_name, obj_pose)

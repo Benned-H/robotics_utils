@@ -215,7 +215,7 @@ class MoveItManipulator(Manipulator):
             return Outcome(False, f"Cannot release '{object_name}' because gripper is None.")
 
         if not self.gripper.open():
-            return Outcome(False, f"Failed to open gripper when grasping '{object_name}'.")
+            return Outcome(False, f"Failed to open gripper when releasing '{object_name}'.")
 
         success = self.planning_scene.release_object(object_name, self.robot_name, self)
         message = (

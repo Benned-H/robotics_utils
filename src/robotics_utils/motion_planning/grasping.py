@@ -68,6 +68,32 @@ class PickPoses:
         post_grasp = PickPoses.compute_post_grasp_pose(pose_o_g, lift_z_m, world_frame)
         return PickPoses(pregrasp_pose=pre_grasp, grasp_pose=pose_o_g, postgrasp_pose=post_grasp)
 
+    @classmethod
+    def select_grasp_pose(
+        cls,
+        candidates: list[Pose3D],
+        manipulator: Manipulator,
+        pre_grasp_x_m: float,
+        lift_z_m: float,
+        world_frame: str = DEFAULT_FRAME,
+    ) -> Pose3D | None:
+        """Select a grasp pose based on its (and its derived poses') kinematic reachability.
+
+        :param candidates: List of potential grasp poses (w.r.t. the to-be-picked object)
+        :param manipulator: Robot arm used to compute IK solutions
+        :param pre_grasp_x_m: Offset (abs. m) of the pre-grasp pose "back" (-x) from the grasp pose
+        :param lift_z_m: Offset (m) of the post-grasp pose "up" (+z) w.r.t. the world frame
+        :param world_frame: Global reference frame used to define "up"
+        :return: First feasible grasp pose identified, or None if no candidates are valid
+        """
+        for grasp_pose in candidates:
+            poses = PickPoses.from_grasp_pose(grasp_pose, pre_grasp_x_m, lift_z_m, world_frame)
+
+            if poses.validate_ik(manipulator):
+                return grasp_pose
+
+        return None
+
     def validate_ik(self, manipulator: Manipulator) -> bool:
         """Validate whether the poses have inverse kinematics (IK) solutions for the given arm.
 
