@@ -171,6 +171,51 @@ class DepthImage(Image):
         convert_to_uint8 = np.astype(normalized_depth, np.uint8)
         return cv2.applyColorMap(convert_to_uint8, colormap=cv2.COLORMAP_JET)
 
+    def get_robust_depth(
+        self,
+        pixel: PixelXY,
+        patch_size: int = 7,
+        min_depth_m: float | None = None,
+        max_depth_m: float | None = None,
+    ) -> float | None:
+        """Extract a robust depth estimate (m) from a local patch around the specified pixel.
+
+        Uses median filtering on a local patch to reject outliers and handle noise.
+
+        :param pixel: Pixel location in the depth image (will be clipped within image bounds)
+        :param patch_size: Size of square patch to use (default is 7x7)
+        :param min_depth_m: Optional minimum valid depth measurement (meters) (defaults to None)
+        :param max_depth_m: Optional maximum valid depth measurement (meters) (defaults to None)
+        :return: Resulting depth estimate (meters), or None if no valid depth is found
+        """
+        center_x = int(pixel.x)
+        center_y = int(pixel.y)
+        half_patch = patch_size // 2
+
+        # Define patch bounds (clipped into the image)
+        y_min = self.clip_y(center_y - half_patch)
+        y_max = self.clip_y(center_y + half_patch + 1)
+        x_min = self.clip_x(center_x - half_patch)
+        x_max = self.clip_x(center_x + half_patch + 1)
+
+        # Extract the depth patch
+        depth_patch = self.data[y_min:y_max, x_min:x_max]
+
+        # Build boolean mask for valid depths based on optional thresholds
+        valid_mask = np.ones(depth_patch.shape, dtype=bool)
+        if min_depth_m is not None:
+            valid_mask &= depth_patch > min_depth_m
+        if max_depth_m is not None:
+            valid_mask &= depth_patch < max_depth_m
+
+        valid_depths = depth_patch[valid_mask]
+
+        if len(valid_depths) < 3:  # Require at least a few valid points
+            return None
+
+        # Use median for robustness to outliers
+        return float(np.median(valid_depths))
+
 
 @dataclass
 class RGBDImage(Displayable):
