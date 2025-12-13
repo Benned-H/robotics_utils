@@ -7,7 +7,7 @@ from prompt_toolkit import prompt as pt_prompt
 from prompt_toolkit.completion import WordCompleter
 from rich.padding import Padding
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm
 from rich.table import Table
 
 from robotics_utils.io import console
@@ -124,7 +124,7 @@ def build_cli(protocol_instance: SkillsProtocol) -> click.Command:
                 continue
 
             console.print(Padding(f"Bindings: {bindings}", (1, 4)))
-            if Confirm(f"[bold]Execute {skill.name}?[/]"):
+            if Confirm.ask(f"[bold]Execute {skill.name}?[/]"):
                 try:
                     outcome = skill.execute(protocol_instance, bindings)
                     color = "green" if outcome.success else "red"

@@ -49,14 +49,16 @@ class PlanningSceneManager(KinematicSimulator):
         self._hidden_objects: dict[str, CollisionObject] = {}
         """Hidden objects are ignored for the purposes of collision checking."""
 
-        self._attached_objects: dict[str, set[str]] = defaultdict(set)
-        """Maps each robot name to the names of objects attached to that robot."""
+        self._attached_objects: dict[tuple[str, str], set[str]] = defaultdict(set)
+        """Map (robot name, end-effector link name) pairs to the names of attached objects."""
 
     @classmethod
-    def populate_from_yaml(cls, yaml_path: Path, *, planning_frame: str) -> Outcome:
-        """Populate the MoveIt planning scene by loading from the given YAML file."""
+    def reset_per_yaml(cls, yaml_path: Path, *, planning_frame: str) -> Outcome:
+        """Reset the MoveIt planning scene to the state specified by the given YAML file."""
         tree = KinematicTree.from_yaml(yaml_path)
         scene = PlanningSceneManager(planning_frame=planning_frame)
+        scene.planning_scene.clear()
+
         success = scene.synchronize_state(tree)
         message = (
             f"Loaded MoveIt planning scene from YAML file: {yaml_path}."
@@ -181,7 +183,12 @@ class PlanningSceneManager(KinematicSimulator):
 
     def get_attached_objects(self, robot_name: str) -> set[str]:
         """Retrieve the names of objects attached to the named robot (defaults to empty set)."""
-        return self._attached_objects[robot_name]
+        all_attached = set()
+        for (robot_attached_to, _), objects in self._attached_objects.items():
+            if robot_attached_to == robot_name:
+                all_attached.update(objects)
+
+        return all_attached
 
     def get_object_msg(self, obj_name: str) -> CollisionObject:
         """Retrieve the CollisionObject message for the named object in the planning scene."""
@@ -330,21 +337,21 @@ class PlanningSceneManager(KinematicSimulator):
         is_attached = self.wait_until_object_attached(object_name)
 
         if is_attached:
-            self._attached_objects[robot_name].add(object_name)
+            self._attached_objects[(robot_name, ee_link)].add(object_name)
 
         return is_attached
 
-    def release_object(self, object_name: str, robot_name: str, manipulator: Manipulator) -> bool:
-        """Release the named object using the named robot's specified manipulator."""
-        if object_name not in self._attached_objects[robot_name]:
+    def release_object(self, object_name: str, robot_name: str, ee_link_name: str) -> bool:
+        """Release the named object using the named robot's named end-effector."""
+        if object_name not in self._attached_objects[(robot_name, ee_link_name)]:
             rospy.logwarn(f"Cannot release unattached object '{object_name}' with '{robot_name}'.")
             return False
 
-        self.planning_scene.remove_attached_object(link=manipulator.ee_link_name, name=object_name)
+        self.planning_scene.remove_attached_object(link=ee_link_name, name=object_name)
         is_detached = self.wait_until_object_detached(object_name)
 
         if is_detached:
-            self._attached_objects[robot_name].remove(object_name)
+            self._attached_objects[(robot_name, ee_link_name)].remove(object_name)
 
         return is_detached
 

@@ -217,7 +217,11 @@ class MoveItManipulator(Manipulator):
         if not self.gripper.open():
             return Outcome(False, f"Failed to open gripper when releasing '{object_name}'.")
 
-        success = self.planning_scene.release_object(object_name, self.robot_name, self)
+        success = self.planning_scene.release_object(
+            object_name,
+            self.robot_name,
+            self.ee_link_name,
+        )
         message = (
             f"Successfully released '{object_name}'."
             if success
