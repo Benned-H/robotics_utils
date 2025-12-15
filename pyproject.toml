@@ -16,6 +16,7 @@ dependencies = [
     "trimesh",
     "pyquaternion",
     "prompt-toolkit",
+    "ratelimiter",
 ]
 
 # Optional dependencies support optional user features

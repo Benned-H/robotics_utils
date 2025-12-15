@@ -87,8 +87,8 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
 
         :param api_key: Google API key used to access Gemini Robotics-ER 1.5
         :param model_id: String specifying which Gemini model to use
-        :param object_limit: Limit on the number of objects per response (defaults to 20)
-        :param timeout_s: Maximum duration (seconds) of any Gemini call (defaults to 10 sec)
+        :param object_limit: Limit on the number of objects per response
+        :param timeout_s: Maximum duration (seconds) of any Gemini call
         """
         if not GEN_AI_PRESENT:
             raise ImportError("Cannot run GeminiRoboticsER without google-genai.")

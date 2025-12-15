@@ -18,13 +18,25 @@ class Plane3D:
     Reference: https://mathworld.wolfram.com/Plane.html
     """
 
-    point: NDArray[np.float64]  # Shape (3,): a point on the plane
-    normal: NDArray[np.float64]  # Shape (3,): unit normal vector
+    point: NDArray[np.float64]
+    """A point on the plane of shape (3,)."""
+
+    normal: NDArray[np.float64]
+    """Unit normal vector to the plane of shape (3,)."""
 
     @property
     def d(self) -> float:
         """Compute the plane equation constant: ax + by + cz = d."""
         return float(np.dot(self.normal, self.point))
+
+    @property
+    def equation_string(self) -> str:
+        """Retrieve a string expressing the equation of the plane."""
+        a_str = f"{self.normal[0]:.3f}"
+        b_str = f"{self.normal[1]:.3f}"
+        c_str = f"{self.normal[2]:.3f}"
+
+        return f"{a_str}x + {b_str}y + {c_str}z = {self.d:.3f}"
 
 
 @dataclass(frozen=True)
