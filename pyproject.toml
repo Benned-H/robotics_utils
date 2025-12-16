@@ -16,7 +16,7 @@ dependencies = [
     "trimesh",
     "pyquaternion",
     "prompt-toolkit",
-    "ratelimiter",
+    "distinctipy",
 ]
 
 # Optional dependencies support optional user features
@@ -45,7 +45,15 @@ gemini = [
     "httpx",
 ]
 
-all = ["robotics-utils[vision]"] # Install everything
+# Optional dependencies to support SAM 3
+sam3 = [
+    "robotics-utils[vision]",
+
+    # Install pre-release version of transformers to access SAM 3 (requires Python 3.10+)
+    "transformers >= 5.0.0rc1; python_version >= '3.10'",
+]
+
+all = ["robotics-utils[vision,realsense,gemini,sam3]"] # Install everything
 
 
 # Dependency groups manage development-time dependencies

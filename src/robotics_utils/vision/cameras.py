@@ -11,7 +11,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from robotics_utils.kinematics import Pose3D
-from robotics_utils.vision.images import DepthImage, Image, RGBImage
+from robotics_utils.vision.image_processing import DepthImage, Image, RGBImage
 
 
 @dataclass(frozen=True)

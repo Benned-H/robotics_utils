@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
     from robotics_utils.vision.cameras import CameraIntrinsics
-    from robotics_utils.vision.images import DepthImage, RGBDImage
+    from robotics_utils.vision.image_processing import DepthImage, RGBDImage
 
 
 @dataclass(frozen=True)

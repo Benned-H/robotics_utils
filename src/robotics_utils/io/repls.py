@@ -15,30 +15,36 @@ from robotics_utils.vision.vlms import TextQueries
 from robotics_utils.visualization import Displayable
 
 ResultT = TypeVar("ResultT", bound=Displayable)
-"""Type resulting from an object detection call."""
+"""Type resulting from a call to some type of computer vision model."""
 
-DetectFunction = Callable[[RGBImage, list[str]], ResultT]
+ProcessQueryFunction = Callable[[RGBImage, list[str]], ResultT]
 DisplayFunction = Callable[[ResultT], None]
 
 
-class ObjectDetectionREPL(Generic[ResultT]):
-    """A read-eval-print loop to process user queries for an object detector."""
+class OpenVocabVisionREPL(Generic[ResultT]):
+    """A read-eval-print loop to process open-vocabulary queries to a computer vision model.
+
+    :param ResultT: Output type from the computer vision model when run on an image
+    """
 
     def __init__(
         self,
         image_path: Path,
-        detect_func: DetectFunction,
+        process_func: ProcessQueryFunction,
         display_func: DisplayFunction,
+        model_type: str,
     ) -> None:
-        """Initialize the object detection REPL.
+        """Initialize the open-vocabulary computer vision REPL.
 
-        :param image_path: Path to the image used for object detection
-        :param detect_func: Function that calls the object detector and returns the result
+        :param image_path: Path to the image used for the computer vision task
+        :param process_func: Function that processes a user query for the image
         :param display_func: Function that (optionally) displays the result
+        :param model_type: Description of the computer vision model (e.g., "object detector")
         """
         self.image = RGBImage.from_file(image_path)
-        self.detect_func = detect_func
+        self.process_func = process_func
         self.display_func = display_func
+        self.model_type = model_type
 
         self.menu_table = Table(title="Menu Options", border_style="cyan", title_style="bold cyan")
         self.menu_table.add_column("Option", style="bold", width=8)
@@ -47,7 +53,7 @@ class ObjectDetectionREPL(Generic[ResultT]):
         menu_items = [
             ("1", "Add a text query"),
             ("2", "Remove a text query"),
-            ("3", "Call object detector"),
+            ("3", f"Call {self.model_type}"),
             ("4", "Quit"),
         ]
 
@@ -82,19 +88,19 @@ class ObjectDetectionREPL(Generic[ResultT]):
                 elif choice == 3:
                     if not self.queries:
                         console.print(
-                            "[red]Cannot call the object detector without a query![/red]",
+                            f"[red]Cannot call the {self.model_type} without a query![/red]",
                         )
                         continue
 
-                    console.print("[yellow]Calling object detector...[/yellow]")
-                    detected = self.detect_func(self.image, list(self.queries))
+                    console.print(f"[yellow]Calling {self.model_type}...[/yellow]")
+                    result = self.process_func(self.image, list(self.queries))
 
-                    self.display_func(detected)
+                    self.display_func(result)
 
                     if click.confirm("Clear the current text queries?"):
                         self.queries.clear()
 
-                    console.print("[green]✓[/green] Object detection completed")
+                    console.print(f"[green]✓[/green] Call to {self.model_type} completed")
 
                 elif choice == 4:
                     goodbye_panel = Panel(

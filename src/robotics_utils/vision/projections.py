@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 from robotics_utils.kinematics import Point3D, Pose3D
-from robotics_utils.vision.images import PixelXY, RGBImage
+from robotics_utils.vision.image_processing import PixelXY, RGBImage
 
 if TYPE_CHECKING:
     from robotics_utils.vision.cameras import CameraIntrinsics

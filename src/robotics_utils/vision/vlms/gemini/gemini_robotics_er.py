@@ -157,7 +157,7 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
         :return: Collection of detected object keypoints matching the queries
         """
         copied = deepcopy(image)
-        copied.resize(max_width_px=800)
+        copied.fit_into(max_width_px=800)
         console.print(f"Resized image copy is {copied.width} x {copied.height} pixels (W x H).")
 
         prompt = textwrap.dedent(f"""\
@@ -200,7 +200,7 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
         :return: Collection of detected object bounding boxes matching the queries
         """
         copied = deepcopy(image)
-        copied.resize(max_width_px=800)
+        copied.fit_into(max_width_px=800)
         console.print(f"Resized image copy is {copied.width} x {copied.height} pixels (W x H).")
 
         prompt = textwrap.dedent(f"""\

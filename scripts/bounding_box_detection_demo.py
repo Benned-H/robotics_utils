@@ -6,8 +6,8 @@ from pathlib import Path
 
 import click
 
-from robotics_utils.io.repls import ObjectDetectionREPL
-from robotics_utils.vision import RGBImage
+from robotics_utils.io.repls import OpenVocabVisionREPL
+from robotics_utils.vision import ImagePatch, RGBImage
 from robotics_utils.vision.vlms import DetectedBoundingBoxes, OwlViTBoundingBoxDetector
 from robotics_utils.vision.vlms.gemini import GeminiRoboticsER
 from robotics_utils.visualization import display_in_window
@@ -17,10 +17,11 @@ def display_detected_bounding_boxes(boxes: DetectedBoundingBoxes) -> None:
     """Display the given bounding box detections."""
     display_in_window(boxes, "Object Detections")
 
+    num_detections = len(boxes.detections)
     if click.confirm("Display cropped images for each detection?"):
         for i, d in enumerate(boxes.detections):
-            cropped = d.bounding_box.crop(boxes.image, scale_ratio=1.2)
-            display_in_window(cropped, f"Detection {i + 1}/{len(boxes.detections)}: '{d.query}'")
+            cropped = ImagePatch.scaled_crop(boxes.image, d.bounding_box, scaling=1.2)
+            display_in_window(cropped.patch, f"Detection {i + 1}/{num_detections}: '{d.query}'")
 
     if click.confirm("Output cropped images to file?"):
         output_dir = click.prompt(
@@ -29,8 +30,8 @@ def display_detected_bounding_boxes(boxes: DetectedBoundingBoxes) -> None:
         )
 
         for i, d in enumerate(boxes.detections):
-            cropped = d.bounding_box.crop(boxes.image, scale_ratio=1.2)
-            RGBImage(cropped.data).to_file(output_dir / f"{d.query}_{i}.png")
+            cropped = ImagePatch[RGBImage].scaled_crop(boxes.image, d.bounding_box, scaling=1.2)
+            cropped.patch.to_file(output_dir / f"{d.query}_{i}.png")
 
 
 @click.command()
@@ -52,10 +53,11 @@ def object_detection(backend: str, api_key: str | None, image_path: Path) -> Non
     else:
         raise ValueError(f"Unrecognized backend: {backend}")
 
-    repl: ObjectDetectionREPL[DetectedBoundingBoxes] = ObjectDetectionREPL(
+    repl: OpenVocabVisionREPL[DetectedBoundingBoxes] = OpenVocabVisionREPL(
         image_path,
-        detect_func=detector.detect_bounding_boxes,
+        process_func=detector.detect_bounding_boxes,
         display_func=display_detected_bounding_boxes,
+        model_type="bounding box detector",
     )
     repl.loop()
 
