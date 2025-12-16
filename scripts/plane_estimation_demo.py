@@ -24,7 +24,8 @@ from robotics_utils.visualization.open3d_visualizer import Open3DVisualizer
 @click.option("--query", type=str, default=None, help="Object query used for segmentation")
 def main(realsense: str, query: str | None) -> None:
     """Run the plane estimation demo using data from an Intel RealSense camera."""
-    window_title = "Plane Estimation Demo (press 'q' to exit)"
+    main_window_title = "Plane Estimation Demo (press 'q' to exit)"
+    projected_window_title = "2D Projection of Inliers onto Estimated Plane (press 'q' to exit)"
 
     depth_spec = {"D415": D415_SPEC, "D455": D455_SPEC}.get(realsense)
     if depth_spec is None:
@@ -53,14 +54,14 @@ def main(realsense: str, query: str | None) -> None:
             segmentations = segmenter.segment(rgbd.rgb, queries=[query])
             if not segmentations.segmentations:
                 console.print(f"No object instances found for query '{query}'.")
-                if not display_in_window(vis_image, window_title, wait=False):
+                if not display_in_window(vis_image, main_window_title, wait=False):
                     break
                 continue
 
             for segmented_instance in segmentations:
                 segmented_instance.draw(vis_image, color=(0, 255, 0))
 
-            if not display_in_window(vis_image, window_title, wait=False):
+            if not display_in_window(vis_image, main_window_title, wait=False):
                 break
 
             # Select the largest segmented instance by mask area
@@ -82,11 +83,11 @@ def main(realsense: str, query: str | None) -> None:
             console.print(f"Plane center: {estimate.plane.point}")
             console.print(f"Plane normal: {estimate.plane.normal}")
             console.print(f"Plane equation: {estimate.plane.equation_string}")
+            console.print(estimate.get_inlier_text())
 
-            n_inliers = len(estimate.inlier_indices)
-            total_points = len(estimate.pointcloud)
-            inlier_ratio = 100 * n_inliers / total_points
-            console.print(f"Inliers: {n_inliers}/{total_points} ({inlier_ratio:.1f}%)")
+            # Visualize a 2D projection of inliers onto the estimated plane
+            if not display_in_window(estimate, projected_window_title, wait=False):
+                break
 
             # Update the live 3D visualization (non-blocking)
             vis.add_plane_estimate("current", estimate, plane_size_m=0.15, axes_size_m=0.1)

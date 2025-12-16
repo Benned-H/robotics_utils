@@ -259,15 +259,9 @@ class Open3DVisualizer:
         :return: Open3D mesh representing the plane
         """
         # 1. Find two orthogonal basis vectors in the plane
-        arbitrary = (
-            np.array([0.0, 0.0, 1.0]) if abs(plane.normal[2]) < 0.9 else np.array([1.0, 0.0, 0.0])
-        )  # Start with an arbitrary vector not parallel to the plane's normal
-
-        # Create a basis vector using the Gram-Schmidt process, then normalize
-        # Reference: https://math.stackexchange.com/a/695879
-        u = arbitrary - np.dot(arbitrary, plane.normal) * plane.normal
-        u = u / np.linalg.norm(u)
-        v = np.cross(plane.normal, u)
+        basis = plane.find_basis()
+        u = basis.u
+        v = basis.v
 
         # Create corners of the rectangular mesh, then the mesh
         corner_coords = [(u + v), (-u + v), (-u - v), (u - v)]
