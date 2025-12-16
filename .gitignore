@@ -1,6 +1,9 @@
 # Ignore images at the root of the repository
 images/
 
+# Ignore results from the Austin profiler
+.austin/
+
 # Ignore class dependency diagrams output by pyreverse
 *.dot
 

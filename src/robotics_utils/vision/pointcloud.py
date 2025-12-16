@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
     from robotics_utils.vision.cameras import CameraIntrinsics
     from robotics_utils.vision.image_processing import DepthImage, RGBDImage
+    from robotics_utils.vision.vlms import InstanceSegmentation
 
 
 @dataclass(frozen=True)
@@ -88,6 +89,41 @@ class Pointcloud:
         cloud = Pointcloud.from_depth_image(rgbd.depth, depth_intrinsics)
         cloud.colors = rgbd.rgb.data.reshape(-1, 3, order="C")
         return cloud
+
+    @classmethod
+    def from_segmented_rgbd(
+        cls,
+        rgbd: RGBDImage,
+        depth_intrinsics: CameraIntrinsics,
+        segmentation: InstanceSegmentation,
+    ) -> Pointcloud:
+        """Construct a pointcloud from an object instance segmentation in the given RGB-D image.
+
+        :param rgbd: RGB-D image with RGB and depth data
+        :param depth_intrinsics: Depth camera intrinsic parameters
+        :param segmentation: Object instance segmentation including a pixel mask
+        :return: Pointcloud consisting of masked 3D points with associated RGB colors
+        """
+        if not rgbd.same_dimensions:
+            raise ValueError("Cannot construct Pointcloud; RGB and depth images differ in size.")
+
+        # Get pixel coordinates where the mask is True
+        mask_coords = np.argwhere(segmentation.mask)  # (N, 2)
+        v = mask_coords[:, 0]  # Row indices for the masked pixels
+        u = mask_coords[:, 1]  # Column indices for the masked pixels
+
+        # Extract RGB and depth values at masked pixels
+        rgb_values = rgbd.rgb.data[v, u]  # (N, 3)
+        z = rgbd.depth.data[v, u]  # (N,)
+
+        # Same math as in Pointcloud.from_depth_image
+        x = (u - depth_intrinsics.x0) * z / depth_intrinsics.fx  # (N,)
+        y = (v - depth_intrinsics.y0) * z / depth_intrinsics.fy  # (N,)
+
+        # Stack along last axis to get (N, 3)
+        points_xyz = np.stack([x, y, z], axis=-1).astype(np.float64)
+
+        return Pointcloud(points=points_xyz, colors=rgb_values)
 
     def to_o3d(self) -> o3d.geometry.PointCloud:
         """Convert the pointcloud into an Open3D pointcloud."""

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
-from transformers import Sam3Model, Sam3Processor
+from transformers import BatchEncoding, Sam3Model, Sam3Processor
 
 from robotics_utils.vision import BoundingBox, PixelXY, RGBImage, determine_pytorch_device
 from robotics_utils.vision.vlms.segmentation import InstanceSegmentation, ObjectSegmentations
@@ -18,12 +18,22 @@ class SAM3:
         self.device = determine_pytorch_device()
         self.model = Sam3Model.from_pretrained("facebook/sam3").to(self.device)
         self.processor = Sam3Processor.from_pretrained("facebook/sam3")
+        self._query_cache: dict[str, BatchEncoding] = {}
+        """Cache previously used text queries to save time transferring to the GPU."""
 
-    def segment(self, image: RGBImage, queries: list[str]) -> ObjectSegmentations:
+    def segment(
+        self,
+        image: RGBImage,
+        queries: list[str],
+        instance_threshold: float = 0.5,
+        mask_threshold: float = 0.5,
+    ) -> ObjectSegmentations:
         """Segment an image using the given text prompts.
 
         :param image: Image to be segmented
         :param queries: Text queries describing the object(s) to be segmented
+        :param instance_threshold: Probability score threshold to keep predicted instance masks
+        :param mask_threshold: Threshold used to convert predicted masks into binary values
         :return: Collection of object segmentations detected in the image
         """
         image_inputs = self.processor(images=image.data, return_tensors="pt").to(self.device)
@@ -35,19 +45,23 @@ class SAM3:
         segmentations = []
 
         for query in queries:
-            text_inputs = self.processor(text=query, return_tensors="pt").to(self.device)
+            # Use cached text inputs if available, otherwise process and cache
+            if query not in self._query_cache:
+                self._query_cache[query] = self.processor(text=query, return_tensors="pt").to(
+                    self.device,
+                )
+            text_inputs = self._query_cache[query]
 
             with torch.no_grad():
                 outputs = self.model(vision_embeds=vision_embeds, **text_inputs)
 
-            # TODO: What do the following hyperparams mean/do?
-            # TODO: Should I instead use processor.post_process_masks for efficiency?
+            # Post-process the results to get instance segmentation masks
             results = self.processor.post_process_instance_segmentation(
                 outputs,
-                threshold=0.5,
-                mask_threshold=0.5,
+                threshold=instance_threshold,
+                mask_threshold=mask_threshold,
                 target_sizes=image_inputs.get("original_sizes").tolist(),
-            )[0]  # TODO: Why indexed 0?
+            )[0]  # Index 0 because we only provided one image
 
             # Let N = the number of segmentations found for the query
             masks = results["masks"].numpy(force=True)  # (N, H, W)

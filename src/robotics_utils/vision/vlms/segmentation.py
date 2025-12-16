@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterator
 
 import cv2
 import numpy as np
-from distinctipy import get_colors
 
 from robotics_utils.vision import RGB, BoundingBox, RGBImage, get_rgb_colors
 from robotics_utils.visualization import Displayable
@@ -58,6 +58,10 @@ class ObjectSegmentations(Displayable):
     segmentations: list[InstanceSegmentation]
     image: RGBImage
     """Image in which the object segmentations were found."""
+
+    def __iter__(self) -> Iterator[InstanceSegmentation]:
+        """Provide an iterator over the object instance segmentations."""
+        yield from self.segmentations
 
     @property
     def queries(self) -> set[str]:
