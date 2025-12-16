@@ -1,4 +1,4 @@
-"""Define a class to represent positions in 3D space."""
+"""Define classes to represent positions in 2D and 3D space."""
 
 from __future__ import annotations
 
