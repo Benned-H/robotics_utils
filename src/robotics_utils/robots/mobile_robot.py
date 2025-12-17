@@ -2,8 +2,8 @@
 
 from abc import ABC, abstractmethod
 
-from robotics_utils.kinematics import Pose2D
 from robotics_utils.motion_planning.navigation_goal import NavigationGoal
+from robotics_utils.spatial import Pose2D
 
 
 class MobileRobot(ABC):

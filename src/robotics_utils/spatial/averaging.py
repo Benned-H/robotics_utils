@@ -1,4 +1,4 @@
-"""Utility functions for computing weighted averages of 3D geometric primitives."""
+"""Utility functions for computing weighted averages of 3D spatial primitives."""
 
 from __future__ import annotations
 
@@ -6,7 +6,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from robotics_utils.kinematics import DEFAULT_FRAME, Point3D, Pose3D, Quaternion
+from robotics_utils.geometry import Point3D
+from robotics_utils.spatial.frames import DEFAULT_FRAME
+from robotics_utils.spatial.poses import Pose3D
+from robotics_utils.spatial.rotations import Quaternion
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

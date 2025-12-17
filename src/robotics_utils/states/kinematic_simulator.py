@@ -3,7 +3,7 @@
 from typing import Protocol
 
 from robotics_utils.collision_models import CollisionModel
-from robotics_utils.kinematics import Pose3D
+from robotics_utils.spatial import Pose3D
 from robotics_utils.states.object_kinematic_state import ObjectKinematicState
 
 

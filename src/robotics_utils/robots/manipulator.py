@@ -6,10 +6,11 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from robotics_utils.kinematics import Configuration, Pose3D
+    from robotics_utils.kinematics import Configuration
     from robotics_utils.motion_planning import Trajectory
     from robotics_utils.robots.angular_gripper import AngularGripper
     from robotics_utils.skills import Outcome
+    from robotics_utils.spatial import Pose3D
 
 
 class Manipulator(ABC):

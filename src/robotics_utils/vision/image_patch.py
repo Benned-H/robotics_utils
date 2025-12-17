@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Generic
 
-from robotics_utils.vision.image_processing.bounding_box import BoundingBox
-from robotics_utils.vision.image_processing.image import ImageT
+from robotics_utils.vision.bounding_box import BoundingBox
+from robotics_utils.vision.image import ImageT
 
 if TYPE_CHECKING:
-    from robotics_utils.vision.image_processing.pixel_xy import PixelXY
+    from robotics_utils.vision.pixel_xy import PixelXY
 
 
 @dataclass(frozen=True)

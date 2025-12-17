@@ -7,7 +7,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from robotics_utils.vision.image_processing.image import Image
+from robotics_utils.vision.image import Image
 
 
 class RGBImage(Image):

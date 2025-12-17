@@ -6,8 +6,8 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from robotics_utils.io import console
-from robotics_utils.kinematics import DEFAULT_FRAME, Pose3D
 from robotics_utils.ros.transform_manager import TransformManager
+from robotics_utils.spatial import DEFAULT_FRAME, Pose3D
 
 if TYPE_CHECKING:
     from robotics_utils.robots import Manipulator

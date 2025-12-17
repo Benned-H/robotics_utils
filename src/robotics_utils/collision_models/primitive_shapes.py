@@ -7,8 +7,7 @@ from typing import Protocol
 
 import numpy as np
 
-from robotics_utils.collision_models.aabb import AxisAlignedBoundingBox
-from robotics_utils.kinematics import Point3D
+from robotics_utils.geometry import AxisAlignedBoundingBox, Point3D
 
 
 class PrimitiveShape(Protocol):

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from robotics_utils.kinematics import Pose3D
 from robotics_utils.meta import get_default_values, load_class_from_module
+from robotics_utils.spatial import Pose3D
 
 
 def test_load_class_from_module() -> None:

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from robotics_utils.kinematics import Point3D
+from robotics_utils.geometry.points import Point3D
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import cv2
 import numpy as np
 
-from robotics_utils.vision.image_processing.image import Image
+from robotics_utils.vision.image import Image
 
 if TYPE_CHECKING:
     from pathlib import Path

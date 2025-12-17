@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING
 import cv2
 import numpy as np
 
-from robotics_utils.vision.image_processing.pixel_xy import PixelXY
+from robotics_utils.vision.pixel_xy import PixelXY
 
 if TYPE_CHECKING:
-    from robotics_utils.vision.image_processing.rgb_image import RGBImage
+    from robotics_utils.vision.rgb_image import RGBImage
     from robotics_utils.vision.vision_utils import RGB
 
 

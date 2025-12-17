@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 
 from robotics_utils.io import log_info
-from robotics_utils.kinematics import Pose2D
-from robotics_utils.math.distances import angle_difference_rad, euclidean_distance_2d_m
+from robotics_utils.math import angle_difference_rad
+from robotics_utils.spatial import Pose2D, euclidean_distance_2d_m
 
 
 @dataclass(frozen=True)
@@ -31,7 +31,7 @@ class NavigationGoal:
             gf = self.pose.ref_frame
             raise ValueError(f"Base pose frame '{rf}' differs from goal pose frame '{gf}'.")
 
-        distance_2d_m = euclidean_distance_2d_m(base_pose, self.pose, change_frames)
+        distance_2d_m = euclidean_distance_2d_m(base_pose, self.pose, change_frames=change_frames)
         angle_error_rad = angle_difference_rad(base_pose.yaw_rad, self.pose.yaw_rad)
 
         distance_reached = distance_2d_m < self.reached_distance_m

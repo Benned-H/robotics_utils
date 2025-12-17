@@ -11,13 +11,15 @@ import cv2
 import numpy as np
 import pupil_apriltags
 
-from robotics_utils.kinematics import EulerRPY, Point3D, Pose3D, Quaternion
-from robotics_utils.vision import CameraIntrinsics, PixelXY, RGBCamera, RGBImage
+from robotics_utils.geometry import Point3D
+from robotics_utils.spatial import EulerRPY, Pose3D, Quaternion
+from robotics_utils.vision import PixelXY, RGBImage
 from robotics_utils.visualization import Displayable
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
+    from robotics_utils.vision.cameras import CameraIntrinsics, RGBCamera
     from robotics_utils.vision.fiducials.visual_fiducials import FiducialSystem
 
 

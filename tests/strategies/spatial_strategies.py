@@ -1,23 +1,11 @@
-"""Define strategies for generating kinematics data for property-based testing."""
+"""Define strategies for generating 3D spatial data for property-based testing."""
 
 import hypothesis.strategies as st
 
-from robotics_utils.kinematics import EulerRPY, Point3D, Pose2D, Pose3D, Quaternion
+from robotics_utils.spatial import EulerRPY, Pose2D, Pose3D, Quaternion
 
-
-@st.composite
-def angles_rad(draw: st.DrawFn) -> float:
-    """Generate random angles (in radians)."""
-    return draw(st.floats(min_value=-10e4, max_value=10e4, allow_infinity=False, allow_nan=False))
-
-
-@st.composite
-def positions(draw: st.DrawFn) -> Point3D:
-    """Generate random (x,y,z) points."""
-    x = draw(st.floats(min_value=-10e8, max_value=10e8, allow_infinity=False, allow_nan=False))
-    y = draw(st.floats(min_value=-10e8, max_value=10e8, allow_infinity=False, allow_nan=False))
-    z = draw(st.floats(min_value=-10e8, max_value=10e8, allow_infinity=False, allow_nan=False))
-    return Point3D(x, y, z)
+from .common_strategies import angles_rad
+from .geometry_strategies import positions
 
 
 @st.composite

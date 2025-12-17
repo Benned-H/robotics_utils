@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, Any, Tuple, TypeVar
 
 import numpy as np
 
+from robotics_utils.geometry import Point2D, Point3D
 from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME
-from robotics_utils.kinematics.points import Point2D, Point3D
-from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
+from robotics_utils.spatial.frames import DEFAULT_FRAME
+from robotics_utils.spatial.rotations import EulerRPY, Quaternion
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -230,7 +230,7 @@ class Pose3D:
         """Load a collection of named poses from the given YAML file.
 
         :param yaml_path: Path to a YAML file containing pose data
-        :param collection_name: Name of the collection of poses to be imported (e.g., "object_poses")
+        :param collection_name: Name of collection of poses to be imported (e.g., "object_poses")
         :return: Dictionary mapping pose-frame names to their imported 3D poses
         """
         yaml_data = load_yaml_data(yaml_path, required_keys={collection_name})

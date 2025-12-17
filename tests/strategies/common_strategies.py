@@ -9,7 +9,7 @@ import hypothesis.strategies as st
 
 
 @st.composite
-def real_ranges(draw: st.DrawFn, finite: bool) -> tuple[float, float]:
+def real_ranges(draw: st.DrawFn, *, finite: bool) -> tuple[float, float]:
     """Generate random [a,b] ranges of real numbers (i.e., floats)."""
     a = draw(st.floats(allow_infinity=(not finite), allow_nan=False))
     b = draw(st.floats(allow_infinity=(not finite), allow_nan=False))
@@ -22,6 +22,12 @@ def integer_ranges(draw: st.DrawFn, min_value: int, max_value: int) -> tuple[int
     a = draw(st.integers(min_value=min_value, max_value=max_value))
     b = draw(st.integers(min_value=min_value, max_value=max_value))
     return (min(a, b), max(a, b))
+
+
+@st.composite
+def angles_rad(draw: st.DrawFn) -> float:
+    """Generate random angles (in radians)."""
+    return draw(st.floats(min_value=-10e4, max_value=10e4, allow_infinity=False, allow_nan=False))
 
 
 def test_data_path() -> Path:

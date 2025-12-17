@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, TypeVar
 import numpy as np
 from PIL import Image as PILImage
 
-from robotics_utils.vision.image_processing.pixel_xy import PixelXY
+from robotics_utils.vision.pixel_xy import PixelXY
 from robotics_utils.visualization.display_images import Displayable
 
 if TYPE_CHECKING:

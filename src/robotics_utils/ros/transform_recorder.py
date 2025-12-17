@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 import rospy
 
 from robotics_utils.io.yaml_utils import export_yaml_data
-from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.ros.transform_manager import TransformManager
+from robotics_utils.spatial import Pose3D
 
 if TYPE_CHECKING:
     from pathlib import Path

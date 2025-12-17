@@ -11,8 +11,7 @@ import rospy
 from moveit_commander import PlanningSceneInterface
 from moveit_msgs.msg import CollisionObject
 
-from robotics_utils.kinematics import Pose3D
-from robotics_utils.kinematics.kinematic_tree import KinematicTree
+from robotics_utils.kinematics import KinematicTree
 from robotics_utils.ros.msg_conversion import (
     pose_from_msg,
     pose_to_msg,
@@ -21,6 +20,7 @@ from robotics_utils.ros.msg_conversion import (
 )
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.skills import Outcome
+from robotics_utils.spatial import Pose3D
 from robotics_utils.states import KinematicSimulator, ObjectKinematicState
 
 if TYPE_CHECKING:

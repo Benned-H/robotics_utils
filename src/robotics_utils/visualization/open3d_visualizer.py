@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING
 import numpy as np
 import open3d as o3d
 
-from robotics_utils.vision.pointcloud import PlaneEstimate, Pointcloud
+from robotics_utils.reconstruction import PlaneEstimate, Pointcloud
 
 if TYPE_CHECKING:
     from types import TracebackType
 
     from typing_extensions import Self
 
-    from robotics_utils.kinematics import Plane3D
+    from robotics_utils.geometry import Plane3D
 
 
 class Open3DVisualizer:

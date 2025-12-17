@@ -11,9 +11,8 @@ from moveit_commander import RobotCommander
 from moveit_msgs.msg import DisplayTrajectory, RobotTrajectory
 
 from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.kinematics import Pose3D
-from robotics_utils.math.distances import angle_between_quaternions_deg, euclidean_distance_3d_m
 from robotics_utils.ros.transform_manager import TransformManager
+from robotics_utils.spatial import Pose3D, angle_between_quaternions_deg, euclidean_distance_3d_m
 
 if TYPE_CHECKING:
     from pathlib import Path

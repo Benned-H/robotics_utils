@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 from hypothesis import given
 
-from robotics_utils.kinematics import Point3D
+from robotics_utils.geometry import Point3D
 
-from .strategies.kinematics_strategies import positions
+from .strategies.geometry_strategies import positions
 
 
 @given(positions())

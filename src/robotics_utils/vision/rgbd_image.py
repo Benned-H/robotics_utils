@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from robotics_utils.vision.image_processing.depth_image import DepthImage
-from robotics_utils.vision.image_processing.rgb_image import RGBImage
+from robotics_utils.vision.depth_image import DepthImage
+from robotics_utils.vision.rgb_image import RGBImage
 from robotics_utils.visualization.display_images import Displayable
 
 

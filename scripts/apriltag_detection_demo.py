@@ -7,7 +7,8 @@ An example image is available here:
 from copy import deepcopy
 from pathlib import Path
 
-from robotics_utils.vision import CameraIntrinsics, RGBImage, draw_axes
+from robotics_utils.vision import RGBImage, draw_axes
+from robotics_utils.vision.cameras import CameraIntrinsics
 from robotics_utils.vision.fiducials import (
     AprilTagDetector,
     FiducialMarker,
