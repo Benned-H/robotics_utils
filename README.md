@@ -32,7 +32,9 @@ uv run scripts/keypoint_detection_demo.py API_KEY IMAGE_PATH
 - `API_KEY` denotes your Google API key.
 - `IMAGE_PATH` denotes the path to the image you'd like to detect objects in.
 
-_Intel RealSense Demo_ - Install the dependencies for the RealSense demo using [these instructions](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md#installing-the-packages). Then reopen the terminal and reconnect the RealSense to the computer.
+### Intel RealSense Demo
+
+Install the dependencies for the RealSense demo using [these instructions](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md#installing-the-packages). Then reopen the terminal and reconnect the RealSense to the computer.
 
 Launch the RealSense demo by running:
 
@@ -48,6 +50,14 @@ Run the AprilTag detection demo by running:
 ```bash
 uv venv --clear && uv sync --extra vision
 uv run scripts/apriltag_detection_demo.py
+```
+
+### PDDL Parsing
+
+To set up the environment to run the PDDL-related code, use the command:
+
+```bash
+uv venv --clear && uv sync
 ```
 
 ## Development Commands

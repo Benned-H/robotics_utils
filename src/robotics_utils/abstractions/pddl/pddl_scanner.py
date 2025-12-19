@@ -5,16 +5,20 @@ Reference: PDDL - The Planning Domain Definition Language (Version 1.2) (Ghallab
 
 import sys
 
-if sys.version_info < (3, 10):
-    raise RuntimeError("This module requires Python 3.10 or higher.")
+if sys.version_info < (3, 11):
+    raise RuntimeError("This module requires Python 3.11 or higher (uses `StrEnum` and `match`).")
 
 import re
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import StrEnum  # Requires Python 3.11+
 from typing import Generator
 
 PDDL_NAME_REGEX = r"[a-zA-Z]{1}[a-zA-Z0-9\-_]*"
-"""Names in PDDL begin with a letter and contain only letters, digits, hyphens, and underscores."""
+"""Names in PDDL begin with a letter and contain only letters, digits, hyphens, and underscores.
+Case is not significant.
+
+Reference: Page 6, Section 4 ("Domains") in Ghallab et al. (1998).
+"""
 
 
 class PDDLTokenType(StrEnum):
@@ -27,7 +31,7 @@ class PDDLTokenType(StrEnum):
     """Name of a PDDL variable."""
 
     KEYWORD = r":" + PDDL_NAME_REGEX
-    """A PDDL keyword starts with a colon."""
+    """A PDDL keyword starts with a colon (pg. 2)."""
 
     MINUS = r"-"
     """Separates PDDL entities from their types in typed lists."""
@@ -39,7 +43,7 @@ class PDDLTokenType(StrEnum):
     """A close parenthesis."""
 
     COMMENT = r";[^\n]*"
-    """Comments in PDDL begin with a semicolon and end with the next newline."""
+    """Comments in PDDL begin with a semicolon and end with the next newline (pg. 5)."""
 
     NEWLINE = r"\n"
 
@@ -82,10 +86,12 @@ PDDL_REQ_FLAGS = {
         ":equality + :quantified-preconditions + :conditional-effects"
     ),
 }
-"""Definitions for supported PDDL requirements flags.
+"""Definitions for PDDL requirement flags in PDDL 0.0.
 
-Reference: Section 15 ("Current Requirement Flags") of Ghallab et al. (1998).
-"""  # TODO: Support these!
+TODO: Eventually, support all of these requirements.
+
+Reference: Pages 20-21, Section 15 ("Current Requirement Flags") in Ghallab et al. (1998).
+"""
 
 
 class PDDLScanner:
@@ -123,7 +129,7 @@ class PDDLScanner:
             value = mo.group()
             column = mo.start() - line_start
 
-            match token_type:
+            match token_type:  # Requires Python 3.10+
                 case PDDLTokenType.KEYWORD:
                     if value not in self.keywords:
                         raise RuntimeError(f"Unknown PDDL keyword: '{value}'.")
