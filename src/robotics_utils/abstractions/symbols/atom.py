@@ -63,5 +63,5 @@ class Atom:
             ubp = ", ".join(p.name for p in updated.unbound_params)
             raise ValueError(f"{updated.name} is not fully grounded; unbound parameters: {ubp}")
 
-        arguments = tuple(self.bindings[p.name] for p in self.predicate.parameters)
+        arguments = tuple(updated.bindings[p.name] for p in self.predicate.parameters)
         return GroundAtom(self.predicate, arguments)
