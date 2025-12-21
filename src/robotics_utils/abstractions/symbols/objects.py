@@ -1,4 +1,4 @@
-"""Define classes and types to represent symbolic typed objects."""
+"""Define classes to represent symbolic typed objects."""
 
 from __future__ import annotations
 

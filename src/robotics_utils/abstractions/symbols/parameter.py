@@ -10,11 +10,11 @@ if TYPE_CHECKING:
     from _typeshed import DataclassInstance
 
 DataclassT = TypeVar("DataclassT", bound=Hashable)
-"""A type variable representing any hashable dataclass type."""
+"""Represents a type of hashable dataclass."""
 
 
 class DataclassType(Generic[DataclassT]):
-    """A dataclass type (i.e., not an object instance)."""
+    """Utility class wrapper for a type of hashable dataclass."""
 
     def __init__(self, dataclass_t: type[DataclassT]) -> None:
         """Initialize the class using the given dataclass type."""
