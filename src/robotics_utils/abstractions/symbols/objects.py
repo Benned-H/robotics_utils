@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, KeysView
+from typing import TYPE_CHECKING, Callable, KeysView
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -58,3 +58,7 @@ class Objects:
             raise KeyError(f"Unknown object type: '{obj_type}'.")
 
         return self._objects_of_type[obj_type]
+
+
+ObjectMapping = Callable[[object], ObjectSymbol]
+"""A map from Python objects to their corresponding ObjectSymbol representations."""

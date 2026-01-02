@@ -57,7 +57,7 @@ uv run scripts/apriltag_detection_demo.py
 To set up the environment to run the PDDL-related code, use the command:
 
 ```bash
-uv venv --clear && uv sync
+uv venv --clear --python 3.13 && uv sync
 ```
 
 ## Development Commands
