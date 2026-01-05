@@ -1,6 +1,5 @@
 """Define a skills protocol for the Dorfl bimanual manipulator."""
 
-from robotics_utils.abstractions.objects import BaseObjectType
 from robotics_utils.skills import SkillsProtocol, skill_method
 
 

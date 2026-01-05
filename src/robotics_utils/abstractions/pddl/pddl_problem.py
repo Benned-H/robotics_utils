@@ -6,26 +6,37 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from robotics_utils.abstractions import AbstractState
-    from robotics_utils.abstractions.objects import ObjectCentricState
-    from robotics_utils.abstractions.predicates import PredicateInstance
+    from robotics_utils.abstractions.symbols.abstract_states import AbstractState
+    from robotics_utils.abstractions.symbols.ground_atom import GroundAtom
+    from robotics_utils.abstractions.symbols.objects import Objects
 
 
 @dataclass(frozen=True)
 class GoalCondition:
-    """Specifies a desired abstract state of the world for a planning problem.
+    """Specifies the desired abstract state(s) in a planning problem.
 
-    TODO: Handle general first-order logic expressions as goal conditions.
+    Note: This current definition is simplified from what PDDL typically allows.
+        - TODO: Support general first-order logic expressions as goal conditions.
+
+    Reference: https://planning.wiki/ref/pddl/problem
     """
 
-    positive: set[PredicateInstance]  # Conditions that must be true
-    negative: set[PredicateInstance]  # Conditions that must be false
+    positive: frozenset[GroundAtom]
+    """Conditions that must hold in a goal state."""
+
+    negative: frozenset[GroundAtom]
+    """Conditions that must not hold in a goal state."""
 
 
-@dataclass(frozen=True)
+@dataclass
 class PDDLProblem:
     """A PDDL problem defines an initial environment state and a goal condition."""
 
-    objects: ObjectCentricState
+    objects: Objects
+    """Symbols representing the typed objects in the problem."""
+
     initial_state: AbstractState
+    """Initial abstract state (i.e., set of true ground atoms) in the problem."""
+
     goal: GoalCondition
+    """Conditions for a goal state in the problem."""

@@ -6,26 +6,27 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from robotics_utils.abstractions.objects import ObjectTypes
-    from robotics_utils.abstractions.operators import Operator
-    from robotics_utils.abstractions.predicates import Predicate
+    from robotics_utils.abstractions.symbols.operators import Operator
+    from robotics_utils.abstractions.symbols.predicate import Predicate
 
 
-@dataclass(frozen=True)
+@dataclass
 class PDDLDomain:
-    """A PDDL domain defining the "universal" aspects of a planning problem."""
+    """A PDDL domain defining the 'universal' aspects of a class of planning problems.
+
+    Reference: https://planning.wiki/ref/pddl/domain
+    """
 
     name: str
-    """Name of the domain."""
 
     requirements: set[str]
-    """Additional PDDL features required by the domain (e.g., `:typing`)."""
+    """Additional PDDL features required by the domain."""
 
-    types: ObjectTypes
-    """The set of object types used in the domain."""
+    types: set[str]
+    """Flat collection of object types used in the domain."""
 
     predicates: set[Predicate]
-    """The set of predicates (i.e., lifted Boolean state classifiers) in the domain."""
+    """The set of predicates (i.e., lifted relationships between objects) in the domain."""
 
     operators: set[Operator]
-    """The set of operators (i.e., lifted abstract actions) in the domain."""
+    """The set of operators (i.e., abstract action templates) in the domain."""
