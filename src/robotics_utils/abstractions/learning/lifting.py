@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic
 
+from robotics_utils.abstractions.grounding.low_level_env import ActionT
 from robotics_utils.abstractions.learning.canonical_order import canonical_order_key
 from robotics_utils.abstractions.symbols.discrete_parameter import DiscreteParameter
 from robotics_utils.abstractions.symbols.ground_atom import GroundAtom, GroundLiteral
@@ -13,28 +14,27 @@ from robotics_utils.abstractions.symbols.predicate import Predicate
 if TYPE_CHECKING:
     from robotics_utils.abstractions.symbols.abstract_states import AbstractState
     from robotics_utils.abstractions.symbols.objects import ObjectMapping, ObjectSymbol
-    from robotics_utils.skills import SkillInstance
 
 
-class LiftingContext:
+class LiftingContext(Generic[ActionT]):
     """Manages the state of the lifting process for a grounded abstract transition.
 
     The lifting context tracks which object symbols have been assigned to which
     lifted parameters, ensuring consistent parameter assignment per transition.
+
+    :param ActionT: Type of parameterized low-level action executed to create the transition
     """
 
-    def __init__(self, skill_instance: SkillInstance, obj_to_symbol: ObjectMapping) -> None:
-        """Initialize the lifting context based on the given skill instance.
+    def __init__(self, action: ActionT, obj_to_symbol: ObjectMapping) -> None:
+        """Initialize the lifting context based on the given parameterized action instance.
 
-        :param skill_instance: Skill instance providing concrete argument bindings
+        :param action: Parameterized action instance providing concrete argument bindings
         :param obj_to_symbol: Maps Python objects to corresponding ObjectSymbols
         """
-        discrete_params = skill_instance.skill.discrete_parameters
+        self.action_arguments = tuple(obj_to_symbol(arg) for arg in action.arguments)
+        """Symbols referring to object arguments of the transition's executed action."""
 
-        self.skill_arguments = tuple(obj_to_symbol(arg) for arg in skill_instance.arguments)
-        """Object arguments of the skill executed to create the transition."""
-
-        self.obj_to_param = dict(zip(self.skill_arguments, discrete_params, strict=True))
+        self.obj_to_param = dict(zip(self.action_arguments, action.discrete_params, strict=True))
         self.used_param_names = {p.name for p in self.obj_to_param.values()}
 
         self.type_to_next_param_idx: dict[str, int] = defaultdict(int)
@@ -86,7 +86,7 @@ class LiftingContext:
         ground_literals = [GroundLiteral(g_atom, negated=False) for g_atom in state.facts]
         sorted_literals = sorted(
             ground_literals,
-            key=lambda lit: canonical_order_key(lit, self.skill_arguments),
+            key=lambda lit: canonical_order_key(lit, self.action_arguments),
         )
 
         for literal in sorted_literals:

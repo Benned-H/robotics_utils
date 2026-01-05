@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import product
 from typing import TYPE_CHECKING
 
 from robotics_utils.abstractions.symbols.abstract_states import AbstractState
@@ -10,6 +11,7 @@ from robotics_utils.abstractions.symbols.abstract_states import AbstractState
 if TYPE_CHECKING:
     from robotics_utils.abstractions.symbols.discrete_parameter import Bindings, DiscreteParameter
     from robotics_utils.abstractions.symbols.ground_atom import GroundAtom
+    from robotics_utils.abstractions.symbols.objects import Objects
     from robotics_utils.abstractions.symbols.predicate import Predicate
 
 
@@ -17,10 +19,10 @@ if TYPE_CHECKING:
 class Preconditions:
     """A collection of predicates defining positive and negative preconditions."""
 
-    positive: frozenset[Predicate]
+    positive: frozenset[Predicate] = frozenset()
     """Abstract conditions that must hold to apply the relevant operator."""
 
-    negative: frozenset[Predicate]
+    negative: frozenset[Predicate] = frozenset()
     """Abstract conditions that must be false to apply the relevant operator."""
 
     def ground_with(self, bindings: Bindings) -> GroundPreconditions:
@@ -52,10 +54,10 @@ class GroundPreconditions:
 class Effects:
     """A collection of predicates defining add and delete effects of an operator."""
 
-    add: frozenset[Predicate]
+    add: frozenset[Predicate] = frozenset()
     """Predicates whose groundings are added to the abstract state by the operator."""
 
-    delete: frozenset[Predicate]
+    delete: frozenset[Predicate] = frozenset()
     """Predicates whose groundings are deleted from the abstract state by the operator."""
 
     def ground_with(self, bindings: Bindings) -> GroundEffects:
@@ -100,6 +102,24 @@ class Operator:
         """Ground the operator using the given parameter bindings."""
         return GroundOperator(self, bindings)
 
+    def compute_all_groundings(self, objects: Objects) -> set[GroundOperator]:
+        """Compute all valid groundings of the operator using the given objects.
+
+        :param objects: Collection of object symbols
+        :return: Set of all valid groundings of the operator, per its parameter type constraints
+        """
+        objects_per_param_type = (objects.get_objects_of_type(p.type_) for p in self.parameters)
+
+        # Find all valid tuples of concrete args using a Cartesian product
+        all_valid_args = product(*objects_per_param_type)
+        all_bindings = (
+            {p.name: obj}
+            for args in all_valid_args
+            for p, obj in zip(self.parameters, args, strict=True)
+        )
+
+        return {self.ground_with(bindings) for bindings in all_bindings}
+
 
 class GroundOperator:
     """A grounded abstract action applied to specific concrete objects."""
@@ -116,12 +136,32 @@ class GroundOperator:
         """Evaluate whether the ground operator is applicable in an abstract state."""
         return self.ground_pre.satisfied_in(abstract_state)
 
-    def apply(self, abstract_state: AbstractState) -> AbstractState:
-        """Apply the ground operator to transition from the given abstract state."""
+    def apply(self, abstract_state: AbstractState) -> AbstractState | None:
+        """Apply the ground operator to transition from the given abstract state.
+
+        :param abstract_state: Current abstract state
+        :return: Resulting abstract state, or None if the operator is not applicable
+        """
         if not self.applicable_in(abstract_state):
-            raise ValueError(f"Cannot apply {self} in the abstract state: {abstract_state}")
+            return None
 
         return self.ground_eff.apply(abstract_state)
+
+    ### Implement properties to satisfy the `ParameterizedAction` protocol ###
+    @property
+    def name(self) -> str:
+        """Retrieve the name of the operator that has been grounded."""
+        return self.operator.name
+
+    @property
+    def discrete_params(self) -> tuple[DiscreteParameter, ...]:
+        """Retrieve the tuple of discrete parameters expected by the operator."""
+        return self.operator.parameters
+
+    @property
+    def arguments(self) -> tuple[object, ...]:
+        """Retrieve the tuple of object symbols used to ground the operator."""
+        return tuple(self.bindings[p.name] for p in self.discrete_params)
 
 
 AbstractAction = GroundOperator
