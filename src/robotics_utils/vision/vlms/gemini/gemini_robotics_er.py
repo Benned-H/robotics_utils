@@ -87,8 +87,8 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
 
         :param api_key: Google API key used to access Gemini Robotics-ER 1.5
         :param model_id: String specifying which Gemini model to use
-        :param object_limit: Limit on the number of objects per response (defaults to 20)
-        :param timeout_s: Maximum duration (seconds) of any Gemini call (defaults to 10 sec)
+        :param object_limit: Limit on the number of objects per response
+        :param timeout_s: Maximum duration (seconds) of any Gemini call
         """
         if not GEN_AI_PRESENT:
             raise ImportError("Cannot run GeminiRoboticsER without google-genai.")
@@ -157,7 +157,7 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
         :return: Collection of detected object keypoints matching the queries
         """
         copied = deepcopy(image)
-        copied.resize(max_width_px=800)
+        copied.fit_into(max_width_px=800)
         console.print(f"Resized image copy is {copied.width} x {copied.height} pixels (W x H).")
 
         prompt = textwrap.dedent(f"""\
@@ -200,7 +200,7 @@ class GeminiRoboticsER(KeypointDetector, BoundingBoxDetector):
         :return: Collection of detected object bounding boxes matching the queries
         """
         copied = deepcopy(image)
-        copied.resize(max_width_px=800)
+        copied.fit_into(max_width_px=800)
         console.print(f"Resized image copy is {copied.width} x {copied.height} pixels (W x H).")
 
         prompt = textwrap.dedent(f"""\

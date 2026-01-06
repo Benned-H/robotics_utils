@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import rospy
 from tf2_ros import Buffer, TransformBroadcaster, TransformException, TransformListener
 
-from robotics_utils.kinematics import Pose2D, Pose3D
 from robotics_utils.ros.msg_conversion import pose_from_tf_stamped_msg, pose_to_tf_stamped_msg
+from robotics_utils.spatial import Pose2D, Pose3D
 
 if TYPE_CHECKING:
     from geometry_msgs.msg import TransformStamped
@@ -82,9 +82,6 @@ class TransformManager:
         tf_stamped_msg.header.stamp = rospy.Time.now()
 
         TransformManager.tf_broadcaster().sendTransform(tf_stamped_msg)
-
-    # TODO: Source = child
-    # TODO: Target = Parent
 
     @staticmethod
     def lookup_transform(

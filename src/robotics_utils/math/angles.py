@@ -10,3 +10,14 @@ def normalize_angle(angle_rad: float) -> float:
     while angle_rad > np.pi:
         angle_rad -= 2 * np.pi
     return angle_rad
+
+
+def angle_difference_rad(a_rad: float, b_rad: float) -> float:
+    """Compute the absolute difference (in normalized radians) between two angles.
+
+    :param a_rad: First angle (radians) in the difference
+    :param b_rad: Second angle (radians) in the difference
+    :return: Absolute angle difference (radians, between 0 and pi)
+    """
+    difference_rad = normalize_angle(a_rad - b_rad)
+    return abs(difference_rad)

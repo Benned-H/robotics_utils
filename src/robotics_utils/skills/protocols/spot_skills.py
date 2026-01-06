@@ -27,9 +27,9 @@ from spot_skills.srv import (
     ProbeSurfaceResponse,
 )
 
+from robotics_utils.geometry import Point3D
 from robotics_utils.io import console
-from robotics_utils.kinematics import DEFAULT_FRAME, Point3D, Pose3D, Waypoints
-from robotics_utils.kinematics.kinematic_tree import KinematicTree
+from robotics_utils.kinematics import KinematicTree, Waypoints
 from robotics_utils.motion_planning import MotionPlanningQuery
 from robotics_utils.motion_planning.grasping import PickPoses
 from robotics_utils.robots import GripperAngleLimits
@@ -44,6 +44,7 @@ from robotics_utils.ros import (
 from robotics_utils.ros.msg_conversion import point_to_vector3_msg, pose_from_msg
 from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
 from robotics_utils.skills import Outcome, SkillsProtocol, skill_method
+from robotics_utils.spatial import DEFAULT_FRAME, Pose3D
 
 SPOT_GRIPPER_OPEN_RAD = -1.5707
 SPOT_GRIPPER_CLOSED_RAD = 0.0

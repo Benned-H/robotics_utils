@@ -9,17 +9,17 @@ import rospy
 import yaml
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 
-from robotics_utils.kinematics import DEFAULT_FRAME, XYZ_RPY, Pose3D
-from robotics_utils.kinematics.kinematic_tree import KinematicTree
+from robotics_utils.kinematics import KinematicTree
 from robotics_utils.ros.call_loop_thread import CallLoopThread
 from robotics_utils.ros.params import get_ros_param
 from robotics_utils.ros.transform_manager import TransformManager
+from robotics_utils.spatial import DEFAULT_FRAME, XYZ_RPY, Pose3D
 from robotics_utils.state_estimation import PoseEstimateAverager
 from robotics_utils.vision.fiducials import AprilTagDetector, FiducialMarker, FiducialSystem
 
 if TYPE_CHECKING:
     from robotics_utils.states import KinematicSimulator
-    from robotics_utils.vision import RGBCamera
+    from robotics_utils.vision.cameras import RGBCamera
 
 
 class TagTracker:

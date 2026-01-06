@@ -13,11 +13,14 @@ from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 from robotics_utils.collision_models import Box, CollisionModel, Cylinder, PrimitiveShape, Sphere
-from robotics_utils.kinematics import DEFAULT_FRAME, Configuration, Point3D, Pose3D, Quaternion
+from robotics_utils.geometry import Point3D
 from robotics_utils.motion_planning import Trajectory, TrajectoryPoint
+from robotics_utils.spatial import DEFAULT_FRAME, Pose3D, Quaternion
 
 if TYPE_CHECKING:
     import trimesh
+
+    from robotics_utils.kinematics import Configuration
 
 
 def point_to_msg(point: Point3D) -> Point:

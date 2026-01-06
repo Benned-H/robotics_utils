@@ -9,7 +9,7 @@ import rospy
 from robotics_utils.ros.transform_manager import TransformManager
 
 if TYPE_CHECKING:
-    from robotics_utils.kinematics import Pose3D
+    from robotics_utils.spatial import Pose3D
 
 
 class PoseBroadcastThread:

@@ -5,9 +5,9 @@ from dataclasses import dataclass
 
 import rospy
 
-from robotics_utils.kinematics import Pose2D
-from robotics_utils.math.distances import angle_difference_rad, euclidean_distance_2d_m
+from robotics_utils.math import angle_difference_rad
 from robotics_utils.ros.transform_manager import TransformManager
+from robotics_utils.spatial import Pose2D, euclidean_distance_2d_m
 
 
 @dataclass(frozen=True)

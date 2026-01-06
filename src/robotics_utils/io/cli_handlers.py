@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 from click import confirm
 from rich.prompt import FloatPrompt, IntPrompt, Prompt
 
+from robotics_utils.geometry import Point3D
 from robotics_utils.io import console
-from robotics_utils.kinematics import Point3D, Pose3D
+from robotics_utils.spatial import Pose3D
 
 if TYPE_CHECKING:
     from robotics_utils.skills import SkillParamKey

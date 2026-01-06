@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from robotics_utils.io.repls import ObjectDetectionREPL
+from robotics_utils.io.repls import OpenVocabVisionREPL
 from robotics_utils.vision.vlms import KeypointDetections
 from robotics_utils.vision.vlms.gemini import GeminiRoboticsER
 from robotics_utils.visualization import display_in_window
@@ -24,10 +24,11 @@ def object_detection(api_key: str, image_path: Path) -> None:
     """Run object detection in an interactive loop."""
     detector = GeminiRoboticsER(api_key)
 
-    repl: ObjectDetectionREPL[KeypointDetections] = ObjectDetectionREPL(
+    repl: OpenVocabVisionREPL[KeypointDetections] = OpenVocabVisionREPL(
         image_path,
-        detect_func=detector.detect_keypoints,
+        process_func=detector.detect_keypoints,
         display_func=display_detected_keypoints,
+        model_type="object keypoint detector",
     )
     repl.loop()
 

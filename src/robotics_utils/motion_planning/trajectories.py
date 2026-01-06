@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
-from robotics_utils.kinematics import Configuration, Pose3D
+from robotics_utils.kinematics import Configuration
+from robotics_utils.spatial import Pose3D
 
 Path = Sequence[Configuration]
 """A path is a sequence of robot configurations."""

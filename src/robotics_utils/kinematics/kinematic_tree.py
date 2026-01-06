@@ -8,13 +8,14 @@ from typing import TYPE_CHECKING, Any
 from robotics_utils.collision_models import CollisionModel
 from robotics_utils.io import console
 from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME, Configuration
-from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
+from robotics_utils.spatial import DEFAULT_FRAME, Pose3D
 from robotics_utils.states import ContainerState, ObjectKinematicState
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from robotics_utils.kinematics.configuration import Configuration
 
 
 class KinematicTree:

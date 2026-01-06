@@ -11,7 +11,7 @@ from robotics_utils.io.logging import log_info
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from robotics_utils.kinematics.kinematic_tree import KinematicTree
+    from robotics_utils.kinematics import KinematicTree
     from robotics_utils.states.object_kinematic_state import ObjectKinematicState
 
 ContainerStatus = Literal["open", "closed"]

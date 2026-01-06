@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.kinematics import Pose3D
+from robotics_utils.spatial import Pose3D
 
 if TYPE_CHECKING:
     from pathlib import Path

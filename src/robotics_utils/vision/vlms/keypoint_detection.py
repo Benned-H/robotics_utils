@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 import cv2
 import numpy as np
 
-from robotics_utils.vision import PixelXY, RGBImage
+from robotics_utils.vision import PixelXY, RGBImage, get_rgb_colors
 from robotics_utils.visualization import Displayable
 
 if TYPE_CHECKING:
@@ -70,13 +69,11 @@ class KeypointDetections(Displayable):
 
     def convert_for_visualization(self) -> np.typing.NDArray[np.uint8]:
         """Visualize the detected object keypoints."""
-        rng = np.random.default_rng()
+        query_colors = dict(zip(self.queries, get_rgb_colors(len(self.queries))))
 
-        q_colors = {q: tuple(int(n) for n in rng.integers(0, 255, size=3)) for q in self.queries}
-
-        rgb_image = deepcopy(self.image)
+        rgb_image = RGBImage(self.image.data.copy())
         for detection in self.detections:
-            color: RGB = q_colors[detection.query]
+            color: RGB = query_colors[detection.query]
             detection.draw(rgb_image, color)
 
         bgr_data = cv2.cvtColor(rgb_image.data, cv2.COLOR_RGB2BGR)

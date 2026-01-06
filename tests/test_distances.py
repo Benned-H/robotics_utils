@@ -3,14 +3,11 @@
 import numpy as np
 from hypothesis import given
 
-from robotics_utils.kinematics import Pose2D, Pose3D
-from robotics_utils.math.distances import (
-    angle_difference_rad,
-    euclidean_distance_2d_m,
-    euclidean_distance_3d_m,
-)
+from robotics_utils.math import angle_difference_rad
+from robotics_utils.spatial import Pose2D, Pose3D, euclidean_distance_2d_m, euclidean_distance_3d_m
 
-from .strategies.kinematics_strategies import angles_rad, poses_2d, poses_3d
+from .strategies.common_strategies import angles_rad
+from .strategies.spatial_strategies import poses_2d, poses_3d
 
 
 @given(poses_2d(), poses_2d())

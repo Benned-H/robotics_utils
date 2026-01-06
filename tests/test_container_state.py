@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from robotics_utils.kinematics.kinematic_tree import KinematicTree
+from robotics_utils.kinematics import KinematicTree
 
 
 @pytest.fixture

@@ -8,10 +8,12 @@ from typing import TYPE_CHECKING
 import cv2
 import numpy as np
 
-from robotics_utils.kinematics import Point3D, Pose3D
-from robotics_utils.vision.images import PixelXY, RGBImage
+from robotics_utils.geometry import Point3D
+from robotics_utils.vision.pixel_xy import PixelXY
+from robotics_utils.vision.rgb_image import RGBImage
 
 if TYPE_CHECKING:
+    from robotics_utils.spatial import Pose3D
     from robotics_utils.vision.cameras import CameraIntrinsics
 
 

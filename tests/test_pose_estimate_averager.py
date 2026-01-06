@@ -7,10 +7,10 @@ from dataclasses import replace
 import hypothesis.strategies as st
 from hypothesis import given
 
-from robotics_utils.kinematics import Pose3D
+from robotics_utils.spatial import Pose3D
 from robotics_utils.state_estimation import PoseEstimateAverager
 
-from .strategies.kinematics_strategies import poses_3d
+from .strategies.spatial_strategies import poses_3d
 
 
 @st.composite

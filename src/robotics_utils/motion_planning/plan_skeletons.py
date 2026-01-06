@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from robotics_utils.kinematics import Pose3D
+    from robotics_utils.spatial import Pose3D
 
 
 @dataclass(frozen=True)

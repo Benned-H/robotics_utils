@@ -22,8 +22,8 @@ def test_bounding_box_crop_image(bounding_box: BoundingBox, image: RGBImage) -> 
     assert clipped_top_left.x <= clipped_bottom_right.x
     assert clipped_top_left.y <= clipped_bottom_right.y
 
-    min_x, min_y = clipped_top_left
-    max_x, max_y = clipped_bottom_right
+    min_x, min_y = clipped_top_left.xy
+    max_x, max_y = clipped_bottom_right.xy
 
     assert crop_result.width == (max_x - min_x + 1)
     assert crop_result.height == (max_y - min_y + 1)

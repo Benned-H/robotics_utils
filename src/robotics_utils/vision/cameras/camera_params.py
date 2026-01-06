@@ -1,17 +1,11 @@
-"""Define classes to model and interface with camera sensors."""
+"""Define classes to represent parameters characterizing cameras."""
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import astuple, dataclass
-from typing import Generic, TypeVar
 
 import numpy as np
-from numpy.typing import NDArray
-
-from robotics_utils.kinematics import Pose3D
-from robotics_utils.vision.images import DepthImage, Image, RGBImage
 
 
 @dataclass(frozen=True)
@@ -35,7 +29,7 @@ class CameraIntrinsics:
         """Provide an iterator over the camera intrinsics: [fx, fy, x0, y0]."""
         yield from astuple(self)
 
-    def to_matrix(self) -> NDArray[np.float64]:
+    def to_matrix(self) -> np.typing.NDArray[np.float64]:
         """Convert the camera intrinsic parameters into a 3x3 intrinsic matrix."""
         return np.array([[self.fx, 0, self.x0], [0, self.fy, self.y0], [0, 0, 1]])
 
@@ -80,40 +74,3 @@ class DepthCameraSpec:
 
     max_range_m: float
     """Absolute maximum range (meters) for the camera, beyond which data should be discarded."""
-
-
-ImageT = TypeVar("ImageT", bound=Image)
-
-
-@dataclass
-class Camera(ABC, Generic[ImageT]):
-    """An interface for a robot camera that returns a particular type of image.
-
-    Camera frame convention:
-        - x-axis points to the right in the image frame
-        - y-axis points down in the image frame
-        - z-axis points forward from the camera
-
-    Reference (e.g.): https://opensfm.org/docs/geometry.html#camera-coordinates
-    """
-
-    name: str
-    intrinsics: CameraIntrinsics
-    frame_name: str | None = None
-    """Name of the coordinate frame associated with the camera."""
-
-    @abstractmethod
-    def get_image(self) -> ImageT:
-        """Capture and return an image using the camera."""
-
-
-@dataclass
-class RGBCamera(Camera[RGBImage]):
-    """An interface for an RGB camera."""
-
-
-@dataclass
-class DepthCamera(Camera[DepthImage]):
-    """An interface for a depth camera."""
-
-    depth_spec: DepthCameraSpec | None = None

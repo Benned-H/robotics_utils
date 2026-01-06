@@ -61,6 +61,24 @@ uv venv --clear --python 3.8 && uv sync --extra vision
 uv run scripts/gemini_subprocess_demo.py API_KEY IMAGE_PATH QUERIES_CSV
 ```
 
+### Open-Vocabulary Segmentation
+
+Launch the open-vocabulary segmentation demo by running:
+
+```bash
+uv venv --clear && uv sync --extra sam3
+uv run scripts/sam3_demo.py IMAGE_PATH
+```
+
+### Plane Estimation Demo
+
+This demo estimates a plane based on a segmentation mask computed for live RealSense data.
+
+```bash
+uv venv --clear && uv sync --extra realsense --extra sam3
+uv run scripts/plane_estimation_demo.py
+```
+
 ## Development Commands
 
 To set up the virtual environment for running the unit tests, run:

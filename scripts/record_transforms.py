@@ -9,7 +9,7 @@ from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.ros.transform_recorder import TransformRecorder
 
 
-def record(output_path: Path, overwrite: bool, reference_frame: str, tracked_frame: str) -> None:
+def record(reference_frame: str, tracked_frame: str, output_path: Path, *, overwrite: bool) -> None:
     """Record transforms from /tf until rospy is shut down.
 
     :raises FileExistsError: If the output path already exists but the overwrite flag isn't set
@@ -60,4 +60,4 @@ if __name__ == "__main__":
     reference_frame: str = args.reference_frame
     tracked_frame: str = args.tracked_frame
 
-    record(output_path, overwrite, reference_frame, tracked_frame)
+    record(reference_frame, tracked_frame, output_path, overwrite=overwrite)

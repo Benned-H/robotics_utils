@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, Tuple
 import rospy
 from moveit_msgs.msg import MoveItErrorCodes, RobotTrajectory
 
-from robotics_utils.kinematics import Pose3D
 from robotics_utils.ros.msg_conversion import pose_to_msg, pose_to_stamped_msg
 from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
 from robotics_utils.ros.transform_manager import TransformManager as TFManager
+from robotics_utils.spatial import Pose3D
 
 if TYPE_CHECKING:
     from geometry_msgs.msg import Pose as PoseMsg

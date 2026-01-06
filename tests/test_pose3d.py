@@ -5,9 +5,9 @@ from dataclasses import replace
 import hypothesis.strategies as st
 from hypothesis import given
 
-from robotics_utils.kinematics.poses import Pose3D
+from robotics_utils.spatial import Pose3D
 
-from .strategies.kinematics_strategies import poses_3d
+from .strategies.spatial_strategies import poses_3d
 
 
 @given(poses_3d())
