@@ -39,31 +39,6 @@ def project_3d_to_image(
     return [PixelXY(row.ravel()) for row in projections]
 
 
-# TODO: Is this in pointcloud class?
-def unproject_pixel_to_3d(
-    pixel: PixelXY,
-    depth_m: float,
-    intrinsics: CameraIntrinsics,
-) -> Point3D:
-    """Unproject a 2D pixel with depth to a 3D point in the camera frame.
-
-    Uses the pinhole camera model to convert image coordinates to 3D:
-        X = (u - cx) * Z / fx
-        Y = (v - cy) * Z / fy
-        Z = depth
-
-    :param pixel: (x, y) pixel coordinate in the image
-    :param depth_m: Depth value (meters) at the pixel location
-    :param intrinsics: Camera intrinsics for unprojection
-    :return: 3D point in the camera coordinate frame
-    """
-    x_3d = (pixel.x - intrinsics.x0) * depth_m / intrinsics.fx
-    y_3d = (pixel.y - intrinsics.y0) * depth_m / intrinsics.fy
-    z_3d = depth_m
-
-    return Point3D(x_3d, y_3d, z_3d)
-
-
 def draw_axes(
     length: float,
     pose_c_a: Pose3D,

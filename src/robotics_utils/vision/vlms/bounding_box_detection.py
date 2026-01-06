@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Protocol
 import cv2
 import numpy as np
 
-from robotics_utils.vision import get_rgb_colors
+from robotics_utils.vision import assign_random_colors
 from robotics_utils.visualization import Displayable
 
 if TYPE_CHECKING:
@@ -47,13 +47,13 @@ class DetectedBoundingBoxes(Displayable):
     """Image in which the object bounding boxes were found."""
 
     @property
-    def queries(self) -> set[str]:
-        """Retrieve the set of text queries describing the detected object(s)."""
-        return {d.query for d in self.detections}
+    def queries(self) -> list[str]:
+        """Retrieve all unique text queries describing the detected object(s)."""
+        return list({d.query for d in self.detections})
 
     def convert_for_visualization(self) -> np.typing.NDArray[np.uint8]:
         """Convert the detected object bounding boxes into a form that can be visualized."""
-        query_colors = dict(zip(self.queries, get_rgb_colors(len(self.queries))))
+        query_colors = assign_random_colors(self.queries)
 
         rgb_image = deepcopy(self.image)
         for detection in self.detections:

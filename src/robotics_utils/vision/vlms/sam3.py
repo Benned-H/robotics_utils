@@ -7,7 +7,7 @@ import torch
 from transformers import BatchEncoding, Sam3Model, Sam3Processor
 
 from robotics_utils.vision import BoundingBox, PixelXY, RGBImage, determine_pytorch_device
-from robotics_utils.vision.vlms.segmentation import InstanceSegmentation, ObjectSegmentations
+from robotics_utils.vision.vlms.segmentation import ObjectSegmentation, ObjectSegmentations
 
 
 class SAM3:
@@ -69,7 +69,7 @@ class SAM3:
             scores = results["scores"].tolist()  # (N,)
 
             segmentations.extend(
-                InstanceSegmentation(
+                ObjectSegmentation(
                     query=query,
                     mask=masks[i, :, :].astype(np.bool),
                     bbox=BoundingBox(PixelXY(boxes[i][:2]), PixelXY(boxes[i][2:])),

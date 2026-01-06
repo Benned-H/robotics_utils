@@ -21,6 +21,16 @@ def get_rgb_colors(n: int) -> list[RGB]:
     return [distinctipy.get_rgb256(rgb) for rgb in distinctipy.get_colors(n)]
 
 
+def assign_random_colors(strings: list[str]) -> dict[str, RGB]:
+    """Assign random visually distinct colors to the given strings.
+
+    :param strings: Strings to be assigned RGB colors
+    :return: Dictionary mapping the strings to their assigned RGB colors
+    """
+    colors = get_rgb_colors(len(strings))
+    return dict(zip(strings, colors))
+
+
 def determine_pytorch_device() -> torch.device:
     """Determine which PyTorch device to use."""
     if torch.cuda.is_available():  # Use CUDA on Linux if available

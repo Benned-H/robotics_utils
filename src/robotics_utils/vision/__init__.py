@@ -11,5 +11,6 @@ from .project_to_2d import project_3d_to_image as project_3d_to_image
 from .rgb_image import RGBImage as RGBImage
 from .rgbd_image import RGBDImage as RGBDImage
 from .vision_utils import RGB as RGB
+from .vision_utils import assign_random_colors as assign_random_colors
 from .vision_utils import determine_pytorch_device as determine_pytorch_device
 from .vision_utils import get_rgb_colors as get_rgb_colors

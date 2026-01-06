@@ -40,7 +40,7 @@ class PickPoses:
 
         :param pose_o_g: Grasp pose (frame g) w.r.t. an object (frame o)
         :param lift_z_m: Offset (m) of the post-grasp pose up (+z) w.r.t. the world frame
-        :param world_frame: Global reference frame used to define up (defaults to "map")
+        :param world_frame: Global reference frame used to define up
         :return: Post-grasp pose equivalent to the grasp pose but "lifted" in the world frame
         """
         pose_w_g = TransformManager.convert_to_frame(pose_o_g, target_frame=world_frame)
@@ -62,7 +62,7 @@ class PickPoses:
         :param pre_grasp_x_m: Offset (abs. m) of the pre-grasp pose "back" (-x) from the grasp pose
         :param lift_z_m: Offset (m) of the post-grasp pose "up" (+z) w.r.t. the world frame
         :param world_frame: Global reference frame used to define "up"
-        :return: Constructed PickPoses instances containing the computed poses
+        :return: Constructed PickPoses instance containing the computed poses
         """
         pre_grasp = PickPoses.compute_pre_grasp_pose(pose_o_g, pre_grasp_x_m=pre_grasp_x_m)
         post_grasp = PickPoses.compute_post_grasp_pose(pose_o_g, lift_z_m, world_frame)

@@ -59,15 +59,7 @@ all = ["robotics-utils[vision,realsense,gemini,sam3]"] # Install everything
 # Dependency groups manage development-time dependencies
 # Reference: https://pydevtools.com/handbook/explanation/what-are-optional-dependencies-and-dependency-groups/
 [dependency-groups]
-dev = [
-    "ruff",
-    "pytest",
-    "hypothesis",
-    "pytest-cov",
-    "pylint",
-    "austin-dist",
-    "austin-python", # TODO: Are both of these needed for flame graph within VS Code?
-]
+dev = ["ruff", "pytest", "hypothesis", "pytest-cov", "pylint", "austin-dist"]
 
 
 [tool.hatch.build.targets.wheel]

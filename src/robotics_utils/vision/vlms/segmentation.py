@@ -8,12 +8,12 @@ from typing import Iterator
 import cv2
 import numpy as np
 
-from robotics_utils.vision import RGB, BoundingBox, RGBImage, get_rgb_colors
+from robotics_utils.vision import RGB, BoundingBox, RGBImage, assign_random_colors
 from robotics_utils.visualization import Displayable
 
 
 @dataclass(frozen=True)
-class InstanceSegmentation:
+class ObjectSegmentation:
     """A segmentation of an object instance in an image."""
 
     query: str
@@ -55,22 +55,22 @@ class InstanceSegmentation:
 class ObjectSegmentations(Displayable):
     """A collection of object instance segmentations in an image."""
 
-    segmentations: list[InstanceSegmentation]
+    segmentations: list[ObjectSegmentation]
     image: RGBImage
     """Image in which the object segmentations were found."""
 
-    def __iter__(self) -> Iterator[InstanceSegmentation]:
+    def __iter__(self) -> Iterator[ObjectSegmentation]:
         """Provide an iterator over the object instance segmentations."""
         yield from self.segmentations
 
     @property
-    def queries(self) -> set[str]:
-        """Retrieve the set of text queries describing the segmented object(s)."""
-        return {s.query for s in self.segmentations}
+    def queries(self) -> list[str]:
+        """Retrieve all unique text queries describing the segmented object(s)."""
+        return list({s.query for s in self.segmentations})
 
     def convert_for_visualization(self) -> np.typing.NDArray[np.uint8]:
         """Visualize the object segmentations by drawing them on the image."""
-        query_colors = dict(zip(self.queries, get_rgb_colors(len(self.queries))))
+        query_colors = assign_random_colors(self.queries)
 
         vis_image = RGBImage(self.image.data.copy())
         for seg in self.segmentations:

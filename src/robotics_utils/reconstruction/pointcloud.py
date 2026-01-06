@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from robotics_utils.vision import DepthImage, RGBDImage
     from robotics_utils.vision.cameras import CameraIntrinsics
-    from robotics_utils.vision.vlms import InstanceSegmentation
+    from robotics_utils.vision.vlms import ObjectSegmentation
 
 
 class Pointcloud:
@@ -83,7 +83,7 @@ class Pointcloud:
         cls,
         rgbd: RGBDImage,
         depth_intrinsics: CameraIntrinsics,
-        segmentation: InstanceSegmentation,
+        segmentation: ObjectSegmentation,
     ) -> Pointcloud:
         """Construct a pointcloud from an object instance segmentation in the given RGB-D image.
 

@@ -28,7 +28,7 @@ class PixelXY:
         return f"({self.x}, {self.y})"
 
     def __sub__(self, other: PixelXY) -> PixelXY:
-        """Find the difference of this PixelXY and another."""
+        """Find the difference between this PixelXY and another."""
         return PixelXY(self.xy - other.xy)
 
     @classmethod
