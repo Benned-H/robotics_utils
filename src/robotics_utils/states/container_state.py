@@ -95,6 +95,9 @@ class ContainerState:
 
         if self.status == "open":  # If open, update all contained objects' state
             for obj_name, obj_state in self.contained_objects.items():
+                if obj_name not in tree.object_names:  # Add the object if it's new to the tree
+                    tree.object_names.add(obj_name)
+
                 tree.set_object_pose(obj_name, obj_state.pose)
                 tree.set_collision_model(obj_name, obj_state.collision_model)
 
