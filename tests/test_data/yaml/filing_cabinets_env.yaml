@@ -28,7 +28,7 @@ objects:
 
       open_model:
         meshes:
-          - filepath: ../meshes/filing_cabinet_closed.obj
+          - filepath: ../meshes/filing_cabinet_middle_drawer_open.obj
             transforms:
               - center_bounds
               - bottom_at_zero_z
@@ -47,7 +47,7 @@ objects:
 
       open_model:
         meshes:
-          - filepath: ../meshes/filing_cabinet_closed.obj
+          - filepath: ../meshes/filing_cabinet_middle_drawer_open.obj
             transforms:
               - center_bounds
               - bottom_at_zero_z
@@ -65,7 +65,7 @@ objects:
 
       open_model:
         meshes:
-          - filepath: ../meshes/filing_cabinet_closed.obj
+          - filepath: ../meshes/filing_cabinet_middle_drawer_open.obj
             transforms:
               - center_bounds
               - bottom_at_zero_z
