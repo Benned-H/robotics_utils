@@ -13,6 +13,7 @@ from robotics_utils.meta import parse_docstring_params
 from robotics_utils.skills.skill_instance import SkillInstance
 
 if TYPE_CHECKING:
+    from robotics_utils.skills.outcome import Outcome
     from robotics_utils.skills.skills_inventory import SkillsProtocol
 
 
@@ -80,18 +81,19 @@ class Skill:
         """Retrieve the method name corresponding to this skill."""
         return pascal_to_snake(self.name)  # PascalCase skill name -> snake_case method name
 
-    def execute(self, executor: SkillsProtocol, bindings: Mapping[str, object]) -> object | None:
+    def execute(self, executor: SkillsProtocol, bindings: Mapping[str, object]) -> Outcome:
         """Execute this skill under the given parameter bindings.
 
-        :param executor: Protocol defining an interface for skill execution
+        :param executor: Instance of a protocol defining an interface for skill execution
         :param bindings: Map from parameter names to bound arguments
         """
-        if not hasattr(executor, self.method_name):
-            raise NotImplementedError(f"Skills protocol has no method: {self.method_name}.")
+        skill_method = getattr(executor, self.method_name, None)
+        if skill_method is None:  # Check for private methods as backup
+            skill_method = getattr(executor, f"_{self.method_name}", None)
+            if skill_method is None:
+                raise NotImplementedError(f"Skills protocol has no method: {self.method_name}.")
 
-        skill_method = getattr(executor, self.method_name)
-        args = [bindings[param.name] for param in self.parameters]
-        return skill_method(executor, *args)
+        return skill_method(**bindings)
 
     def create_all_instances(self, objects: list[object]) -> list[SkillInstance]:
         """Compute all valid instantiations of the skill using the given Python objects.
@@ -109,7 +111,7 @@ class Skill:
         return [
             SkillInstance(
                 self,
-                bindings={p.name: obj for p, obj in zip(self.parameters, args, strict=True)},
-            )
+                bindings={p.name: obj for p, obj in zip(self.parameters, args)},
+            )  # Avoid strict=True to support Python 3.8
             for args in all_valid_args
         ]

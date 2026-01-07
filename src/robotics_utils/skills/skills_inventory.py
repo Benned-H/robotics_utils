@@ -2,12 +2,41 @@
 
 from __future__ import annotations
 
-from typing import Iterator
+from typing import TYPE_CHECKING, Any, Iterator, Tuple
 
+from robotics_utils.io.string_utils import snake_to_pascal
+from robotics_utils.meta import get_default_values
 from robotics_utils.skills.skill import Skill
+
+if TYPE_CHECKING:
+    from types import FunctionType
 
 SkillsProtocol = object
 """Represents an arbitrary protocol defining skills for a particular domain."""
+
+SkillParamKey = Tuple[str, str]
+"""A key identifying a skill parameter using the tuple (skill name, parameter name)."""
+
+
+def get_skill_methods(protocol: type[SkillsProtocol]) -> list[FunctionType]:
+    """Find all skill methods specified by the given protocol type."""
+    all_methods = [getattr(protocol, method_name) for method_name in dir(protocol)]
+    return [method for method in all_methods if hasattr(method, "_is_skill")]
+
+
+def find_default_param_values(protocol: type[SkillsProtocol]) -> dict[SkillParamKey, Any]:
+    """Find default parameter values (where specified) for skills in the given protocol.
+
+    :param protocol: Python protocol type specifying skill signatures
+    :return: Map from (skill name, param name) keys to that parameter's default value
+    """
+    default_param_values = {}
+    for method in get_skill_methods(protocol):
+        skill_name = snake_to_pascal(method.__name__)  # Skill names are PascalCase
+        for param_name, default_value in get_default_values(method).items():
+            default_param_values[(skill_name, param_name)] = default_value
+
+    return default_param_values
 
 
 class SkillsInventory:
@@ -49,14 +78,17 @@ class SkillsInventory:
         yield from self.skills.values()
 
     @classmethod
-    def from_protocol(cls, protocol: SkillsProtocol) -> SkillsInventory:
+    def from_protocol(cls, protocol: type[SkillsProtocol]) -> SkillsInventory:
         """Extract a skills inventory from the methods of a Python protocol.
 
-        :param protocol: Python protocol specifying skill signatures
+        :param protocol: Python protocol type specifying skill signatures
         :return: Constructed SkillsInventory instance
         """
-        methods = [getattr(protocol, method_name) for method_name in dir(protocol)]
-        skills = [Skill.from_method(method) for method in methods if hasattr(method, "_is_skill")]
+        if not isinstance(protocol, type):
+            raise TypeError(f"Type of provided skills protocol: {type(protocol)}")
+
+        skill_methods = get_skill_methods(protocol)
+        skills = [Skill.from_method(method) for method in skill_methods]
 
         return SkillsInventory(name=protocol.__name__, skills=skills)
 

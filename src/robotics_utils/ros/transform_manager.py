@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 import rospy
 from tf2_ros import Buffer, TransformBroadcaster, TransformException, TransformListener
 
-from robotics_utils.kinematics import Pose2D, Pose3D
 from robotics_utils.ros.msg_conversion import pose_from_tf_stamped_msg, pose_to_tf_stamped_msg
+from robotics_utils.spatial import Pose2D, Pose3D
 
 if TYPE_CHECKING:
     from geometry_msgs.msg import TransformStamped
@@ -84,28 +85,30 @@ class TransformManager:
 
     @staticmethod
     def lookup_transform(
-        source_frame: str,
-        target_frame: str,
+        child_frame: str,
+        parent_frame: str,
         when: rospy.Time | None = None,
         timeout_s: float = 5.0,
     ) -> Pose3D | None:
         """Look up the transform to convert from one frame to another using /tf.
 
-        Frame notation: Relative pose of some data (d), source frame (s), target frame (t).
+        Frame notation: Child frame (c) and parent frame (p).
 
-        Say our input data originates in the source frame: pose_s_d ("data w.r.t. source frame").
-        This function outputs transform_t_s ("source relative to target"), which lets us compute:
+        Say our data is originally expressed in the child frame (data_wrt_c).
+        This function outputs transform_p_c ("child relative to parent"), which lets us compute:
 
-            transform_t_s @ pose_s_d = pose_t_d (i.e., "data expressed in the target frame")
+            transform_p_c @ data_wrt_c = data_wrt_p (i.e., "data expressed in the parent frame")
 
-        :param source_frame: Frame where the data originated
-        :param target_frame: Frame to which the data will be transformed
-        :param when: Timestamp for which the relative transform is found (if None, uses 'now')
+        Reference: https://docs.ros.org/en/noetic/api/tf2_ros/html/c++/classtf2__ros_1_1Buffer.html#ada7f9d7d8d12655d7ce5c5f303303f5f
+
+        :param child_frame: Frame whose relative pose we want to find
+        :param parent_frame: Frame relative to which the transform is found
+        :param when: Timestamp for which the relative transform is found (if None, use latest data)
         :param timeout_s: Duration (seconds) after which to abandon the lookup (defaults to 5)
-        :return: Pose3D representing transform (i.e., transform_t_s) or None (if lookup failed)
+        :return: Pose3D representing transform (i.e., transform_p_c) or None (if lookup failed)
         """
         if when is None:
-            when = rospy.Time.now()
+            when = rospy.Time(0)
 
         rate_hz = rospy.Rate(TransformManager.LOOP_HZ)
         rate_hz.sleep()
@@ -117,44 +120,50 @@ class TransformManager:
         while (rospy.get_time() < timeout_time_s) and (not rospy.is_shutdown_requested()):
             try:
                 tf_stamped_msg = TransformManager.tf_buffer().lookup_transform(
-                    target_frame=target_frame,
-                    source_frame=source_frame,
+                    target_frame=parent_frame,
+                    source_frame=child_frame,
                     time=when,
                     timeout=rate_hz.sleep_dur,
                 )
                 break
             except TransformException as t_exc:
                 rospy.logwarn(
-                    f"[TransformManager.lookup_transform] Lookup for '{source_frame}' to "
-                    f"'{target_frame}' at time {when.to_time():.2f} gave exception: {t_exc}",
+                    f"[TransformManager.lookup_transform] Lookup of '{child_frame}' w.r.t. "
+                    f"'{parent_frame}' at time {when.to_time():.2f} gave exception: {t_exc}",
                 )
                 rate_hz.sleep()
 
         if tf_stamped_msg is None:
             rospy.logerr(
-                f"[TransformManager.lookup_transform] Could not look up transform from "
-                f"'{source_frame}' to '{target_frame}' within {timeout_s} seconds.",
+                f"[TransformManager.lookup_transform] Could not look up transform of "
+                f"'{child_frame}' w.r.t. '{parent_frame}' within {timeout_s} seconds.",
             )
             return None
 
-        pose_t_s = pose_from_tf_stamped_msg(tf_stamped_msg)
+        pose_p_c = pose_from_tf_stamped_msg(tf_stamped_msg)
 
-        if target_frame != pose_t_s.ref_frame:
+        if parent_frame != pose_p_c.ref_frame:
             raise RuntimeError(
-                f"Expected result in '{target_frame}' but instead found '{pose_t_s.ref_frame}'",
+                f"Expected result in '{parent_frame}' but instead found '{pose_p_c.ref_frame}'",
             )
 
-        return pose_t_s
+        return pose_p_c
 
     @staticmethod
-    def convert_to_frame(pose_c_p: Pose3D | Pose2D, target_frame: str) -> Pose3D:
+    def convert_to_frame(
+        pose_c_p: Pose3D | Pose2D,
+        target_frame: str,
+        timeout_s: float = 5.0,
+    ) -> Pose3D:
         """Convert the given pose into the target reference frame.
 
         Frames: Frame implied by the pose (p), current ref. frame (c), target ref. frame (t)
 
         :param pose_c_p: Pose (frame p) w.r.t. its current reference frame (frame c)
         :param target_frame: Target reference frame (frame t) of the output pose
+        :param timeout_s: Duration (seconds) after which the conversion times out (default: 5 sec)
         :return: Pose3D relative to the target reference frame (i.e., pose_t_p)
+        :raises RuntimeError: If the transform lookup between the two frames fails
         """
         if isinstance(pose_c_p, Pose2D):
             pose_c_p = pose_c_p.to_3d()
@@ -163,7 +172,11 @@ class TransformManager:
         if current_frame == target_frame:
             return pose_c_p
 
-        pose_t_c = TransformManager.lookup_transform(current_frame, target_frame, None, 10.0)
+        pose_t_c = None
+        end_time = time.time() + timeout_s
+        while pose_t_c is None and time.time() < end_time:
+            pose_t_c = TransformManager.lookup_transform(current_frame, target_frame, timeout_s=1)
+
         if pose_t_c is None:
             raise RuntimeError(f"Lookup from frame '{current_frame}' to '{target_frame}' failed")
 

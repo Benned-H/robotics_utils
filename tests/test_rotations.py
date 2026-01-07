@@ -4,11 +4,13 @@ import numpy as np
 import pytest
 from hypothesis import given
 
-from robotics_utils.kinematics.point3d import Point3D
-from robotics_utils.kinematics.rotations import EulerRPY, Quaternion
-from robotics_utils.math.angles import normalize_angle
+from robotics_utils.geometry import Point3D
+from robotics_utils.math import normalize_angle
+from robotics_utils.spatial import EulerRPY, Quaternion
 
-from .strategies.kinematics_strategies import angles_rad, euler_rpys, positions, quaternions
+from .strategies.common_strategies import angles_rad
+from .strategies.geometry_strategies import positions
+from .strategies.spatial_strategies import euler_rpys, quaternions
 
 
 @given(angles_rad())

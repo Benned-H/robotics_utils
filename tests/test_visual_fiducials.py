@@ -10,7 +10,7 @@ from robotics_utils.vision.fiducials import FiducialSystem
 @pytest.fixture
 def markers_yaml() -> Path:
     """Specify a path to an example fiducial markers YAML file."""
-    yaml_path = Path(__file__).parent / "test_data/markers_example.yaml"
+    yaml_path = Path(__file__).parent / "test_data/yaml/markers_example.yaml"
     assert yaml_path.exists(), f"Expected to find file: {yaml_path}"
     return yaml_path
 

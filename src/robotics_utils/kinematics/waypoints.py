@@ -5,8 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict
 
 from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME
-from robotics_utils.kinematics.poses import Pose2D
+from robotics_utils.spatial import DEFAULT_FRAME, Pose2D
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -46,3 +45,8 @@ class Waypoints(Dict[str, Pose2D]):
         :return: Dictionary mapping waypoint names to their Pose2D data
         """
         return {name: pose.to_yaml_data(default_frame) for name, pose in self.items()}
+
+    @property
+    def waypoint_names(self) -> list[str]:
+        """Retrieve the list of all waypoint names in the collection."""
+        return list(self.keys())

@@ -3,66 +3,77 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import astuple, dataclass
+from copy import deepcopy
+from dataclasses import astuple, dataclass, replace
 from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
 import pupil_apriltags
 
-from robotics_utils.kinematics import Point3D, Pose3D, Quaternion
+from robotics_utils.geometry import Point3D
+from robotics_utils.spatial import EulerRPY, Pose3D, Quaternion
 from robotics_utils.vision import PixelXY, RGBImage
+from robotics_utils.visualization import Displayable
 
 if TYPE_CHECKING:
-    from robotics_utils.vision import CameraIntrinsics
-    from robotics_utils.vision.fiducials import FiducialSystem
+    from numpy.typing import NDArray
+
+    from robotics_utils.vision.cameras import CameraIntrinsics, RGBCamera
+    from robotics_utils.vision.fiducials.visual_fiducials import FiducialSystem
 
 
-@dataclass(frozen=True)
-class TagDetection:
+@dataclass
+class TagDetection(Displayable):
     """An AprilTag detected in an image."""
 
     id: int
     family: str
     pose: Pose3D
+    """Estimated pose of the tag (x = right, y = down, z = through the tag)."""
+
     hamming: int  # How many error bits were corrected?
     corners: list[PixelXY]  # Pixel coordinates of detection corners (wraps counter-clockwise)
     center: PixelXY  # Pixel coordinate of the detection's center
+    visualized: RGBImage  # Image in which the AprilTag detection has been visualized
 
     @classmethod
-    def from_pupil_apriltags(cls, d: pupil_apriltags.Detection) -> TagDetection:
-        """Construct a TagDetection instance from a pupil_apriltags.Detection object.
+    def from_pupil_apriltags(cls, d: pupil_apriltags.Detection, image: RGBImage) -> TagDetection:
+        """Construct a TagDetection from a pupil_apriltags.Detection and an RGB image.
 
         :param d: AprilTag detection in the pupil_apriltags format
+        :param image: Image in which the detection occurred
         :return: Tag detection in this dataclass format
         """
         translation = Point3D.from_array(np.asarray(d.pose_t))
-        rotation = Quaternion.from_rotation_matrix(np.asarray(d.pose_R))
 
-        corners = np.asarray(d.corners).reshape((4, 2))
-        corner_pixels = [PixelXY(corners[row, :]) for row in range(4)]
+        # Apply 180° rotation about the z-axis to correct for pupil_apriltags convention
+        rotation_correction = EulerRPY(0, 0, np.pi).to_quaternion().to_rotation_matrix()
+        corrected_matrix = np.asarray(d.pose_R) @ rotation_correction
+        corrected_rotation = Quaternion.from_rotation_matrix(corrected_matrix)
+
+        corners = np.asarray(d.corners, dtype=np.float32).reshape((4, 1, 2))
+        corner_pixels = [PixelXY(corners[row, :, :]) for row in range(4)]
         center_pixel = PixelXY(np.asarray(d.center))
+
+        # Draw the detection on the provided image using its corners
+        visualized_data = deepcopy(image.data)
+        ids = np.asarray([[d.tag_id]], dtype=np.int32)
+        cv2.aruco.drawDetectedMarkers(visualized_data, [corners], ids)
 
         return TagDetection(
             id=d.tag_id,
             family=d.tag_family,
-            pose=Pose3D(translation, rotation),
+            pose=Pose3D(translation, corrected_rotation),
             hamming=d.hamming,
             corners=corner_pixels,
             center=center_pixel,
+            visualized=RGBImage(visualized_data),
         )
 
-    def draw_on_image(self, image: RGBImage) -> None:
-        """Visualize the AprilTag detection by drawing it on the given image.
-
-        :param image: Image drawn upon (modified in-place)
-        """
-        corners_data = [list(c) for c in self.corners]
-        corners = [np.asarray(corners_data, dtype=np.float32).reshape(4, 1, 2)]
-
-        ids = np.asarray([[self.id]], dtype=np.int32)
-
-        cv2.aruco.drawDetectedMarkers(image.data, corners, ids)
+    def convert_for_visualization(self) -> NDArray[np.uint8]:
+        """Return an image visualizing the AprilTag detection."""
+        return self.visualized.convert_for_visualization()
 
 
 class AprilTagDetector:
@@ -110,7 +121,7 @@ class AprilTagDetector:
             decode_sharpening=decode_sharpening,
         )
 
-    def detect(self, image: RGBImage, intrinsics: CameraIntrinsics) -> list[TagDetection]:
+    def detect_in_image(self, image: RGBImage, intrinsics: CameraIntrinsics) -> list[TagDetection]:
         """Detect AprilTags in an image taken with the given camera intrinsics.
 
         :param image: RGB image to detect AprilTags in
@@ -134,8 +145,22 @@ class AprilTagDetector:
 
             tags_of_size_cm = self._tag_ids_per_size_cm[idx]
             for raw_det in raw_detections:
-                det = TagDetection.from_pupil_apriltags(raw_det)
+                det = TagDetection.from_pupil_apriltags(raw_det, image)
                 if det.id in tags_of_size_cm:
                     output.append(det)
 
         return output
+
+    def detect_from_camera(self, camera: RGBCamera) -> list[TagDetection]:
+        """Detect AprilTags in a new image captured using the given camera.
+
+        :return: List of AprilTag detections, with their estimated poses w.r.t. the camera
+        """
+        if camera.frame_name is None:
+            raise ValueError(f"Cannot estimate AprilTag poses w/o frame for camera: {camera.name}")
+
+        rgb_image = camera.get_image()
+        detections = self.detect_in_image(rgb_image, camera.intrinsics)
+        for d in detections:
+            d.pose = replace(d.pose, ref_frame=camera.frame_name)
+        return detections

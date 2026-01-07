@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
 from robotics_utils.collision_models import CollisionModel
+from robotics_utils.io import console
 from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.kinematics.kinematics_core import DEFAULT_FRAME, Configuration
-from robotics_utils.kinematics.poses import Pose3D
 from robotics_utils.kinematics.waypoints import Waypoints
-from robotics_utils.world_models.containers import ContainerModel, ObjectModel
+from robotics_utils.spatial import DEFAULT_FRAME, Pose3D
+from robotics_utils.states import ContainerState, ObjectKinematicState
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from robotics_utils.kinematics.configuration import Configuration
 
 
 class KinematicTree:
@@ -25,7 +28,7 @@ class KinematicTree:
         self.frames: dict[str, Pose3D] = {}
         """Maps the name of each frame to its relative pose."""
 
-        self.children: dict[str, set[str]] = {root_frame: set()}
+        self.children: defaultdict[str, set[str]] = defaultdict(set)
         """Maps the name of each frame to its set of child frames."""
 
         self.collision_models: dict[str, CollisionModel] = {}
@@ -40,8 +43,8 @@ class KinematicTree:
 
         self.waypoints = Waypoints()  # Store navigation waypoints as 2D poses
 
-        self.container_models: dict[str, ContainerModel] = {}
-        """Maps the name of each container to its kinematic model."""
+        self.containers: dict[str, ContainerState] = {}
+        """Maps the name of each container to its kinematic state."""
 
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> KinematicTree:
@@ -50,53 +53,77 @@ class KinematicTree:
         :param yaml_path: YAML file containing data representing the kinematic state
         :return: Constructed KinematicTree instance
         """
-        full_yaml_data: dict[str, Any] = load_yaml_data(
+        yaml_data: dict[str, Any] = load_yaml_data(
             yaml_path,
-            required_keys={"object_poses", "robot_base_poses"},
+            required_keys={"robots", "objects"},
         )
-        default_frame = full_yaml_data.get("default_frame", DEFAULT_FRAME)
+        default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
 
         tree = KinematicTree(root_frame=default_frame)
 
-        for obj_name, obj_pose in Pose3D.load_named_poses(yaml_path, "object_poses").items():
-            tree.set_object_pose(obj_name, obj_pose)
+        for robot_name, robot_data in yaml_data["robots"].items():
+            base_pose_data = robot_data.get("base_pose")
+            if base_pose_data is None:
+                raise KeyError(f"Robot '{robot_name}' has no base pose specified.")
+            base_pose = Pose3D.from_yaml_data(base_pose_data, default_frame=default_frame)
 
-        for robot_name, base_pose in Pose3D.load_named_poses(yaml_path, "robot_base_poses").items():
+            tree.robot_names.add(robot_name)
             tree.set_robot_base_pose(robot_name, base_pose)
             tree.robot_configurations[robot_name] = {}  # Default: No robot configurations in YAML
 
+        for obj_name, obj_data in yaml_data["objects"].items():
+            tree.object_names.add(obj_name)
+
+            pose_data = obj_data.get("pose")
+            if pose_data is not None:
+                obj_pose = Pose3D.from_yaml_data(pose_data, default_frame=default_frame)
+                tree.set_object_pose(obj_name, obj_pose)
+
+            collision_data = obj_data.get("collision_model")
+            if collision_data is not None:
+                c_model = CollisionModel.from_yaml_data(collision_data, yaml_path=yaml_path)
+                tree.set_collision_model(obj_name, c_model)
+
+            container_data = obj_data.get("container")
+            if container_data is not None:
+                container_state = ContainerState.from_yaml_data(
+                    container_name=obj_name,
+                    yaml_data=container_data,
+                    yaml_path=yaml_path,
+                    object_states=tree.known_object_states,
+                )
+                tree.add_container(container_state)
+
         # Import navigation waypoints from YAML if present
-        if "waypoints" in full_yaml_data:
+        if "waypoints" in yaml_data:
             tree.waypoints = Waypoints.from_yaml(yaml_path)
-
-        # Initially, load all collision models into a temporary dictionary
-        collision_models: dict[str, CollisionModel] = {}
-        for m_name, m_data in full_yaml_data.get("collision_models", {}).items():
-            collision_models[m_name] = CollisionModel.from_yaml_data(m_data, yaml_path)
-
-        # Identify which collision models are used by containers
-        containers_data = full_yaml_data.get("containers", {})
-        used_by_containers: set[str] = set()  # Names of container collision models
-        for c_data in containers_data.values():
-            used_by_containers.add(c_data["closed_model"])
-            used_by_containers.add(c_data["open_model"])
-
-        # Add all collision models that aren't used as a container model
-        for name, collision_model in collision_models.items():
-            if name not in used_by_containers:
-                tree.set_collision_model(frame_name=name, collision_model=collision_model)
-
-        # Load any containers in the environment from YAML
-        for c_name, c_data in containers_data.items():
-            c = ContainerModel.from_yaml_data(c_name, c_data, collision_models, tree.object_poses)
-            tree.add_container(c)
 
         return tree
 
     @property
-    def object_poses(self) -> dict[str, Pose3D]:
-        """Create and return a dictionary mapping object names to their 3D poses."""
-        return {obj_name: self.frames[obj_name] for obj_name in self.object_names}
+    def known_object_poses(self) -> dict[str, Pose3D]:
+        """Create and return a dictionary mapping object names to their 3D poses (if known)."""
+        return {
+            obj_name: self.frames[obj_name]
+            for obj_name in self.object_names
+            if obj_name in self.frames
+        }
+
+    @property
+    def known_object_states(self) -> dict[str, ObjectKinematicState]:
+        """Create and return a dictionary mapping object names to kinematic states (if known).
+
+        :return: A map from object names to their kinematic states (if fully known)
+        """
+        object_states: dict[str, ObjectKinematicState] = {}
+        for obj_name, obj_pose in self.known_object_poses.items():
+            collision_model = self.get_collision_model(obj_name)
+            if collision_model is None:
+                continue
+
+            object_states[obj_name] = ObjectKinematicState(obj_name, obj_pose, collision_model)
+
+        return object_states
 
     @property
     def robot_base_poses(self) -> dict[str, Pose3D]:
@@ -114,10 +141,6 @@ class KinematicTree:
             self.children[prev_parent_frame].remove(frame_name)
 
         self.frames[frame_name] = pose
-
-        # Ensure that this frame and its parent frame have children sets initialized
-        self.children[frame_name] = self.children.get(frame_name, set())
-        self.children[pose.ref_frame] = self.children.get(pose.ref_frame, set())
         self.children[pose.ref_frame].add(frame_name)  # Add this frame to its parent's children
 
     def valid_frame(self, frame_name: str) -> bool:
@@ -138,19 +161,26 @@ class KinematicTree:
 
         :param obj_name: Name of the object assigned the given pose
         :param new_pose: New 3D pose of the object
+        :raises ValueError: If the object name is unrecognized
         """
+        if obj_name not in self.object_names:
+            raise ValueError(f"Cannot set the pose of an unknown object: '{obj_name}'.")
+
         self._update_frame(obj_name, new_pose)
-        self.object_names.add(obj_name)
 
     def get_object_pose(self, obj_name: str) -> Pose3D:
         """Retrieve the pose of the named object.
 
         :param obj_name: Name of an object in the kinematic state
         :return: Pose of the object
-        :raises KeyError: If an invalid object name is given
+        :raises ValueError: If the object name is unrecognized
+        :raises KeyError: If the requested object pose is unknown
         """
-        if obj_name not in self.object_names or obj_name not in self.frames:
-            raise KeyError(f"Cannot get pose of unknown object: '{obj_name}'.")
+        if obj_name not in self.object_names:
+            raise ValueError(f"Cannot get the pose of an unknown object: '{obj_name}'.")
+
+        if obj_name not in self.frames:
+            raise KeyError(f"The pose of object '{obj_name}' is unknown.")
 
         return self.frames[obj_name]
 
@@ -159,31 +189,38 @@ class KinematicTree:
 
         :param robot_name: Name of the robot assigned the given base pose
         :param new_pose: New base pose of the robot
+        :raises ValueError: If the robot name is unrecognized
         """
+        if robot_name not in self.robot_names:
+            raise ValueError(f"Cannot get the base pose of an unknown robot: '{robot_name}'.")
+
         self._update_frame(f"{robot_name}_base_pose", new_pose)
-        self.robot_names.add(robot_name)
 
     def get_robot_base_pose(self, robot_name: str) -> Pose3D:
         """Retrieve the base pose of the named robot.
 
         :param robot_name: Name of a robot
         :return: Base pose of the robot
-        :raises KeyError: If an invalid robot name is given
+        :raises ValueError: If the robot name is unrecognized
+        :raises KeyError: If the requested robot base pose is unknown
         """
-        if robot_name not in self.robot_names or f"{robot_name}_base_pose" not in self.frames:
-            raise KeyError(f"Cannot get base pose of unknown robot: '{robot_name}'.")
+        if robot_name not in self.robot_names:
+            raise ValueError(f"Cannot get the base pose of an unknown robot: '{robot_name}'.")
 
-        return self.frames[f"{robot_name}_base_pose"]
+        base_pose_frame = f"{robot_name}_base_pose"
+        if base_pose_frame not in self.frames:
+            raise KeyError(f"The base pose of robot '{robot_name}' is unknown.")
+
+        return self.frames[base_pose_frame]
 
     def set_collision_model(self, frame_name: str, collision_model: CollisionModel) -> None:
         """Set the collision geometry attached to the named frame.
 
         :param frame_name: Name of the frame to which the collision model is attached
         :param collision_model: Rigid-body collision geometry (primitive shape(s) and/or mesh(es))
-        :raises KeyError: If an invalid frame name is given
         """
         if not self.valid_frame(frame_name):
-            raise KeyError(f"Cannot set collision model for unknown frame: '{frame_name}'.")
+            console.print(f"[yellow]Invalid frame '{frame_name}' had its collision model set.[/]")
 
         self.collision_models[frame_name] = collision_model
 
@@ -193,43 +230,43 @@ class KinematicTree:
         :param frame_name: Name of the frame of the returned collision geometry
         :return: Collision model for the frame, or None if the frame has no attached geometry
         """
-        if not self.valid_frame(frame_name):
-            raise KeyError(f"Cannot get collision model for unknown frame: '{frame_name}'.")
-
         return self.collision_models.get(frame_name)
 
-    def add_container(self, container: ContainerModel) -> None:
-        """Add a container model to the kinematic tree and update the state accordingly."""
-        self.container_models[container.name] = container
-        container.update_kinematic_tree(self)
+    def add_container(self, container_state: ContainerState) -> None:
+        """Update the state of the kinematic tree for the given container."""
+        self.containers[container_state.name] = container_state
+        container_state.update_kinematic_tree(self)
 
     def open_container(self, container_name: str) -> None:
         """Open the named container and update the state accordingly."""
-        if container_name not in self.container_models:
+        if container_name not in self.containers:
             raise KeyError(f"Cannot open unknown container: '{container_name}'.")
-        self.container_models[container_name].open(self)
+        self.containers[container_name].open(self)
 
     def close_container(self, container_name: str) -> None:
         """Close the named container and update the state accordingly."""
-        if container_name not in self.container_models:
+        if container_name not in self.containers:
             raise KeyError(f"Cannot close unknown container: '{container_name}'.")
-        self.container_models[container_name].close(self)
+        self.containers[container_name].close(self)
 
-    def remove_object(self, obj_name: str) -> ObjectModel | None:
+    def remove_object(self, obj_name: str) -> ObjectKinematicState | None:
         """Remove the named object from the kinematic state.
 
         :param obj_name: Name of the object removed from the state
-        :return: Model of the object's state before it was removed (None if no state existed)
+        :return: Kinematic state of the object before it was removed (None if unknown)
+        :raises KeyError: If the object doesn't exist in the kinematic tree
+        :raises ValueError: If the frame of the object has child frames
         """
         if obj_name not in self.object_names:
             raise KeyError(f"Cannot remove unknown object '{obj_name}' from the kinematic tree.")
-        self.object_names.remove(obj_name)
 
         if self.children[obj_name]:
             raise ValueError(
                 f"Cannot remove object '{obj_name}' from the kinematic state "
                 f"because it has child frames: {self.children[obj_name]}.",
             )
+
+        self.object_names.remove(obj_name)
         self.children.pop(obj_name)
 
         parent_frame = self.get_parent_frame(obj_name)
@@ -243,4 +280,4 @@ class KinematicTree:
         if removed_pose is None or removed_collision_model is None:
             return None
 
-        return ObjectModel(obj_name, removed_pose, removed_collision_model)
+        return ObjectKinematicState(obj_name, removed_pose, removed_collision_model)

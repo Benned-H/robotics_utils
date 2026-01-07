@@ -32,7 +32,9 @@ uv run scripts/keypoint_detection_demo.py API_KEY IMAGE_PATH
 - `API_KEY` denotes your Google API key.
 - `IMAGE_PATH` denotes the path to the image you'd like to detect objects in.
 
-_Intel RealSense Demo_ - Install the dependencies for the RealSense demo using [these instructions](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md#installing-the-packages). Then reopen the terminal and reconnect the RealSense to the computer.
+### Intel RealSense Demo
+
+Install the dependencies for the RealSense demo using [these instructions](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md#installing-the-packages). Then reopen the terminal and reconnect the RealSense to the computer.
 
 Launch the RealSense demo by running:
 
@@ -48,6 +50,44 @@ Run the AprilTag detection demo by running:
 ```bash
 uv venv --clear && uv sync --extra vision
 uv run scripts/apriltag_detection_demo.py
+```
+
+### Subprocess Gemini Robotics-ER 1.5 Demo
+
+This demo verifies that Gemini Robotics-ER 1.5 can be called from an older version of Python (e.g., 3.8). Launch it by running:
+
+```bash
+uv venv --clear --python 3.8 && uv sync --extra vision
+uv run scripts/gemini_subprocess_demo.py API_KEY IMAGE_PATH QUERIES_CSV
+```
+
+### Open-Vocabulary Segmentation
+
+This demo uses [Segment Anything 3](https://huggingface.co/facebook/sam3) (SAM 3)
+for promptable object segmentation. Because SAM 3 is currently (circa January 2026)
+a gated model on HuggingFace, you'll need to request access and create
+a personal access token (PAT) for your HuggingFace account (link above).
+Once you have the token, you can authenticate with HuggingFace using the commands:
+
+```bash
+uv venv --clear && uv sync --extra sam3
+source .venv/bin/activate
+hf auth login
+```
+
+Assuming you have access to SAM 3, you can launch the open-vocabulary segmentation demo by running:
+
+```bash
+uv run scripts/sam3_demo.py IMAGE_PATH
+```
+
+### Plane Estimation Demo
+
+This demo estimates a plane based on a segmentation mask computed for live RealSense data.
+
+```bash
+uv venv --clear && uv sync --extra realsense --extra sam3
+uv run scripts/plane_estimation_demo.py
 ```
 
 ## Development Commands

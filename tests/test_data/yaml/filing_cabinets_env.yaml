@@ -1,0 +1,77 @@
+# Example YAML specifying an environment with three filing cabinets
+robots:
+  spot:
+    base_pose: [0, 0, 0, 0, 0, 0] # x, y, z, roll, pitch, yaw
+
+objects:
+  cup1:
+    pose:
+      xyz_rpy: [0.05, 0, 0.4, 0, 0, 0] # Inside the closed filing cabinet
+      frame: closed_cabinet
+
+    collision_model:
+      primitives: [{ type: cylinder, height: 0.1, radius: 0.03 }]
+
+  eraser1:
+    pose:
+      xyz_rpy: [0.22, 0, 0.46, 0, 0, 0] # Contained by the first open cabinet
+      frame: open_cabinet1
+
+    collision_model:
+      primitives: [{ type: box, x: 0.05, y: 0.125, z: 0.03 }]
+
+  closed_cabinet:
+    pose: [3, 0, 0, 0, 0, 0] # Contains the cup
+    container:
+      status: closed
+      contains: [cup1]
+
+      open_model:
+        meshes:
+          - filepath: ../meshes/filing_cabinet_middle_drawer_open.obj
+            transforms:
+              - center_bounds
+              - bottom_at_zero_z
+      closed_model:
+        meshes:
+          - filepath: ../meshes/filing_cabinet_closed.obj
+            transforms:
+              - center_bounds
+              - bottom_at_zero_z
+
+  open_cabinet1:
+    pose: [2, 0, 0, 0, 0, 0] # Contains the eraser
+    container:
+      status: open
+      contains: [eraser1]
+
+      open_model:
+        meshes:
+          - filepath: ../meshes/filing_cabinet_middle_drawer_open.obj
+            transforms:
+              - center_bounds
+              - bottom_at_zero_z
+      closed_model:
+        meshes:
+          - filepath: ../meshes/filing_cabinet_closed.obj
+            transforms:
+              - center_bounds
+              - bottom_at_zero_z
+
+  open_cabinet2:
+    pose: [2, 1, 0, 0, 0, 0] # Empty containers don't need `contains`
+    container:
+      status: open
+
+      open_model:
+        meshes:
+          - filepath: ../meshes/filing_cabinet_middle_drawer_open.obj
+            transforms:
+              - center_bounds
+              - bottom_at_zero_z
+      closed_model:
+        meshes:
+          - filepath: ../meshes/filing_cabinet_closed.obj
+            transforms:
+              - center_bounds
+              - bottom_at_zero_z

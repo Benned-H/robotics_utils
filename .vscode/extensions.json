@@ -1,5 +1,6 @@
 {
     "recommendations": [
+        "anthropic.claude-code",
         "charliermarsh.ruff",
         "esbenp.prettier-vscode",
         "Gruntfuggly.todo-tree",

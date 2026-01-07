@@ -6,10 +6,18 @@ build-backend = "hatchling.build"
 name = "robotics_utils"
 version = "0.0.1"
 description = "General-purpose robotics utilities"
-requires-python = ">=3.8"
+requires-python = ">=3.8, <3.13"                   # Torch 2.4.1 doesn't support Python 3.13
 
 # Core dependencies - Always installed
-dependencies = ["click", "rich", "numpy", "trimesh"]
+dependencies = [
+    "click",
+    "rich",
+    "numpy",
+    "trimesh",
+    "pyquaternion",
+    "prompt-toolkit",
+    "distinctipy",
+]
 
 # Optional dependencies support optional user features
 # Reference: https://pydevtools.com/handbook/explanation/what-are-optional-dependencies-and-dependency-groups/
@@ -17,9 +25,9 @@ dependencies = ["click", "rich", "numpy", "trimesh"]
 
 # Optional dependencies to support computer vision applications
 vision = [
-    "torch",
+    "torch == 2.4.1",         # Last version of PyTorch to support Python 3.8
     "torchvision",
-    "transformers",
+    "transformers >= 4.21.3", # OwlViTProcessor was introduced in 4.21
     "pillow",
     "opencv-python",
     "pupil-apriltags",
@@ -31,17 +39,27 @@ realsense = ["robotics-utils[vision]", "pyrealsense2", "open3d"]
 # Optional dependencies to use Gemini Robotics-ER 1.5
 gemini = [
     "robotics-utils[vision]",
-    "google-genai; python_version >= '3.9'",
+
+    # Gemini Robotics-ER 1.5 was introduced on 9/25/25 (circa 1.39.0)
+    "google-genai>=1.39.0; python_version >= '3.9'",
     "httpx",
 ]
 
-all = ["robotics-utils[vision]"] # Install everything
+# Optional dependencies to support SAM 3
+sam3 = [
+    "robotics-utils[vision]",
+
+    # Install pre-release version of transformers to access SAM 3 (requires Python 3.10+)
+    "transformers >= 5.0.0rc1; python_version >= '3.10'",
+]
+
+all = ["robotics-utils[vision,realsense,gemini,sam3]"] # Install everything
 
 
 # Dependency groups manage development-time dependencies
 # Reference: https://pydevtools.com/handbook/explanation/what-are-optional-dependencies-and-dependency-groups/
 [dependency-groups]
-dev = ["ruff", "pytest", "hypothesis", "pytest-cov", "pylint"]
+dev = ["ruff", "pytest", "hypothesis", "pytest-cov", "pylint", "austin-dist"]
 
 
 [tool.hatch.build.targets.wheel]
@@ -65,6 +83,17 @@ unfixable = ["F401"] # Disable 'fix' for unused imports
 
 # Allow omission of return type on __init__
 flake8-annotations = { mypy-init-return = true }
+
+[tool.ruff.lint.flake8-bugbear]
+# Allow frozen dataclass constructors in default arguments (they're immutable)
+extend-immutable-calls = [
+    "robotics_utils.kinematics.Pose3D",
+    "robotics_utils.kinematics.Pose3D.from_xyz_rpy",
+    "robotics_utils.kinematics.Pose3D.from_sequence",
+    "robotics_utils.kinematics.Pose3D.from_homogeneous_matrix",
+    "robotics_utils.kinematics.Pose3D.identity",
+    "robotics_utils.kinematics.Point3D",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/*" = ["S101"]   # Allow assertions in test files

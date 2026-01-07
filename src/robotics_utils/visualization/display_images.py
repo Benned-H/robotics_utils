@@ -3,15 +3,33 @@
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Protocol
+from os import environ
+from pathlib import Path
+from sys import base_prefix
+from typing import TYPE_CHECKING, Protocol
 
 import cv2
-import numpy as np
-from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    import numpy as np
+    from numpy.typing import NDArray
 
 
 def find_screen_resolution() -> tuple[int, int]:
-    """Find the resolution (H, W) of the current screen."""
+    """Find the resolution (H, W) of the current screen.
+
+    Reference for fixing tkinter installation issues:
+        https://github.com/astral-sh/uv/issues/7036#issuecomment-2440145724
+    """
+    if not ("TCL_LIBRARY" in environ and "TK_LIBRARY" in environ):
+        try:
+            root = tk.Tk()
+            root.destroy()
+        except tk.TclError:
+            tk_path = Path(base_prefix) / "lib"
+            environ["TCL_LIBRARY"] = str(next(tk_path.glob("tcl8.*")))
+            environ["TK_LIBRARY"] = str(next(tk_path.glob("tk8.*")))
+
     root = tk.Tk()
     h_px = root.winfo_screenheight()
     w_px = root.winfo_screenwidth()
@@ -27,12 +45,12 @@ class Displayable(Protocol):
         ...
 
 
-def display_in_window(image: Displayable, window_title: str, wait_for_input: bool = True) -> bool:
+def display_in_window(image: Displayable, title: str, *, wait: bool = True) -> bool:
     """Display an image in an OpenCV window with the given title.
 
     :param image: Image supporting conversion into a displayable format
-    :param window_title: Title used for the display window (e.g., "Object Detections")
-    :param wait_for_input: Whether to display the image until user input (defaults to True)
+    :param title: Title used for the display window (e.g., "Object Detections")
+    :param wait: Whether to display the image until user input (defaults to True)
     :return: Boolean indicating if the window remains active (True = Active, False = Closed)
     """
     display_data = image.convert_for_visualization()
@@ -47,13 +65,13 @@ def display_in_window(image: Displayable, window_title: str, wait_for_input: boo
     else:
         new_h, new_w = h, w
 
-    title = f"{window_title} (press any key to exit)" if wait_for_input else window_title
+    full_title = f"{title} (press any key to exit)" if wait else title
 
-    cv2.namedWindow(title, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(title, new_w, new_h)
-    cv2.imshow(title, display_data)
+    cv2.namedWindow(full_title, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(full_title, new_w, new_h)
+    cv2.imshow(full_title, display_data)
 
-    if wait_for_input:
+    if wait:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
         return False

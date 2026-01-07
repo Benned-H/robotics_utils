@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import hypothesis.strategies as st
 from hypothesis import given
 
-from robotics_utils.kinematics import Pose3D
+from robotics_utils.spatial import Pose3D
 from robotics_utils.state_estimation import PoseEstimateAverager
 
-from .strategies.kinematics_strategies import poses_3d
+from .strategies.spatial_strategies import poses_3d
 
 
 @st.composite
@@ -33,10 +35,10 @@ def test_pose_estimate_averager_compute_all_averages(
     averager = PoseEstimateAverager(window_size)
     for frame_name, estimates in poses_map.items():
         if estimates:
-            parent_frame = estimates[0].ref_frame
             for pose in estimates:
-                pose.ref_frame = parent_frame  # Ensure pose estimates share their parent frame
-                averager.update(frame_name, pose)
+                # Ensure pose estimates share their parent frame
+                pose_wrt_ref = replace(pose, ref_frame=estimates[0].ref_frame)
+                averager.update(frame_name, pose_wrt_ref)
 
     # Act - Compute all averages using the averager
     results = averager.compute_all_averages()

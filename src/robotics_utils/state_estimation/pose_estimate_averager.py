@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from typing import TYPE_CHECKING
 
-from robotics_utils.math.averages_3d import average_poses
-
-if TYPE_CHECKING:
-    from robotics_utils.kinematics import Pose3D
+from robotics_utils.spatial import Pose3D, average_poses
 
 
 class PoseEstimateAverager:
