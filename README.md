@@ -63,10 +63,21 @@ uv run scripts/gemini_subprocess_demo.py API_KEY IMAGE_PATH QUERIES_CSV
 
 ### Open-Vocabulary Segmentation
 
-Launch the open-vocabulary segmentation demo by running:
+This demo uses [Segment Anything 3](https://huggingface.co/facebook/sam3) (SAM 3)
+for promptable object segmentation. Because SAM 3 is currently (circa January 2026)
+a gated model on HuggingFace, you'll need to request access and create
+a personal access token (PAT) for your HuggingFace account (link above).
+Once you have the token, you can authenticate with HuggingFace using the commands:
 
 ```bash
 uv venv --clear && uv sync --extra sam3
+source .venv/bin/activate
+hf auth login
+```
+
+Assuming you have access to SAM 3, you can launch the open-vocabulary segmentation demo by running:
+
+```bash
 uv run scripts/sam3_demo.py IMAGE_PATH
 ```
 

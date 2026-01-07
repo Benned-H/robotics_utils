@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
+# Set PyTorch CUDA allocator to use expandable segments to reduce fragmentation
+# Must be set before importing torch
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 import numpy as np
 import torch
 from transformers import BatchEncoding, Sam3Model, Sam3Processor
@@ -16,7 +22,10 @@ class SAM3:
     def __init__(self) -> None:
         """Initialize a SAM 3 model for object segmentation."""
         self.device = determine_pytorch_device()
+
         self.model = Sam3Model.from_pretrained("facebook/sam3").to(self.device)
+        self.model.eval()  # Set to eval mode to disable dropout and save memory
+
         self.processor = Sam3Processor.from_pretrained("facebook/sam3")
         self._query_cache: dict[str, BatchEncoding] = {}
         """Cache previously used text queries to save time transferring to the GPU."""
@@ -36,13 +45,20 @@ class SAM3:
         :param mask_threshold: Threshold used to convert predicted masks into binary values
         :return: Collection of object segmentations detected in the image
         """
+        # Clear GPU cache before processing to free memory from previous iterations
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         image_inputs = self.processor(images=image.data, return_tensors="pt").to(self.device)
 
         # Pre-compute vision embeddings
         # Reference: https://github.com/huggingface/transformers/issues/42375#issuecomment-3576528458
         vision_embeds = self.model.get_vision_features(pixel_values=image_inputs.pixel_values)
+        original_sizes = image_inputs.get("original_sizes").tolist()
 
-        segmentations = []
+        del image_inputs  # Delete image_inputs to free up GPU memory (cache is cleared later)
+
+        segmentations: list[ObjectSegmentation] = []
 
         for query in queries:
             # Use cached text inputs if available, otherwise process and cache
@@ -60,7 +76,7 @@ class SAM3:
                 outputs,
                 threshold=instance_threshold,
                 mask_threshold=mask_threshold,
-                target_sizes=image_inputs.get("original_sizes").tolist(),
+                target_sizes=original_sizes,
             )[0]  # Index 0 because we only provided one image
 
             # Let N = the number of segmentations found for the query
@@ -77,5 +93,11 @@ class SAM3:
                 )
                 for i, score in enumerate(scores)
             )
+
+            del outputs, results  # Clean up outputs after processing each query to free GPU memory
+
+        del vision_embeds  # Clean up vision embeddings before returning
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         return ObjectSegmentations(segmentations=segmentations, image=image)

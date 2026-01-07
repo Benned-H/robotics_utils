@@ -1,11 +1,4 @@
-"""Demo script that estimates a plane based on an object segmentation from Intel RealSense data.
-
-To profile this demo using Austin, use the command:
-
-    uv run austin -o .austin/plane_estimation.austin python scripts/plane_estimation_demo.py \
-        --query "six of diamonds playing card"
-
-"""
+"""Demo script that estimates a plane based on object segmentations from Intel RealSense data."""
 
 from __future__ import annotations
 

@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pyrealsense2 as rs2
-from rich.console import Console
 from rich.table import Table
 
+from robotics_utils.io import console
 from robotics_utils.vision import DepthImage, RGBDImage, RGBImage
 from robotics_utils.vision.cameras import (
     CameraFOV,
@@ -48,6 +48,14 @@ class CoreProfile:
             stream_type=str(stream.stream_type()).lower(),
         )
 
+    @property
+    def rs2_stream_type(self) -> int:
+        """Retrieve the pyrealsense2 stream type for the profile."""
+        parts = self.stream_type.split(".")
+        if len(parts) == 2 and parts[0] == "stream":
+            return getattr(rs2.stream, parts[1])
+        raise ValueError(f"Cannot parse stream type: {self.stream_type}")
+
 
 @dataclass(frozen=True)
 class StreamVariant:
@@ -74,6 +82,19 @@ class StreamVariant:
             resolution=resolution,
             is_default=bool(stream.is_default()),
         )
+
+    @property
+    def size_px(self) -> int:
+        """Retrieve the number of pixels in images from the stream variant."""
+        return 0 if self.resolution is None else self.resolution.pixels
+
+    @property
+    def rs2_format(self) -> int:
+        """Retrieve the pyrealsense2 format enum for the stream."""
+        parts = self.fmt.split(".")
+        if len(parts) == 2 and parts[0] == "format":
+            return getattr(rs2.format, parts[1])
+        raise ValueError(f"Cannot parse format: {self.fmt}")
 
 
 def get_all_stream_variants() -> list[StreamVariant]:
@@ -145,7 +166,61 @@ def display_streams_table(variants: list[StreamVariant]) -> None:
         res_cell = f"[bold green]{res_str}[/]" if default_row else res_str
         table.add_row(core_cell, res_cell, fmt_cell, fps_cell)
 
-    Console().print(table)
+    console.print(table)
+
+
+def select_streams(
+    streams: list[StreamVariant],
+    rgb_format: str = "format.rgb8",
+    depth_format: str = "format.z16",
+) -> tuple[StreamVariant, StreamVariant]:
+    """Select the highest-resolution pair of RGB and depth streams with matching resolutions.
+
+    :param streams: List of available RealSense stream profiles
+    :param rgb_format: Expected data format for the RGB stream
+    :param depth_format: Expected data format for the depth stream
+    :return: Tuple containing (RGB stream, depth stream)
+    """
+    sized_streams = [s for s in streams if s.size_px]
+
+    rgb_streams = [
+        s for s in sized_streams if s.core.stream_type == "stream.color" and s.fmt == rgb_format
+    ]
+    depth_streams = [
+        s for s in sized_streams if s.core.stream_type == "stream.depth" and s.fmt == depth_format
+    ]
+
+    console.print(f"[green]Found {len(rgb_streams)} RGB streams (format '{rgb_format}')[/]")
+    console.print(f"[green]Found {len(depth_streams)} depth streams (format '{depth_format}')[/]")
+
+    # Find all RGB streams that have matching depth streams with the same resolution
+    pairable_rgbs = [
+        r for r in rgb_streams if any(r.resolution == d.resolution for d in depth_streams)
+    ]
+    max_size_px = max(r.size_px for r in pairable_rgbs)
+
+    max_sized_rgbs = [r for r in rgb_streams if r.size_px == max_size_px]
+    max_sized_depths = [d for d in depth_streams if d.size_px == max_size_px]
+
+    console.print(f"[blue]\nLargest RGB and depth stream pair contains {max_size_px} pixels.[/]")
+    console.print(f"Remaining: {len(max_sized_rgbs)} RGB and {len(max_sized_depths)} depth")
+
+    common_fps = min(max(r.fps for r in max_sized_rgbs), max(d.fps for d in max_sized_depths))
+    common_fps_rgbs = [r for r in max_sized_rgbs if r.fps == common_fps]
+    common_fps_depths = [d for d in max_sized_depths if d.fps == common_fps]
+
+    rgbs_left = len(common_fps_rgbs)
+    depths_left = len(common_fps_depths)
+
+    console.print(f"[magenta]\nCommon FPS across remaining streams: {common_fps}.[/]")
+    console.print(f"Remaining: {rgbs_left} RGB and {depths_left} depth")
+
+    if rgbs_left != 1 or depths_left != 1:
+        raise RuntimeError(
+            f"Unexpected number of filtered RGB ({rgbs_left}) or depth ({depths_left}) streams.",
+        )
+
+    return common_fps_rgbs[0], common_fps_depths[0]
 
 
 class RealSense:
@@ -172,10 +247,37 @@ class RealSense:
 
     def __enter__(self) -> Self:
         """Enter a managed context for streaming data from an Intel RealSense."""
-        self.profile = self.pipeline.start()
-
         # Log information about all available RealSense streams
-        display_streams_table(variants=get_all_stream_variants())
+        all_streams = get_all_stream_variants()
+        display_streams_table(variants=all_streams)
+
+        rgb_stream, depth_stream = select_streams(all_streams)
+        if rgb_stream.resolution is None or depth_stream.resolution is None:
+            raise RuntimeError(f"Selected stream has no resolution: {rgb_stream} {depth_stream}")
+
+        # Create configuration and enable only the selected streams
+        config = rs2.config()
+
+        config.enable_stream(
+            rgb_stream.core.rs2_stream_type,
+            rgb_stream.core.index,
+            rgb_stream.resolution.width,
+            rgb_stream.resolution.height,
+            rgb_stream.rs2_format,
+            rgb_stream.fps,
+        )
+
+        config.enable_stream(
+            depth_stream.core.rs2_stream_type,
+            depth_stream.core.index,
+            depth_stream.resolution.width,
+            depth_stream.resolution.height,
+            depth_stream.rs2_format,
+            depth_stream.fps,
+        )
+
+        # Start pipeline with configuration (this will enable only the specified streams)
+        self.profile = self.pipeline.start(config)
 
         self.rgb_sensor = self.profile.get_device().first_color_sensor()
 
