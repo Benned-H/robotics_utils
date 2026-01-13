@@ -17,6 +17,7 @@ dependencies = [
     "pyquaternion",
     "prompt-toolkit",
     "distinctipy",
+    "pathfinding",  # A* path planning for navigation feasibility
 ]
 
 # Optional dependencies support optional user features
