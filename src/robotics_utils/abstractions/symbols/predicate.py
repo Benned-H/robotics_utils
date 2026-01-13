@@ -76,9 +76,8 @@ class Predicate(Hashable):
         # Find all valid tuples of concrete args using a Cartesian product
         all_valid_args = product(*objects_per_param_type)
         all_bindings = (
-            {p.name: obj}
+            {p.name: obj for p, obj in zip(self.parameters, args, strict=True)}
             for args in all_valid_args
-            for p, obj in zip(self.parameters, args, strict=True)
         )
 
         return {self.fully_bind(bindings) for bindings in all_bindings}
