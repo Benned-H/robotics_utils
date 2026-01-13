@@ -1,4 +1,4 @@
-"""Define a class to represent the kinematic state of an object."""
+"""Define classes to represent different kinds of object states."""
 
 from dataclasses import dataclass
 
