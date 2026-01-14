@@ -2,24 +2,53 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
-
 import numpy as np
 
 from robotics_utils.geometry import Point2D
-from robotics_utils.spatial import DEFAULT_FRAME, Pose2D
-from robotics_utils.states import ObjectKinematicState
+from robotics_utils.perception.laser_scan import LaserScan2D
+from robotics_utils.spatial import Pose2D
 
-from .laser_scan import LaserScan2D
+
+def bresenham_line(x0: int, y0: int, x1: int, y1: int) -> list[tuple[int, int]]:
+    """Compute grid cells along a line using Bresenham's algorithm with integer arithmetic.
+
+    Reference: https://zingl.github.io/bresenham.html ("Line" algorithm)
+
+    :param x0: Start x-coordinate
+    :param y0: Start y-coordinate
+    :param x1: End x-coordinate
+    :param y1: End y-coordinate
+    :return: List of (x, y) cell indices along the line
+    """
+    cells = []
+
+    dx = abs(x1 - x0)
+    dy = -abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx + dy
+
+    x, y = x0, y0
+    while True:
+        cells.append((x, y))
+
+        if x == x1 and y == y1:
+            break
+
+        e2 = 2 * err
+        if e2 >= dy:
+            err += dy
+            x += sx
+
+        if e2 <= dx:
+            err += dx
+            y += sy
+
+    return cells
 
 
 class OccupancyGrid2D:
-    """2D occupancy grid using log-odds representation for probabilistic mapping.
-
-    The grid maintains a probabilistic representation of occupied vs. free space
-    using log-odds values that are updated incrementally from laser scans using
-    an inverse sensor model with ray tracing.
-    """
+    """A 2D occupancy grid using log-odds to represent the probability of occupancy."""
 
     def __init__(
         self,
@@ -27,230 +56,138 @@ class OccupancyGrid2D:
         resolution_m: float,
         width_cells: int,
         height_cells: int,
-        ref_frame: str = DEFAULT_FRAME,
-    ):
+    ) -> None:
         """Initialize an occupancy grid.
 
-        :param origin: Origin pose of the grid in the reference frame (lower-left corner)
-        :param resolution_m: Cell size in meters
-        :param width_cells: Grid width in cells
-        :param height_cells: Grid height in cells
-        :param ref_frame: Reference frame name (default: "map")
+        :param origin: Origin pose of the grid in a global frame (lower-left corner)
+        :param resolution_m: Size of cells in the grid (meters)
+        :param width_cells: Grid width in cells (along x-axis)
+        :param height_cells: Grid height in cells (along y-axis)
         """
-        self.origin = origin
+        self.origin = origin  # pose_w_g (grid. w.r.t. world)
         self.resolution_m = resolution_m
         self.width_cells = width_cells
         self.height_cells = height_cells
-        self.ref_frame = ref_frame
 
-        # Log-odds representation: L = log(P(occupied) / P(free))
-        # Initialize to 0 (equal probability of occupied and free)
-        self.log_odds: np.ndarray = np.zeros((height_cells, width_cells), dtype=np.float32)
+        # Log-odds representation: L = log( p(occupied) / p(free) )
+        # Initialize to log( 0.5 / 0.5 ) = log(1) = 0 (equal probability of occupied and free)
+        # Reference: Chapter 4.2 (pg. 94) of Probabilistic Robotics by Thrun, Burgard, and Fox
+        self.log_odds = np.zeros((height_cells, width_cells), dtype=np.float32)
 
-    def update(
-        self,
-        scan: LaserScan2D,
-        prob_occupied: float = 0.7,
-        prob_free: float = 0.3,
-    ) -> None:
-        """Update occupancy grid using inverse sensor model with ray tracing.
-
-        :param scan: Laser scan to incorporate into the grid
-        :param prob_occupied: Probability of occupancy at hit points
-        :param prob_free: Probability of free space along rays
-        """
-        if scan.num_points() == 0:
-            return
-
-        # Convert probabilities to log-odds updates
-        log_odds_occupied = np.log(prob_occupied / (1 - prob_occupied))
-        log_odds_free = np.log(prob_free / (1 - prob_free))
-
-        # Get sensor position in grid coordinates
-        sensor_world_x = scan.sensor_pose.x
-        sensor_world_y = scan.sensor_pose.y
-        sensor_yaw = scan.sensor_pose.yaw_rad
-
-        sensor_grid_x, sensor_grid_y = self.world_to_grid(
-            Point2D(sensor_world_x, sensor_world_y)
-        )
-
-        # Process each scan point
-        for i in range(scan.num_points()):
-            range_m, angle_rad = scan.ranges_m[i]
-
-            # Convert from sensor frame to world frame
-            angle_world = angle_rad + sensor_yaw
-            endpoint_world_x = sensor_world_x + range_m * np.cos(angle_world)
-            endpoint_world_y = sensor_world_y + range_m * np.sin(angle_world)
-
-            # Convert endpoint to grid coordinates
-            endpoint_grid_x, endpoint_grid_y = self.world_to_grid(
-                Point2D(endpoint_world_x, endpoint_world_y)
-            )
-
-            # Check if endpoint is within grid bounds
-            if not self._is_valid_cell(endpoint_grid_x, endpoint_grid_y):
-                continue
-
-            # Ray trace from sensor to endpoint using Bresenham's algorithm
-            ray_cells = self._bresenham_line(
-                sensor_grid_x, sensor_grid_y, endpoint_grid_x, endpoint_grid_y
-            )
-
-            # Update free space along the ray (all cells except the endpoint)
-            for cell_x, cell_y in ray_cells[:-1]:
-                if self._is_valid_cell(cell_x, cell_y):
-                    self.log_odds[cell_y, cell_x] += log_odds_free
-
-            # Update occupied space at endpoint
-            if self._is_valid_cell(endpoint_grid_x, endpoint_grid_y):
-                self.log_odds[endpoint_grid_y, endpoint_grid_x] += log_odds_occupied
-
-    def get_occupied_mask(self, threshold: float = 0.5) -> np.ndarray:
-        """Get Boolean mask of occupied cells (probability > threshold).
-
-        :param threshold: Probability threshold for occupancy (0.0 to 1.0)
-        :return: Boolean array where True indicates occupied cells
-        """
-        # Convert log-odds to probability: p = 1 / (1 + exp(-L))
-        # Equivalently: p = sigmoid(L)
-        probabilities = 1.0 / (1.0 + np.exp(-self.log_odds))
-        return probabilities > threshold
-
-    def remove_object(
-        self,
-        obj: ObjectKinematicState,
-        min_height_m: float,
-        max_height_m: float,
-    ) -> OccupancyGrid2D:
-        """Return copy of grid with object's footprint removed (set to free space).
-
-        :param obj: Object to remove from the grid
-        :param min_height_m: Minimum height for rasterization
-        :param max_height_m: Maximum height for rasterization
-        :return: New OccupancyGrid2D with object removed
-        """
-        # Import here to avoid circular dependency
-        from .rasterizer import CollisionModelRasterizer
-
-        # Create a copy of this grid
-        grid_copy = self.copy()
-
-        # Rasterize the object's collision model to a Boolean mask
-        object_mask = CollisionModelRasterizer.rasterize_object(
-            obj=obj,
-            resolution_m=self.resolution_m,
+    def copy(self) -> OccupancyGrid2D:
+        """Create a deep copy of this occupancy grid."""
+        grid = OccupancyGrid2D(
             origin=self.origin,
-            grid_shape=(self.height_cells, self.width_cells),
-            min_height_m=min_height_m,
-            max_height_m=max_height_m,
+            resolution_m=self.resolution_m,
+            width_cells=self.width_cells,
+            height_cells=self.height_cells,
         )
+        grid.log_odds = np.copy(self.log_odds)
+        return grid
 
-        # Set cells within the object footprint to free space (log-odds = -inf)
-        # Using a large negative value instead of -inf for numerical stability
-        grid_copy.log_odds[object_mask] = -10.0
+    def world_to_grid(self, world_x: float, world_y: float) -> tuple[int, int]:
+        """Convert a point in the world frame to grid cell indices.
 
-        return grid_copy
-
-    def world_to_grid(self, point: Point2D) -> tuple[int, int]:
-        """Convert world coordinates to grid cell indices.
-
-        :param point: Point in world frame
+        :param world_x: x-coordinate in the world frame
+        :param world_y: y-coordinate in the world frame
         :return: (grid_x, grid_y) cell indices
         """
-        # Transform point relative to grid origin
-        dx = point.x - self.origin.x
-        dy = point.y - self.origin.y
+        dx_w = world_x - self.origin.x  # Point relative to grid origin expressed in world frame
+        dy_w = world_y - self.origin.y
 
-        # Rotate by -origin.yaw to align with grid axes
-        cos_yaw = np.cos(-self.origin.yaw_rad)
+        cos_yaw = np.cos(-self.origin.yaw_rad)  # Rotate by -origin.yaw to convert to grid frame
         sin_yaw = np.sin(-self.origin.yaw_rad)
 
-        local_x = dx * cos_yaw - dy * sin_yaw
-        local_y = dx * sin_yaw + dy * cos_yaw
+        local_x = dx_w * cos_yaw - dy_w * sin_yaw  # Position in grid frame
+        local_y = dx_w * sin_yaw + dy_w * cos_yaw
 
-        # Convert to grid indices
-        grid_x = int(np.floor(local_x / self.resolution_m))
+        grid_x = int(np.floor(local_x / self.resolution_m))  # Convert to grid indices
         grid_y = int(np.floor(local_y / self.resolution_m))
 
         return grid_x, grid_y
 
     def grid_to_world(self, grid_x: int, grid_y: int) -> Point2D:
-        """Convert grid cell indices to world coordinates (cell center).
+        """Convert grid cell indices to a position in the world frame at the cell center.
 
         :param grid_x: Grid x index
         :param grid_y: Grid y index
         :return: Point in world frame at cell center
         """
-        # Cell center in local grid frame
-        local_x = (grid_x + 0.5) * self.resolution_m
+        local_x = (grid_x + 0.5) * self.resolution_m  # Cell center in grid frame
         local_y = (grid_y + 0.5) * self.resolution_m
 
-        # Rotate by origin.yaw to align with world frame
-        cos_yaw = np.cos(self.origin.yaw_rad)
+        cos_yaw = np.cos(self.origin.yaw_rad)  # Rotate by origin.yaw to align with world frame
         sin_yaw = np.sin(self.origin.yaw_rad)
 
         rotated_x = local_x * cos_yaw - local_y * sin_yaw
         rotated_y = local_x * sin_yaw + local_y * cos_yaw
 
-        # Translate to world frame
-        world_x = self.origin.x + rotated_x
+        world_x = self.origin.x + rotated_x  # Translate to world frame
         world_y = self.origin.y + rotated_y
 
         return Point2D(world_x, world_y)
 
-    def copy(self) -> OccupancyGrid2D:
-        """Create a deep copy of this occupancy grid."""
-        grid_copy = OccupancyGrid2D(
-            origin=self.origin,
-            resolution_m=self.resolution_m,
-            width_cells=self.width_cells,
-            height_cells=self.height_cells,
-            ref_frame=self.ref_frame,
-        )
-        grid_copy.log_odds = np.copy(self.log_odds)
-        return grid_copy
-
-    def _is_valid_cell(self, grid_x: int, grid_y: int) -> bool:
-        """Check if grid cell indices are within bounds."""
+    def is_valid_cell(self, grid_x: int, grid_y: int) -> bool:
+        """Check whether the given cell coordinate is within the grid."""
         return 0 <= grid_x < self.width_cells and 0 <= grid_y < self.height_cells
 
-    def _bresenham_line(
-        self, x0: int, y0: int, x1: int, y1: int
-    ) -> list[tuple[int, int]]:
-        """Compute cells along a line using Bresenham's algorithm.
+    def update(self, scan: LaserScan2D, *, p_free: float = 0.1, p_occupied: float = 0.9) -> None:
+        """Update the occupancy grid using an inverse sensor model with ray tracing.
 
-        :param x0: Start x coordinate
-        :param y0: Start y coordinate
-        :param x1: End x coordinate
-        :param y1: End y coordinate
-        :return: List of (x, y) cell coordinates along the line
+        :param scan: Laser scan to be incorporated into the grid
+        :param p_free: Probability that a cell is occupied given a ray passes through it
+        :param p_occupied: Probability that a cell is occupied given a laser hits in it
         """
-        cells = []
+        if not scan.num_points:
+            return
 
-        dx = abs(x1 - x0)
-        dy = abs(y1 - y0)
-        sx = 1 if x0 < x1 else -1
-        sy = 1 if y0 < y1 else -1
-        err = dx - dy
+        # Convert probabilities into log-odds (see pg. 286 of ProbRob)
+        l_free = np.log(p_free / (1 - p_free))
+        l_occupied = np.log(p_occupied / (1 - p_occupied))
 
-        x, y = x0, y0
+        sensor_world_x = scan.sensor_pose.x
+        sensor_world_y = scan.sensor_pose.y
+        sensor_yaw_rad = scan.sensor_pose.yaw_rad
 
-        while True:
-            cells.append((x, y))
+        sensor_grid_x, sensor_grid_y = self.world_to_grid(sensor_world_x, sensor_world_y)
 
-            if x == x1 and y == y1:
-                break
+        for i in range(scan.num_points):
+            range_m, bearing_rad = scan.ranges_m[i]
 
-            e2 = 2 * err
+            beam_yaw_rad = sensor_yaw_rad + bearing_rad  # World-frame yaw of the beam
+            end_w_x = sensor_world_x + range_m * np.cos(beam_yaw_rad)  # Endpoint in world frame
+            end_w_y = sensor_world_y + range_m * np.sin(beam_yaw_rad)
 
-            if e2 > -dy:
-                err -= dy
-                x += sx
+            end_grid_x, end_grid_y = self.world_to_grid(end_w_x, end_w_y)
 
-            if e2 < dx:
-                err += dx
-                y += sy
+            # Ray trace from sensor to endpoint
+            ray_cells = bresenham_line(sensor_grid_x, sensor_grid_y, end_grid_x, end_grid_y)
 
-        return cells
+            # Update free-space cells along the ray (excluding the endpoint)
+            for cell_x, cell_y in ray_cells[:-1]:
+                if self.is_valid_cell(cell_x, cell_y):
+                    self.log_odds[cell_x, cell_y] += l_free
+
+            # Update occupied cell at the endpoint of the beam
+            if self.is_valid_cell(end_grid_x, end_grid_y):
+                self.log_odds[end_grid_x, end_grid_y] += l_occupied
+
+    def get_occupied_mask(self, p_threshold: float = 0.5) -> np.ndarray:
+        """Compute a Boolean mask of occupied cells (occupancy probability > threshold).
+
+        :param p_threshold: Probability threshold for occupancy (0.0 to 1.0)
+        :return: Boolean array where True indicates occupied cells
+        """
+        # Reference: Equation (4.14) on pg. 95 of ProbRob
+        p_occupied = 1 - 1 / (1 + np.exp(self.log_odds))
+        return p_occupied > p_threshold
+
+    def mask_as_free(self, mask: np.ndarray) -> OccupancyGrid2D:
+        """Create a copy of the occupancy grid in which the masked cells are set to free space.
+
+        :param mask: Boolean mask specifying free grid cells
+        :return: New OccupancyGrid2D with the masked cells set to free space
+        """
+        grid_copy = self.copy()
+        grid_copy.log_odds[mask] = -10.0  # Use a large (but finite) negative value for stability
+        return grid_copy

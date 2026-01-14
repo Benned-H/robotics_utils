@@ -9,4 +9,4 @@ except:
 
 if OPEN3D_PRESENT:
     from .plane_estimation import PlaneEstimate as PlaneEstimate
-    from .pointcloud import Pointcloud as Pointcloud
+    from .pointcloud import PointCloud as PointCloud

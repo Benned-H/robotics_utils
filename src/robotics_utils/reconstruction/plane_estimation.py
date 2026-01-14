@@ -14,21 +14,21 @@ from robotics_utils.geometry import Plane3D
 from robotics_utils.visualization import Displayable
 
 if TYPE_CHECKING:
-    from robotics_utils.reconstruction.pointcloud import Pointcloud
+    from robotics_utils.reconstruction.pointcloud import PointCloud
 
 
 @dataclass(frozen=True)
 class PlaneEstimate(Displayable):
     """A plane estimated based on a pointcloud."""
 
-    pointcloud: Pointcloud
+    pointcloud: PointCloud
     plane: Plane3D
     inlier_indices: list[int]
 
     @classmethod
     def fit_plane_ransac(
         cls,
-        pointcloud: Pointcloud,
+        pointcloud: PointCloud,
         inlier_threshold_m: float = 0.01,
         ransac_n: int = 3,
         iterations: int = 1000,
