@@ -8,7 +8,7 @@ from pathfinding.core.grid import Grid
 from pathfinding.finder.a_star import AStarFinder
 from robotics_utils.spatial import Pose2D
 
-from .footprint import Footprint
+from .footprint import RectangularFootprint
 from .navigation_query import NavigationQuery
 
 
@@ -20,7 +20,7 @@ class GridPlanner2D:
     feasible for the robot's actual geometry.
     """
 
-    def __init__(self, footprint: Footprint):
+    def __init__(self, footprint: RectangularFootprint):
         """Initialize the grid planner with a robot footprint.
 
         :param footprint: Robot footprint for collision checking

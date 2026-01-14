@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 from robotics_utils.spatial import Pose2D
 
-from .footprint import Footprint
+from .footprint import RectangularFootprint
 
 
 @dataclass(frozen=True)
@@ -23,7 +23,7 @@ class NavigationQuery:
     goal_pose: Pose2D  # Goal pose in world frame
     resolution_m: float  # Grid resolution
     origin: Pose2D  # Grid origin
-    robot_footprint: Footprint  # Robot footprint for collision checking
+    robot_footprint: RectangularFootprint  # Robot footprint for collision checking
 
     def to_image(self) -> np.ndarray:
         """Convert occupancy mask to image format for python-pathfinding.

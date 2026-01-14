@@ -8,7 +8,7 @@ from robotics_utils.perception import LaserScan2D, OccupancyGrid2D
 from robotics_utils.spatial import DEFAULT_FRAME, Pose2D
 from robotics_utils.states import ObjectKinematicState
 
-from .footprint import Footprint
+from .footprint import RectangularFootprint
 from .grid_planner import GridPlanner2D
 from .navigation_query import NavigationQuery
 
@@ -41,7 +41,7 @@ class NavigationFeasibilityChecker:
         self.base_grid: OccupancyGrid2D | None = None
 
         # Planner with Spot footprint
-        self.planner = GridPlanner2D(footprint=Footprint.spot_footprint())
+        self.planner = GridPlanner2D(footprint=RectangularFootprint.spot_footprint())
 
     def build_map_from_scans(self, scans: list[LaserScan2D]) -> None:
         """Build occupancy grid from multiple laser scans (offline mapping).
