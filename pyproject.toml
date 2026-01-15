@@ -105,6 +105,7 @@ indent-style = "space"
 
 
 [tool.pytest.ini_options]
-minversion = "6.0"    # Needed to use pyproject.toml
-testpaths = ["tests"] # Directories searched for tests
-pythonpath = ["src"]  # Added to Python search path
+minversion = "6.0"        # Needed to use pyproject.toml
+testpaths = ["tests"]     # Directories searched for tests
+pythonpath = ["src"]      # Added to Python search path
+filterwarnings = "always" # Always print warnings

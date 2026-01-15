@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from robotics_utils.abstractions import Parameter
+from robotics_utils.abstractions.symbols import Parameter
 from robotics_utils.skills import SkillInstance, SkillsInventory, SkillsProtocol, skill_method
 
 
