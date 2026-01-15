@@ -118,7 +118,7 @@ class ObjectVisualState:
 
         :param yaml_data: Data imported from a YAML file
         :param schema: Observation schema defining viewpoints in the object visual state
-        :param default_frame: Default frame used for the observation's pose if unspecified
+        :param default_frame: Default frame used for visual observations' poses if unspecified
         :return: Constructed ObjectVisualState instance
         """
         visual_state = ObjectVisualState(schema=schema)
@@ -137,7 +137,7 @@ class ObjectVisualState:
     def to_yaml_data(self, default_frame: str) -> dict[str, Any]:
         """Convert the object visual state into a form suitable for export to YAML.
 
-        :param default_frame: Default frame used for poses in the relevant YAML file
+        :param default_frame: Default frame used for exported observation poses
         :return: Dictionary of data representing the object visual state
         """
         observed = {v_name: obs for v_name, obs in self.observations.items() if obs is not None}
