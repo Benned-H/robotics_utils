@@ -77,6 +77,15 @@ class Pose2D:
             ref_frame=self.ref_frame,
         )
 
+    def to_homogeneous_matrix(self) -> np.ndarray:
+        """Convert the 2D pose into a 3x3 homogeneous transformation matrix.
+
+        Reference: https://lavalle.pl/planning/node108.html
+        """
+        cos_yaw = np.cos(self.yaw_rad)
+        sin_yaw = np.sin(self.yaw_rad)
+        return np.array([[cos_yaw, -sin_yaw, self.x], [sin_yaw, cos_yaw, self.y], [0, 0, 1]])
+
 
 @dataclass(frozen=True)
 class Pose3D:
