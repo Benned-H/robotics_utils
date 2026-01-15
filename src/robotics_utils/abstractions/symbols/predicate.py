@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from itertools import product
 from typing import TYPE_CHECKING, Hashable
 
@@ -44,6 +45,16 @@ class Predicate(Hashable):
         """Return a human-readable string representation of the predicate."""
         params = ", ".join(f"{p.name}: {p.type_}" for p in self.parameters)
         return f"{self.name}({params})"
+
+    def to_pddl(self) -> str:
+        """Return a PDDL string representation of the predicate."""
+        params_per_type: dict[str, list[str]] = defaultdict(list)
+        for p in self.parameters:
+            params_per_type[p.type_].append(p.lifted_name)
+
+        typed_variables = [f"{' '.join(params)} - {t}" for t, params in params_per_type.items()]
+        variables_str = (" " + " ".join(typed_variables)) if typed_variables else ""
+        return f"({self.name}{variables_str})"
 
     def get_parameter_type(self, param_name: str) -> str:
         """Retrieve the type expected by the named parameter.
