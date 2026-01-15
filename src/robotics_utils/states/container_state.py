@@ -12,7 +12,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from robotics_utils.kinematics import KinematicTree
-    from robotics_utils.states.object_kinematic_state import ObjectKinematicState
+    from robotics_utils.states.object_states import ObjectKinematicState
+
 
 ContainerStatus = Literal["open", "closed"]
 """Status describing whether a physical container is open or closed."""

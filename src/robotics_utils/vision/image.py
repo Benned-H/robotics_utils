@@ -22,6 +22,15 @@ class Image(ABC, Displayable):
     def convert_for_visualization(self) -> np.typing.NDArray[np.uint8]:
         """Convert the image data into a form that can be visualized."""
 
+    @classmethod
+    @abstractmethod
+    def from_file(cls, image_path: str | Path) -> Image:
+        """Load an image from the given filepath."""
+
+    @abstractmethod
+    def to_file(self, image_path: str | Path) -> None:
+        """Save the image to the given filepath."""
+
     def __init__(self, data: np.typing.NDArray, filepath: Path | None = None) -> None:
         """Initialize the image using the given data."""
         if len(data.shape) < 2:
@@ -29,7 +38,7 @@ class Image(ABC, Displayable):
 
         self.data = data
         self.filepath = filepath
-        """Optional filepath from which this image was loaded."""
+        """Optional filepath from which the image was loaded or to which it has been saved."""
 
     @property
     def width(self) -> int:

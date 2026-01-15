@@ -10,7 +10,7 @@ from .examples.dorfl_skills import Bread, DorflSkillsProtocol, Jar, Knife
 
 
 @pytest.fixture
-def dorfl_skills_protocol() -> SkillsProtocol:
+def dorfl_skills_protocol() -> type[SkillsProtocol]:
     """Retrieve the skills protocol for the Dorfl robot."""
     return DorflSkillsProtocol
 
@@ -18,14 +18,14 @@ def dorfl_skills_protocol() -> SkillsProtocol:
 @pytest.fixture
 def dorfl_domain_objects() -> list[object]:
     """Construct and return the objects comprising the Dorfl "Spread PB" domain."""
-    knife = Knife("knife", visual_description="Metal knife with red plastic handle")
-    pb_jar = Jar("pb_jar", visual_description="Jar of peanut butter with a white label")
-    bread = Bread("bread", visual_description="Slice of white bread")
+    knife = Knife()
+    pb_jar = Jar()
+    bread = Bread()
     return [knife, pb_jar, bread]
 
 
 def test_dorfl_skill_instances(
-    dorfl_skills_protocol: SkillsProtocol,
+    dorfl_skills_protocol: type[SkillsProtocol],
     dorfl_domain_objects: list[object],
 ) -> None:
     """Verify that the Dorfl skills protocol can be converted into the expected skill instances."""

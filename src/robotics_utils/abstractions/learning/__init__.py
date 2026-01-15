@@ -1,4 +1,4 @@
 """Import classes used to learn symbolic abstractions."""
 
-from .transition_data import AbstractDataset as AbstractDataset
-from .transition_data import SkillTransition as SkillTransition
+from .transitions import AbstractTransition as AbstractTransition
+from .transitions import Transition as Transition

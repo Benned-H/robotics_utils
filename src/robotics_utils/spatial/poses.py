@@ -230,8 +230,15 @@ class Pose3D:
 
         return Pose3D.from_sequence(xyz_rpy, ref_frame)
 
-    def to_yaml_data(self) -> dict[str, Any]:
-        """Convert the pose into a dictionary suitable for export to YAML."""
+    def to_yaml_data(self, default_frame: str | None = None) -> dict[str, Any] | list[float]:
+        """Convert the pose into a form suitable for export to YAML.
+
+        :param default_frame: Optional default frame used in the YAML file (defaults to None)
+        :return: Dictionary or list of data representing the pose
+        """
+        if default_frame is not None and default_frame == self.ref_frame:
+            return list(self.to_xyz_rpy())
+
         return {"xyz_rpy": self.to_xyz_rpy(), "frame": self.ref_frame}
 
     @classmethod

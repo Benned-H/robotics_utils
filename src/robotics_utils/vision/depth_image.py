@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import cv2
 import numpy as np
 
 from robotics_utils.vision.image import Image
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 class DepthImage(Image):
@@ -42,3 +39,39 @@ class DepthImage(Image):
         normalized_depth = cv2.normalize(self.data, None, 0, 255, norm_type=cv2.NORM_MINMAX)
         convert_to_uint8 = np.astype(normalized_depth, np.uint8)
         return cv2.applyColorMap(convert_to_uint8, colormap=cv2.COLORMAP_JET)
+
+    @classmethod
+    def from_file(cls, image_path: str | Path) -> DepthImage:
+        """Load a depth image from the given filepath.
+
+        Assumes the file stores depth as 16-bit unsigned integers in millimeters.
+        """
+        image_path = Path(image_path)
+        if not image_path.exists():
+            raise FileNotFoundError(f"Cannot load image from nonexistent file: {image_path}")
+
+        image = cv2.imread(str(image_path), cv2.IMREAD_ANYDEPTH)
+        if image is None:
+            raise RuntimeError(f"Failed to load image from path: {image_path}")
+
+        # Convert from millimeters (uint16) to meters (float64)
+        depth_data = image.astype(np.float64) / 1000.0
+        return DepthImage(depth_data, image_path)
+
+    def to_file(self, image_path: str | Path) -> None:
+        """Save the depth image to the given filepath.
+
+        Saves depth as 16-bit unsigned integers in millimeters.
+        """
+        image_path = Path(image_path)
+        image_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Convert from meters (float64) to millimeters (uint16)
+        depth_mm = (self.data * 1000.0).astype(np.uint16)
+        success = cv2.imwrite(str(image_path), depth_mm)
+        if not success:
+            raise RuntimeError(f"Failed to save image to path: {image_path}")
+
+        # Populate the image's filepath if it didn't have one
+        if self.filepath is None:
+            self.filepath = image_path

@@ -1,14 +1,13 @@
 """Define a skills protocol for the Dorfl bimanual manipulator."""
 
-from robotics_utils.abstractions.objects import BaseObjectType
 from robotics_utils.skills import SkillsProtocol, skill_method
 
 
 # Define object types for the "Spread PB" task
-class Pickable(BaseObjectType): ...
+class Pickable: ...
 
 
-class Bread(BaseObjectType): ...
+class Bread: ...
 
 
 class Jar(Pickable): ...
