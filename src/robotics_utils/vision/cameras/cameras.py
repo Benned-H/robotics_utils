@@ -28,6 +28,9 @@ class Camera(ABC, Generic[ImageT]):
 
     name: str
     intrinsics: CameraIntrinsics
+    image_type: type[ImageT]
+    """Type of image captured by the camera (e.g., `DepthImage`)."""
+
     frame_name: str | None = None
     """Name of the coordinate frame associated with the camera."""
 

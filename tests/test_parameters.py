@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from robotics_utils.abstractions.predicates import Parameter
+from robotics_utils.abstractions.symbols import Parameter
 
 
 @dataclass(frozen=True)
