@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-import open3d as o3d
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -112,11 +111,3 @@ class PointCloud:
         points_xyz = np.stack([x, y, z], axis=-1).astype(np.float64)
 
         return PointCloud(points=points_xyz, colors=rgb_values)
-
-    def to_o3d(self) -> o3d.geometry.PointCloud:
-        """Convert the pointcloud into an Open3D pointcloud."""
-        o3d_pcd = o3d.geometry.PointCloud()
-        o3d_pcd.points = o3d.utility.Vector3dVector(self.points)
-        if self.colors is not None:
-            o3d_pcd.colors = o3d.utility.Vector3dVector(self.colors / 255.0)
-        return o3d_pcd

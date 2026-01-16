@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from robotics_utils.perception import OccupancyGrid2D
 from robotics_utils.spatial import Pose2D
 
 
@@ -24,38 +25,32 @@ class RectangularFootprint:
     half_length_y_m: float
     """Half-length (meters) of the robot along its body-frame y-axis."""
 
-    def check_collision(
-        self,
-        robot_pose: Pose2D,
-        occupancy_mask: np.ndarray,
-        mask_origin: Pose2D,
-        resolution_m: float,
-    ) -> bool:
+    def check_collision(self, robot_pose: Pose2D, occupancy_grid: OccupancyGrid2D) -> bool:
         """Check whether the robot collides with obstacles at the given pose.
 
         :param robot_pose: Robot pose in world frame
-        :param occupancy_mask: Boolean mask where True indicates occupied cells
-        :param mask_origin: Origin pose of the occupancy grid
-        :param resolution_m: Grid resolution (meters)
+        :param occupancy_grid: Occupancy grid representing occupied cells
         :return: True if a collision is detected, else False
         """
-        if robot_pose.ref_frame != mask_origin.ref_frame:
+        if robot_pose.ref_frame != occupancy_grid.origin.ref_frame:
             raise ValueError(
                 f"Cannot check collisions when robot pose is in frame '{robot_pose.ref_frame}' "
-                f"and occupancy grid origin is in frame '{mask_origin.ref_frame}'.",
+                f"and occupancy grid origin is in frame '{occupancy_grid.origin.ref_frame}'.",
             )
 
         # Compute the occupied cells' coordinates in the robot body frame
-        occupied_rows, occupied_cols = np.where(occupancy_mask)
+        occupied_mask = occupancy_grid.get_occupied_mask()
+
+        occupied_rows, occupied_cols = np.where(occupied_mask)
         occupied_homogeneous_g = np.array(
             [
-                (occupied_cols + 0.5) * resolution_m,
-                (occupied_rows + 0.5) * resolution_m,
+                (occupied_cols + 0.5) * occupancy_grid.resolution_m,
+                (occupancy_grid.height_cells - occupied_rows - 0.5) * occupancy_grid.resolution_m,
                 np.ones_like(occupied_cols),
             ],
         )
 
-        transform_w_g = mask_origin.to_homogeneous_matrix()  # Grid w.r.t. world
+        transform_w_g = occupancy_grid.origin.to_homogeneous_matrix()  # Grid w.r.t. world
         transform_w_r = robot_pose.to_homogeneous_matrix()  # Robot body w.r.t. world
         transform_r_g = np.linalg.inv(transform_w_r) @ transform_w_g  # Grid w.r.t. robot body
 

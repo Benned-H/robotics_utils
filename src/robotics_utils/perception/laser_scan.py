@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -12,21 +11,32 @@ if TYPE_CHECKING:
     from robotics_utils.spatial import Pose2D
 
 
-@dataclass(frozen=True)
 class LaserScan2D:
     """A 2D laser scan with range and angle measurements relative to a known sensor pose."""
 
-    sensor_pose: Pose2D
-    """Pose of the sensor at scan time (global frame)."""
+    def __init__(
+        self,
+        sensor_pose: Pose2D,
+        beam_data: np.ndarray,
+        range_min_m: float,
+        range_max_m: float,
+    ) -> None:
+        """Initialize the laser scan by applying the given range limits.
 
-    ranges_m: np.ndarray
-    """Array of (r, θ) values (ranges in meters; angles in radians) of shape (N, 2)."""
+        :param sensor_pose: Pose of the sensor at scan time (global frame)
+        :param beam_data: Array of (r, θ) values (in meters; in radians) of shape (N, 2)
+        :param range_min_m: Minimum valid range measurement (meters)
+        :param range_max_m: Maximum valid range measurement (meters)
+        """
+        self.sensor_pose = sensor_pose
+        """Pose of the sensor at scan time (global frame)."""
 
-    range_min_m: float
-    """Minimum valid range measurement (meters)."""
+        # Filter beams using the provided range limits
+        ranges_m = beam_data[:, 0]
+        valid_range_mask = (ranges_m >= range_min_m) & (ranges_m <= range_max_m)
 
-    range_max_m: float
-    """Maximum valid range measurement (meters)."""
+        self.beam_data = beam_data[valid_range_mask]
+        """Array of (r, θ) values (ranges in meters; angles in radians) of shape (N, 2)."""
 
     @classmethod
     def from_pointcloud(
@@ -66,17 +76,11 @@ class LaserScan2D:
 
         ranges_m = np.sqrt(x_coords**2 + y_coords**2)
         angles_rad = np.arctan2(y_coords, x_coords)
-
-        # Filter by range limits
-        valid_range_mask = (ranges_m >= range_min_m) & (ranges_m <= range_max_m)
-        valid_ranges = ranges_m[valid_range_mask]
-        valid_angles = angles_rad[valid_range_mask]
-
-        ranges_arr = np.stack([valid_ranges, valid_angles], axis=1).astype(np.float32)  # (r, θ)
+        beam_data = np.stack([ranges_m, angles_rad], axis=1).astype(np.float32)  # (r, θ)
 
         return LaserScan2D(
             sensor_pose=sensor_pose,
-            ranges_m=ranges_arr,
+            beam_data=beam_data,
             range_min_m=range_min_m,
             range_max_m=range_max_m,
         )
@@ -84,4 +88,4 @@ class LaserScan2D:
     @property
     def num_points(self) -> int:
         """Get the number of valid points in the laser scan."""
-        return self.ranges_m.shape[0]
+        return self.beam_data.shape[0]

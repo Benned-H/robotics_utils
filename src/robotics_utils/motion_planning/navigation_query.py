@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from robotics_utils.motion_planning.rectangular_footprint import RectangularFootprint
-    from robotics_utils.perception import OccupancyGrid2D
+    from robotics_utils.perception import GridCell, OccupancyGrid2D
     from robotics_utils.spatial import Pose2D
 
 
@@ -29,11 +29,11 @@ class NavigationQuery:
     """Robot footprint used for collision checking."""
 
     @property
-    def start_grid_coords(self) -> tuple[int, int]:
-        """Get the start pose as (x, y) grid coordinates."""
+    def start_grid_coords(self) -> GridCell:
+        """Get the start pose as (row, col) grid coordinates."""
         return self.occupancy_grid.world_to_grid(self.start_pose.x, self.start_pose.y)
 
     @property
-    def goal_grid_coords(self) -> tuple[int, int]:
-        """Get the goal pose as (x, y) grid coordinates."""
+    def goal_grid_coords(self) -> GridCell:
+        """Get the goal pose as (row, col) grid coordinates."""
         return self.occupancy_grid.world_to_grid(self.goal_pose.x, self.goal_pose.y)

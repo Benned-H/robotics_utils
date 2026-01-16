@@ -104,9 +104,9 @@ class CollisionModelRasterizer:
 
         if filtered_vertices.shape[0] < 3:  # Not enough vertices to form a polygon
             for vertex in filtered_vertices:
-                grid_col, grid_row = grid.world_to_grid(vertex[0], vertex[1])
-                if grid.is_valid_cell(grid_col, grid_row):
-                    mask[grid_row, grid_col] = True
+                grid_cell = grid.world_to_grid(vertex[0], vertex[1])
+                if grid.is_valid_cell(grid_cell):
+                    mask[grid_cell.row, grid_cell.col] = True
             return mask
 
         vertices_2d = filtered_vertices[:, :2]  # Project to 2D (x, y) coordinates
@@ -115,20 +115,20 @@ class CollisionModelRasterizer:
             hull = ConvexHull(vertices_2d)
         except QhullError:  # Degenerate case (e.g., collinear points); mark individual points
             for vertex in vertices_2d:
-                grid_col, grid_row = grid.world_to_grid(vertex[0], vertex[1])
-                if grid.is_valid_cell(grid_col, grid_row):
-                    mask[grid_row, grid_col] = True
+                grid_cell = grid.world_to_grid(vertex[0], vertex[1])
+                if grid.is_valid_cell(grid_cell):
+                    mask[grid_cell.row, grid_cell.col] = True
             return mask
 
-        occupied_grid_cols = []
         occupied_grid_rows = []
+        occupied_grid_cols = []
         hull_vertices = hull.points[hull.vertices]  # Get only the boundary vertices, in order
         for point in hull_vertices:
-            col, row = grid.world_to_grid(point[0], point[1])
-            occupied_grid_cols.append(col)
+            row, col = grid.world_to_grid(point[0], point[1])
             occupied_grid_rows.append(row)
+            occupied_grid_cols.append(col)
 
-        rr, cc = polygon(c=occupied_grid_cols, r=occupied_grid_rows, shape=mask.shape)
+        rr, cc = polygon(r=occupied_grid_rows, c=occupied_grid_cols, shape=mask.shape)
         mask[rr, cc] = True
 
         return mask

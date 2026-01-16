@@ -11,6 +11,7 @@ import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from robotics_utils.geometry import Plane3D
+from robotics_utils.reconstruction.open3d_utils import pointcloud_to_o3d
 from robotics_utils.visualization import Displayable
 
 if TYPE_CHECKING:
@@ -45,7 +46,7 @@ class PlaneEstimate(Displayable):
             return None
 
         # Run RANSAC plane segmentation
-        plane_model, inlier_indices = pointcloud.to_o3d().segment_plane(
+        plane_model, inlier_indices = pointcloud_to_o3d(pointcloud).segment_plane(
             distance_threshold=inlier_threshold_m,
             ransac_n=ransac_n,
             num_iterations=iterations,
