@@ -10,9 +10,10 @@ from scipy.spatial import ConvexHull, QhullError
 from skimage.draw import polygon
 
 from robotics_utils.collision_models import Box, Cylinder, PrimitiveShape, Sphere
+from robotics_utils.geometry import Point2D
 
 if TYPE_CHECKING:
-    from robotics_utils.perception.occupancy_grid import OccupancyGrid2D
+    from robotics_utils.motion_planning import DiscreteGrid2D
     from robotics_utils.spatial import Pose3D
     from robotics_utils.states import ObjectKinematicState
 
@@ -28,14 +29,14 @@ class CollisionModelRasterizer:
     @staticmethod
     def rasterize_object(
         obj: ObjectKinematicState,
-        grid: OccupancyGrid2D,
+        grid: DiscreteGrid2D,
         min_height_m: float,
         max_height_m: float,
     ) -> np.ndarray:
         """Rasterize an object's collision model into a mask for an occupancy grid.
 
         :param obj: Kinematic state of the object to be rasterized
-        :param grid: Occupancy grid context for the rasterization
+        :param grid: Structure of the occupancy grid for the rasterization
         :param min_height_m: Minimum height (meters) of the object to include
         :param max_height_m: Maximum height (meters) of the object to include
         :return: Boolean mask where True indicates the object footprint
@@ -74,7 +75,7 @@ class CollisionModelRasterizer:
     def rasterize_mesh(
         mesh: trimesh.Trimesh,
         obj_pose: Pose3D,
-        grid: OccupancyGrid2D,
+        grid: DiscreteGrid2D,
         min_height_m: float,
         max_height_m: float,
     ) -> np.ndarray:
@@ -86,7 +87,7 @@ class CollisionModelRasterizer:
 
         :param mesh: Collision mesh to be rasterized
         :param obj_pose: Object pose in the world frame
-        :param grid: Occupancy grid context for the rasterization
+        :param grid: Structure of the occupancy grid for the rasterization
         :param min_height_m: Minimum height (meters) of the mesh to include
         :param max_height_m: Maximum height (meters) of the mesh to include
         :return: Boolean mask where True indicates the mesh's footprint
@@ -104,7 +105,7 @@ class CollisionModelRasterizer:
 
         if filtered_vertices.shape[0] < 3:  # Not enough vertices to form a polygon
             for vertex in filtered_vertices:
-                grid_cell = grid.world_to_grid(vertex[0], vertex[1])
+                grid_cell = grid.world_to_cell(Point2D.from_array(vertex))
                 if grid.is_valid_cell(grid_cell):
                     mask[grid_cell.row, grid_cell.col] = True
             return mask
@@ -115,7 +116,7 @@ class CollisionModelRasterizer:
             hull = ConvexHull(vertices_2d)
         except QhullError:  # Degenerate case (e.g., collinear points); mark individual points
             for vertex in vertices_2d:
-                grid_cell = grid.world_to_grid(vertex[0], vertex[1])
+                grid_cell = grid.world_to_cell(Point2D.from_array(vertex))
                 if grid.is_valid_cell(grid_cell):
                     mask[grid_cell.row, grid_cell.col] = True
             return mask
@@ -124,7 +125,7 @@ class CollisionModelRasterizer:
         occupied_grid_cols = []
         hull_vertices = hull.points[hull.vertices]  # Get only the boundary vertices, in order
         for point in hull_vertices:
-            row, col = grid.world_to_grid(point[0], point[1])
+            row, col = grid.world_to_cell(Point2D.from_array(point))
             occupied_grid_rows.append(row)
             occupied_grid_cols.append(col)
 
@@ -137,7 +138,7 @@ class CollisionModelRasterizer:
     def rasterize_primitive(
         primitive: PrimitiveShape,
         obj_pose: Pose3D,
-        grid: OccupancyGrid2D,
+        grid: DiscreteGrid2D,
         min_height_m: float,
         max_height_m: float,
     ) -> np.ndarray:
@@ -145,7 +146,7 @@ class CollisionModelRasterizer:
 
         :param primitive: Primitive shape to be rasterized
         :param obj_pose: Object pose in the world frame
-        :param grid: Occupancy grid context for the rasterization
+        :param grid: Structure of the occupancy grid for the rasterization
         :param min_height_m: Minimum height (meters) of the primitive to include
         :param max_height_m: Maximum height (meters) of the primitive to include
         :return: Boolean mask where True indicates the primitive's footprint
