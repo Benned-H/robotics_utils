@@ -63,12 +63,32 @@ class DiscreteGrid2D:
         """Convert a local-frame y-coordinate to the corresponding row index."""
         return int(np.floor(-y / self.resolution_m))
 
+    def col_to_local_x(self, col: int) -> float:
+        """Convert a column index into a local-frame x-coordinate at the center of the column."""
+        return (col + 0.5) * self.resolution_m
+
+    def row_to_local_y(self, row: int) -> float:
+        """Convert a row index into a local-frame y-coordinate at the center of the row."""
+        return -(row + 0.5) * self.resolution_m
+
     def world_to_cell(self, point_w: Point2D) -> GridCell:
         """Convert a world-frame (x, y) point to the corresponding grid indices."""
         homogeneous_coord_g = self._transform_g_w @ np.array([point_w.x, point_w.y, 1.0])
         col = self.local_x_to_col(homogeneous_coord_g[0])
         row = self.local_y_to_row(homogeneous_coord_g[1])
         return GridCell(row, col)
+
+    def cell_to_world(self, cell: GridCell) -> Point2D:
+        """Convert grid cell indices to a world-frame position at the cell center.
+
+        :param cell: Grid cell (row, col) indices
+        :return: Point in world frame at cell center
+        """
+        local_x = self.col_to_local_x(cell.col)
+        local_y = self.row_to_local_y(cell.row)
+
+        homogeneous_world = self._transform_w_g @ np.array([local_x, local_y, 1.0])
+        return Point2D(homogeneous_world[0], homogeneous_world[1])
 
     def is_valid_cell(self, cell: GridCell) -> bool:
         """Check whether the given cell coordinate is within the grid."""
@@ -97,8 +117,34 @@ class DiscreteAngles:
 
 
 @dataclass(frozen=True)
-class DiscretePoseSpace:
+class DiscreteSE2:
+    """A discrete node of indices corresponding to a 2D pose."""
+
+    cell: GridCell
+    heading_idx: int
+
+
+@dataclass(frozen=True)
+class DiscreteSE2Space:
     """A discrete space of 2D poses consisting of (x, y, yaw) values."""
 
     grid: DiscreteGrid2D
-    angles: DiscreteAngles
+    headings: DiscreteAngles
+
+    def discretize(self, pose: Pose2D) -> DiscreteSE2:
+        """Compute the indices within the discrete SE(2) space nearest to the given pose."""
+        if pose.ref_frame != self.grid.origin.ref_frame:
+            raise ValueError(
+                f"Cannot discretize a pose in frame '{pose.ref_frame}' using a "
+                f"discrete grid with an origin in frame '{self.grid.origin.ref_frame}'.",
+            )
+
+        cell = self.grid.world_to_cell(Point2D(pose.x, pose.y))
+        heading_idx = self.headings.nearest_index(pose.yaw_rad)
+        return DiscreteSE2(cell=cell, heading_idx=heading_idx)
+
+    def convert_discrete_to_pose(self, indices: DiscreteSE2) -> Pose2D:
+        """Convert discrete indices in the space into the corresponding 2D pose."""
+        point = self.grid.cell_to_world(indices.cell)
+        yaw_rad = self.headings.index_to_angle_rad(indices.heading_idx)
+        return Pose2D(x=point.x, y=point.y, yaw_rad=yaw_rad, ref_frame=self.grid.origin.ref_frame)

@@ -1,0 +1,130 @@
+"""Define an SE(2) A* planner for 2D navigation with robot footprint collision checking."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import numpy as np
+
+from robotics_utils.motion_planning.discretization import (
+    DiscreteAngles,
+    DiscreteSE2,
+    DiscreteSE2Space,
+    GridCell,
+)
+from robotics_utils.planning import AStarPlanner
+
+if TYPE_CHECKING:
+    from robotics_utils.motion_planning.navigation_query import NavigationQuery
+    from robotics_utils.spatial import Pose2D
+
+EIGHT_CONNECTED_NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
+
+class SE2AStarPlanner(AStarPlanner[DiscreteSE2]):
+    """An A* planner over a discretized SE(2) space of (x, y, heading) indices.
+
+    This planner considers 8-connected grid neighbors with heading changes.
+    """
+
+    def __init__(
+        self,
+        query: NavigationQuery,
+        se2_space: DiscreteSE2Space,
+        heading_change_cost: float = 0.5,
+    ) -> None:
+        """Initialize the SE(2) A* planner with its discrete search space.
+
+        :param query: Navigation query specifying start, goal, occupancy grid, and robot footprint
+        :param se2_space: Discrete space over SE(2) defining the search grid and headings
+        :param heading_change_cost: Additional cost per discrete heading change (defaults to 0.5)
+        """
+        self.query = query
+        self.se2_space = se2_space
+        self.heading_change_cost = heading_change_cost
+
+    def get_neighbors(self, state: DiscreteSE2) -> list[DiscreteSE2]:
+        """Return collision-free neighboring states reachable from the given state."""
+        neighbors: list[DiscreteSE2] = []
+        grid = self.se2_space.grid
+
+        for dr, dc in EIGHT_CONNECTED_NEIGHBORS:
+            new_cell = GridCell(state.cell.row + dr, state.cell.col + dc)
+
+            if not grid.is_valid_cell(new_cell):
+                continue
+
+            # Compute heading index pointing to the neighbor cell
+            angle_rad = np.arctan2(-dr, dc)
+            heading_idx = self.se2_space.headings.nearest_index(angle_rad)
+
+            neighbor = DiscreteSE2(cell=new_cell, heading_idx=heading_idx)
+            pose = self.se2_space.convert_discrete_to_pose(neighbor)
+
+            if not self.query.robot_footprint.check_collision(pose, self.query.occupancy_grid):
+                neighbors.append(neighbor)
+
+        return neighbors
+
+    def cost(self, pre_state: DiscreteSE2, post_state: DiscreteSE2) -> float:
+        """Compute transition cost as Euclidean distance plus a heading change penalty."""
+        dr = post_state.cell.row - pre_state.cell.row
+        dc = post_state.cell.col - pre_state.cell.col
+        distance_m = self.se2_space.grid.resolution_m * np.sqrt(dr * dr + dc * dc)
+
+        heading_diff = abs(post_state.heading_idx - pre_state.heading_idx)
+        heading_cost = heading_diff * self.heading_change_cost
+
+        return distance_m + heading_cost
+
+    def heuristic(self, state: DiscreteSE2, goal: DiscreteSE2) -> float:
+        """Compute Euclidean distance (meters) as an admissible heuristic for cost-to-go."""
+        dr = goal.cell.row - state.cell.row
+        dc = goal.cell.col - state.cell.col
+        return self.se2_space.grid.resolution_m * np.sqrt(dr * dr + dc * dc)
+
+    def is_goal(self, state: DiscreteSE2, goal: DiscreteSE2) -> bool:
+        """Check whether the given state equals the given goal."""
+        return state == goal
+
+    def state_key(self, state: DiscreteSE2) -> tuple[int, int, int]:
+        """Return a hashable key for the given state."""
+        return (state.cell.row, state.cell.col, state.heading_idx)
+
+
+def plan_se2_path(query: NavigationQuery) -> list[Pose2D] | None:
+    """Plan a collision-free path to solve the given navigation query.
+
+    :param query: Navigation query specifying start, goal, occupancy grid, and robot footprint
+    :return: List of Pose2D waypoints from start to goal, or None if no path was found
+    """
+    if query.robot_footprint.check_collision(query.start_pose, query.occupancy_grid):
+        return None  # Start pose in collision
+    if query.robot_footprint.check_collision(query.goal_pose, query.occupancy_grid):
+        return None  # Goal pose in collision
+
+    # Create the discrete SE(2) space used during A* search
+    headings = DiscreteAngles(num_angles=8)
+    se2_space = DiscreteSE2Space(grid=query.occupancy_grid.grid, headings=headings)
+
+    start = se2_space.discretize(query.start_pose)
+    goal = se2_space.discretize(query.goal_pose)
+
+    if not se2_space.grid.is_valid_cell(start.cell):
+        return None  # Start cell out of bounds
+    if not se2_space.grid.is_valid_cell(goal.cell):
+        return None  # Goal cell out of bounds
+
+    planner = SE2AStarPlanner(query=query, se2_space=se2_space)
+    discrete_plan = planner.plan(start, goal)
+
+    if discrete_plan is None:
+        return None
+
+    # Convert to Pose2D waypoints (use exact start and goal poses)
+    waypoints = [se2_space.convert_discrete_to_pose(indices) for indices in discrete_plan]
+    if waypoints:
+        waypoints[0] = query.start_pose
+        waypoints[-1] = query.goal_pose
+
+    return waypoints

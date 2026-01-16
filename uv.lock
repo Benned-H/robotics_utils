@@ -2446,15 +2446,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pathfinding"
-version = "1.0.19"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/47/f0/78e75e738ed255e5a262eab92b015b6ae9246bae8350c629c1acee9ff9dc/pathfinding-1.0.19.tar.gz", hash = "sha256:30fcfbe5617a1ad3b259e96a21873c1d80c5413a765756d41992b780dd422b19", size = 24259, upload-time = "2026-01-06T10:49:53.169Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8a/2e/fec3d9f887134daa9281ad8bd589b92a9a31a892d9ca241bfe23b806eabd/pathfinding-1.0.19-py3-none-any.whl", hash = "sha256:8599ff3a317f29f00f0c2c61099c7ebea76d3ee5517220efc4fe32e26d63ee19", size = 26200, upload-time = "2026-01-06T10:49:52.323Z" },
-]
-
-[[package]]
 name = "pillow"
 version = "10.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3371,7 +3362,6 @@ dependencies = [
     { name = "numpy", version = "1.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "pathfinding" },
     { name = "prompt-toolkit" },
     { name = "pyquaternion" },
     { name = "rich" },
@@ -3476,7 +3466,6 @@ requires-dist = [
     { name = "numpy" },
     { name = "open3d", marker = "extra == 'realsense'" },
     { name = "opencv-python", marker = "extra == 'vision'" },
-    { name = "pathfinding" },
     { name = "pillow", marker = "extra == 'vision'" },
     { name = "prompt-toolkit" },
     { name = "pupil-apriltags", marker = "extra == 'vision'" },

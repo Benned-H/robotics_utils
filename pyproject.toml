@@ -17,7 +17,6 @@ dependencies = [
     "pyquaternion",
     "prompt-toolkit",
     "distinctipy",
-    "pathfinding",    # A* path planning for navigation feasibility
     "scipy",
     "scikit-image",
 ]
