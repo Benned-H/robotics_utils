@@ -111,7 +111,7 @@ class Quaternion:
         return Quaternion(0, 0, 0, 1)
 
     @classmethod
-    def from_array(cls, arr: np.ndarray) -> Quaternion:
+    def from_array(cls, arr: NDArray[np.floating]) -> Quaternion:
         """Construct a quaternion from a NumPy array of the form [x,y,z,w]."""
         if arr.shape != (4,):
             raise ValueError(f"Quaternion expects a 4-vector, got {arr.shape}")

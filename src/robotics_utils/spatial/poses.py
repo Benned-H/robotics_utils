@@ -9,6 +9,7 @@ import numpy as np
 
 from robotics_utils.geometry import Point2D, Point3D
 from robotics_utils.io.yaml_utils import load_yaml_data
+from robotics_utils.math import normalize_angle
 from robotics_utils.spatial.frames import DEFAULT_FRAME
 from robotics_utils.spatial.rotations import EulerRPY, Quaternion
 
@@ -16,7 +17,10 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
     from pathlib import Path
 
-MultiplyT = TypeVar("MultiplyT", "Pose3D", Point3D)
+    from numpy.typing import NDArray
+
+Multiply2D = TypeVar("Multiply2D", "Pose2D", Point2D)
+Multiply3D = TypeVar("Multiply3D", "Pose3D", Point3D)
 
 XYZ_RPY = Tuple[float, float, float, float, float, float]
 """A 6-tuple of (x, y, z, roll, pitch, yaw) values."""
@@ -35,6 +39,36 @@ class Pose2D:
         """Provide an iterator over the (x,y,yaw) values of the 2D pose."""
         yield from self.to_tuple()
 
+    def __matmul__(self, other: Multiply2D) -> Multiply2D:
+        """Compose the 2D homogeneous transformation matrix of this pose with another object.
+
+        :param other: 2D pose or 2D point right-multiplied with this pose
+        :return: Result from the matrix multiplication
+        """
+        if isinstance(other, Pose2D):
+            return self._matrix_multiply_pose2d(other)
+        if isinstance(other, Point2D):
+            return self._matrix_multiply_point2d(other)
+
+        raise NotImplementedError(f"Cannot matrix-multiply Pose2D with: {other}")
+
+    def _matrix_multiply_pose2d(self, other: Pose2D) -> Pose2D:
+        """Multiply the homogeneous transformation matrix of this pose with another pose.
+
+        :param other: Pose defining the right-side matrix in the multiplication
+        :return: Pose2D resulting from the matrix multiplication
+        """
+        left_m = self.to_homogeneous_matrix()
+        right_m = other.to_homogeneous_matrix()
+        result_ref_frame = self.ref_frame  # Result takes the "leftmost" reference frame
+        return Pose2D.from_homogeneous_matrix(left_m @ right_m, result_ref_frame)
+
+    def _matrix_multiply_point2d(self, other: Point2D) -> Point2D:
+        """Multiply the homogeneous transformation matrix of this pose with a 2D point."""
+        h_coordinate = np.array([other.x, other.y, 1], dtype=np.float32)
+        h_result = self.to_homogeneous_matrix() @ h_coordinate
+        return Point2D(x=h_result[0], y=h_result[1])
+
     @classmethod
     def from_sequence(cls, pose_seq: Sequence[float], ref_frame: str = DEFAULT_FRAME) -> Pose2D:
         """Construct a Pose2D from a sequence of values.
@@ -51,6 +85,10 @@ class Pose2D:
     def to_tuple(self) -> tuple[float, float, float]:
         """Convert the 2D pose into an (x,y,yaw) tuple."""
         return (float(self.x), float(self.y), float(self.yaw_rad))
+
+    def to_array(self) -> NDArray[np.float64]:
+        """Convert the 2D pose to a NumPy array."""
+        return np.asarray([self.x, self.y, self.yaw_rad], dtype=np.float64)
 
     @property
     def position(self) -> Point2D:
@@ -77,6 +115,49 @@ class Pose2D:
             ref_frame=self.ref_frame,
         )
 
+    @classmethod
+    def from_homogeneous_matrix(cls, matrix: NDArray, ref_frame: str = DEFAULT_FRAME) -> Pose2D:
+        """Construct a Pose2D from a 3x3 homogeneous transformation matrix.
+
+        :param matrix: Homogeneous transformation matrix of shape (3, 3)
+        :param ref_frame: Reference frame of the pose
+        :return: Constructed Pose2D instance
+        """
+        if matrix.shape != (3, 3):
+            raise ValueError(f"Cannot construct a Pose2D from a matrix of shape {matrix.shape}.")
+
+        x = matrix[0, 2]
+        y = matrix[1, 2]
+        cos_yaw_rad = matrix[0, 0]
+        sin_yaw_rad = matrix[1, 0]
+        yaw_rad = np.arctan2(sin_yaw_rad, cos_yaw_rad)
+
+        return Pose2D(x=x, y=y, yaw_rad=yaw_rad, ref_frame=ref_frame)
+
+    def to_homogeneous_matrix(self) -> NDArray[np.float64]:
+        """Convert the 2D pose into a 3x3 homogeneous transformation matrix.
+
+        Reference: https://lavalle.pl/planning/node108.html
+        """
+        cos_yaw = np.cos(self.yaw_rad)
+        sin_yaw = np.sin(self.yaw_rad)
+        return np.array(
+            [[cos_yaw, -sin_yaw, self.x], [sin_yaw, cos_yaw, self.y], [0, 0, 1]],
+            dtype=np.float64,
+        )
+
+    def approx_equal(self, other: Pose2D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
+        """Evaluate whether another Pose2D is approximately equal to this one."""
+        if self.ref_frame != other.ref_frame:
+            return False
+
+        self_array = self.to_array()
+        self_array[2] = normalize_angle(self.yaw_rad)
+        other_array = other.to_array()
+        other_array[2] = normalize_angle(other.yaw_rad)
+
+        return np.allclose(self_array, other_array, rtol=rtol, atol=atol)
+
 
 @dataclass(frozen=True)
 class Pose3D:
@@ -86,7 +167,7 @@ class Pose3D:
     orientation: Quaternion
     ref_frame: str = DEFAULT_FRAME
 
-    def __matmul__(self, other: MultiplyT) -> MultiplyT:
+    def __matmul__(self, other: Multiply3D) -> Multiply3D:
         """Compose the homogeneous transformation matrix of this pose with another object.
 
         :param other: 3D pose or 3D point right-multiplied with this pose
@@ -186,7 +267,7 @@ class Pose3D:
         return Pose3D.from_xyz_rpy(x, y, z, roll, pitch, yaw, ref_frame)
 
     @classmethod
-    def from_homogeneous_matrix(cls, matrix: np.ndarray, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
+    def from_homogeneous_matrix(cls, matrix: NDArray, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
         """Construct a Pose3D from a 4x4 homogeneous transformation matrix."""
         if matrix.shape != (4, 4):
             raise ValueError(f"Expected a 4x4 matrix but received shape {matrix.shape}")
@@ -195,7 +276,7 @@ class Pose3D:
         orientation = Quaternion.from_homogeneous_matrix(matrix)
         return Pose3D(position, orientation, ref_frame)
 
-    def to_homogeneous_matrix(self) -> np.ndarray:
+    def to_homogeneous_matrix(self) -> NDArray[np.float64]:
         """Convert the Pose3D into a 4x4 homogeneous transformation matrix."""
         matrix = self.orientation.to_homogeneous_matrix()
         matrix[:3, 3] = self.position.to_array()

@@ -3,7 +3,7 @@
 import click
 
 from robotics_utils.io.logging import log_info
-from robotics_utils.reconstruction import Pointcloud
+from robotics_utils.reconstruction import PointCloud
 from robotics_utils.vision.cameras import D455_SPEC, RealSense
 from robotics_utils.visualization import display_in_window
 from robotics_utils.visualization.open3d_visualizer import Open3DVisualizer
@@ -23,9 +23,9 @@ def main(pointcloud_coloring: str) -> None:
 
             # Compute and visualize a pointcloud based on the current RGB-D or depth image
             if pointcloud_coloring == "rgb":
-                pointcloud = Pointcloud.from_rgbd_image(rgbd, sensor.depth_intrinsics)
+                pointcloud = PointCloud.from_rgbd_image(rgbd, sensor.depth_intrinsics)
             elif pointcloud_coloring == "depth":
-                pointcloud = Pointcloud.from_depth_image(rgbd.depth, sensor.depth_intrinsics)
+                pointcloud = PointCloud.from_depth_image(rgbd.depth, sensor.depth_intrinsics)
             else:
                 raise ValueError(f"Invalid pointcloud coloring choice: '{pointcloud_coloring}'.")
 

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import open3d as o3d
 
-from robotics_utils.reconstruction import PlaneEstimate, Pointcloud
+from robotics_utils.reconstruction import PlaneEstimate, PointCloud, pointcloud_to_o3d
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -105,17 +105,17 @@ class Open3DVisualizer:
     def add_pointcloud(
         self,
         name: str,
-        pointcloud: Pointcloud,
+        pointcloud: PointCloud,
         *,
         update_display: bool = True,
     ) -> None:
         """Add the given pointcloud to the visualization.
 
         :param name: Unique identifier for the pointcloud
-        :param pointcloud: Pointcloud to visualize
+        :param pointcloud: Point cloud to visualize
         :param update_display: Whether to update the display after adding (defaults to True)
         """
-        o3d_pcd = pointcloud.to_o3d()
+        o3d_pcd = pointcloud_to_o3d(pointcloud)
 
         if name not in self.geometries:  # First time adding this name
             self.add_geometry(name, geometry=o3d_pcd, update_display=update_display)
@@ -227,7 +227,7 @@ class Open3DVisualizer:
             else estimate.pointcloud.colors[estimate.inlier_indices]
         )
 
-        vis_pointcloud = Pointcloud(estimate.pointcloud.points, vis_colors)
+        vis_pointcloud = PointCloud(estimate.pointcloud.points, vis_colors)
         self.add_pointcloud(f"{name}-pointcloud", vis_pointcloud, update_display=False)
 
         self.add_plane(f"{name}-plane", estimate.plane, plane_size_m, update_display=False)

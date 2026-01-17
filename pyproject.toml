@@ -17,6 +17,8 @@ dependencies = [
     "pyquaternion",
     "prompt-toolkit",
     "distinctipy",
+    "scipy",
+    "scikit-image",
 ]
 
 # Optional dependencies support optional user features

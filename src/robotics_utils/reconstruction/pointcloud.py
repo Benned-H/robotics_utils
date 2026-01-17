@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-import open3d as o3d
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -15,7 +14,7 @@ if TYPE_CHECKING:
     from robotics_utils.vision.vlms import ObjectSegmentation
 
 
-class Pointcloud:
+class PointCloud:
     """A pointcloud of 3D points."""
 
     def __init__(
@@ -29,7 +28,7 @@ class Pointcloud:
         :param colors: Optional array containing point colors of shape (N, 3)
         """
         if len(points.shape) != 2 or points.shape[1] != 3:
-            raise ValueError(f"Pointcloud expects an array of shape (N, 3), got {points.shape}")
+            raise ValueError(f"Point cloud expects an array of shape (N, 3), got {points.shape}")
 
         self.points = points
         """Points in the pointcloud; shape (N, 3)."""
@@ -42,7 +41,7 @@ class Pointcloud:
         return self.points.shape[0]
 
     @classmethod
-    def from_depth_image(cls, depth: DepthImage, depth_intrinsics: CameraIntrinsics) -> Pointcloud:
+    def from_depth_image(cls, depth: DepthImage, depth_intrinsics: CameraIntrinsics) -> PointCloud:
         """Construct a pointcloud from the given depth image.
 
         Reference: https://www.open3d.org/docs/release/python_api/open3d.geometry.PointCloud.html
@@ -50,7 +49,7 @@ class Pointcloud:
 
         :param depth: Depth image of shape (H, W)
         :param depth_intrinsics: Depth camera intrinsic parameters
-        :return: Pointcloud consisting of 3D points represented as an array of shape (N, 3)
+        :return: Point cloud consisting of 3D points represented as an array of shape (N, 3)
         """
         z = depth.data  # (H, W)
         v, u = np.indices((depth.height, depth.width))  # V gives row indices and U gives columns
@@ -60,21 +59,21 @@ class Pointcloud:
 
         assert pointmap.shape == (depth.height, depth.width, 3)  # Sanity-check dimensions
 
-        return Pointcloud(pointmap.reshape(-1, 3, order="C"))  # Convert to (N, 3)
+        return PointCloud(pointmap.reshape(-1, 3, order="C"))  # Convert to (N, 3)
 
     @classmethod
-    def from_rgbd_image(cls, rgbd: RGBDImage, depth_intrinsics: CameraIntrinsics) -> Pointcloud:
+    def from_rgbd_image(cls, rgbd: RGBDImage, depth_intrinsics: CameraIntrinsics) -> PointCloud:
         """Construct a pointcloud from the given RGB-D image.
 
         :param rgbd: RGB-D image with RGB and depth data
         :param depth_intrinsics: Depth camera intrinsic parameters
-        :return: Pointcloud consisting of 3D points with associated RGB colors
+        :return: Point cloud consisting of 3D points with associated RGB colors
         :raises ValueError: If the provided RGB and depth images have different dimensions (W x H)
         """
         if not rgbd.same_dimensions:
-            raise ValueError("Cannot construct Pointcloud; RGB and depth images differ in size.")
+            raise ValueError("Cannot construct PointCloud; RGB and depth images differ in size.")
 
-        cloud = Pointcloud.from_depth_image(rgbd.depth, depth_intrinsics)
+        cloud = PointCloud.from_depth_image(rgbd.depth, depth_intrinsics)
         cloud.colors = rgbd.rgb.data.reshape(-1, 3, order="C")
         return cloud
 
@@ -84,16 +83,16 @@ class Pointcloud:
         rgbd: RGBDImage,
         depth_intrinsics: CameraIntrinsics,
         segmentation: ObjectSegmentation,
-    ) -> Pointcloud:
+    ) -> PointCloud:
         """Construct a pointcloud from an object instance segmentation in the given RGB-D image.
 
         :param rgbd: RGB-D image with RGB and depth data
         :param depth_intrinsics: Depth camera intrinsic parameters
         :param segmentation: Object instance segmentation including a pixel mask
-        :return: Pointcloud consisting of masked 3D points with associated RGB colors
+        :return: PointCloud consisting of masked 3D points with associated RGB colors
         """
         if not rgbd.same_dimensions:
-            raise ValueError("Cannot construct Pointcloud; RGB and depth images differ in size.")
+            raise ValueError("Cannot construct PointCloud; RGB and depth images differ in size.")
 
         # Get pixel coordinates where the mask is True
         mask_coords = np.argwhere(segmentation.mask)  # (N, 2)
@@ -104,19 +103,11 @@ class Pointcloud:
         rgb_values = rgbd.rgb.data[v, u]  # (N, 3)
         z = rgbd.depth.data[v, u]  # (N,)
 
-        # Same math as in Pointcloud.from_depth_image
+        # Same math as in PointCloud.from_depth_image
         x = (u - depth_intrinsics.x0) * z / depth_intrinsics.fx  # (N,)
         y = (v - depth_intrinsics.y0) * z / depth_intrinsics.fy  # (N,)
 
         # Stack along last axis to get (N, 3)
         points_xyz = np.stack([x, y, z], axis=-1).astype(np.float64)
 
-        return Pointcloud(points=points_xyz, colors=rgb_values)
-
-    def to_o3d(self) -> o3d.geometry.PointCloud:
-        """Convert the pointcloud into an Open3D pointcloud."""
-        o3d_pcd = o3d.geometry.PointCloud()
-        o3d_pcd.points = o3d.utility.Vector3dVector(self.points)
-        if self.colors is not None:
-            o3d_pcd.colors = o3d.utility.Vector3dVector(self.colors / 255.0)
-        return o3d_pcd
+        return PointCloud(points=points_xyz, colors=rgb_values)

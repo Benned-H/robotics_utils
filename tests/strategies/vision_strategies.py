@@ -7,6 +7,7 @@ import numpy as np
 from hypothesis.extra import numpy as numpy_st
 
 from robotics_utils.vision import BoundingBox, DepthImage, Image, PixelXY, RGBImage
+from robotics_utils.vision.cameras import CameraIntrinsics
 
 from .common_strategies import integer_ranges
 
@@ -33,6 +34,20 @@ def bounding_boxes(draw: st.DrawFn) -> BoundingBox:
 
 
 @st.composite
+def camera_intrinsics(draw: st.DrawFn) -> CameraIntrinsics:
+    """Generate random camera intrinsics."""
+    focal_lengths_px = st.floats(min_value=0, max_value=1000)
+    principal_point_offsets = st.floats()
+
+    return CameraIntrinsics(
+        fx=draw(focal_lengths_px),
+        fy=draw(focal_lengths_px),
+        x0=draw(principal_point_offsets),
+        y0=draw(principal_point_offsets),
+    )
+
+
+@st.composite
 def rgb_images(draw: st.DrawFn) -> RGBImage:
     """Generate random RGB images."""
     height = draw(st.integers(min_value=1, max_value=1024))
@@ -43,12 +58,18 @@ def rgb_images(draw: st.DrawFn) -> RGBImage:
 
 
 @st.composite
-def depth_images(draw: st.DrawFn) -> DepthImage:
+def depth_images(
+    draw: st.DrawFn,
+    *,
+    min_depth_m: float = 0,
+    max_depth_m: float = 1000,
+) -> DepthImage:
     """Generate random depth images."""
     height = draw(st.integers(min_value=1, max_value=1024))
     width = draw(st.integers(min_value=1, max_value=1024))
 
-    data = draw(numpy_st.arrays(dtype=np.float64, shape=(height, width)))
+    depth_values = st.floats(min_value=min_depth_m, max_value=max_depth_m)
+    data = draw(numpy_st.arrays(dtype=np.float64, shape=(height, width), elements=depth_values))
     return DepthImage(data)
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import click
 
 from robotics_utils.io import console
-from robotics_utils.reconstruction import PlaneEstimate, Pointcloud
+from robotics_utils.reconstruction import PlaneEstimate, PointCloud
 from robotics_utils.vision import RGBImage
 from robotics_utils.vision.cameras import D415_SPEC, D455_SPEC, RealSense
 from robotics_utils.vision.vlms import SAM3
@@ -62,8 +62,8 @@ def main(realsense: str, query: str | None) -> None:
             biggest = max(segmentations, key=lambda s: s.mask.sum())
 
             # Compute a pointcloud using the selected segmentation
-            pointcloud = Pointcloud.from_segmented_rgbd(rgbd, sensor.depth_intrinsics, biggest)
-            console.print(f"Pointcloud from largest segmentation has {len(pointcloud)} points.")
+            pointcloud = PointCloud.from_segmented_rgbd(rgbd, sensor.depth_intrinsics, biggest)
+            console.print(f"Point cloud from largest segmentation has {len(pointcloud)} points.")
 
             estimate = PlaneEstimate.fit_plane_ransac(
                 pointcloud,

@@ -11,7 +11,7 @@ from rich.prompt import FloatPrompt, IntPrompt, Prompt
 
 from robotics_utils.geometry import Point3D
 from robotics_utils.io import console
-from robotics_utils.spatial import Pose3D
+from robotics_utils.spatial import DEFAULT_FRAME, Pose2D, Pose3D
 
 if TYPE_CHECKING:
     from robotics_utils.skills import SkillParamKey
@@ -145,6 +145,26 @@ def handle_point_3d(ui: ParamUI[Point3D]) -> Point3D:
             return point
 
 
+def handle_pose_2d(ui: ParamUI[Pose2D]) -> Pose2D:
+    """Prompt the user for a 2D pose using the CLI."""
+    while True:
+        console.print(f"[cyan]{ui.prompt}[/]")
+
+        x = handle_float(ParamUI("x (m)", 0.0 if ui.default is None else ui.default.x))
+        y = handle_float(ParamUI("y (m)", 0.0 if ui.default is None else ui.default.y))
+        yaw = handle_float(ParamUI("yaw (rad)", 0.0 if ui.default is None else ui.default.yaw_rad))
+
+        ref_frame_ui = ParamUI(
+            "ref_frame",
+            DEFAULT_FRAME if ui.default is None else ui.default.ref_frame,
+        )
+        ref_frame = handle_string(ref_frame_ui)
+
+        pose = Pose2D(x, y, yaw, ref_frame=ref_frame)
+        if ui.validators is None or validate(pose, ui.validators):
+            return pose
+
+
 def handle_pose_3d(ui: ParamUI[Pose3D]) -> Pose3D:
     """Prompt the user for a 3D pose using the CLI."""
     while True:
@@ -174,6 +194,7 @@ INPUT_HANDLERS = {
     int: handle_int,
     Path: handle_filepath,
     Point3D: handle_point_3d,
+    Pose2D: handle_pose_2d,
     Pose3D: handle_pose_3d,
 }
 
