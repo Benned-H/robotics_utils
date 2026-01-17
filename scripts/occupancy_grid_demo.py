@@ -13,6 +13,7 @@ import numpy as np
 
 from robotics_utils.io import console
 from robotics_utils.io.cli_handlers import ParamUI, handle_float, handle_int, handle_pose_2d
+from robotics_utils.motion_planning import DiscreteGrid2D
 from robotics_utils.perception import LaserScan2D, OccupancyGrid2D
 from robotics_utils.spatial import Pose2D
 from robotics_utils.vision import RGBImage
@@ -45,8 +46,13 @@ def main() -> None:
         std_dev_m = handle_float(std_dev_ui)
 
         # Initialize an empty occupancy grid
-        grid_origin = Pose2D(-5, -5, 0)
-        grid = OccupancyGrid2D(grid_origin, resolution_m=0.05, width_cells=200, height_cells=200)
+        discrete_grid = DiscreteGrid2D(
+            origin=Pose2D(-5, 5, 0),
+            resolution_m=0.05,
+            width_cells=200,
+            height_cells=200,
+        )
+        occ_grid = OccupancyGrid2D(discrete_grid)
 
         # Generate noiseless beam data (reused across all simulated scans)
         beam_angles_rad = np.linspace(start=0.0, stop=2 * np.pi, num=num_beams)
@@ -65,10 +71,10 @@ def main() -> None:
             laser_scan = LaserScan2D(lidar_pose, beam_data, range_min_m=0.01, range_max_m=5.0)
 
             # Update the occupancy grid using the simulated laser scan
-            grid.update(scan=laser_scan)
+            occ_grid.update(scan=laser_scan)
 
         # Extract the occupancy map and its thresholded mask
-        raw_log_odds = grid.log_odds.copy()
+        raw_log_odds = occ_grid.log_odds.copy()
         raw_log_odds[raw_log_odds > MAX_LOG_ODDS] = MAX_LOG_ODDS
         raw_log_odds[raw_log_odds < MIN_LOG_ODDS] = MIN_LOG_ODDS
 
@@ -76,7 +82,7 @@ def main() -> None:
         uint8_log_odds = np.asarray(normalized_log_odds, dtype=np.uint8)
         console.print(f"Shape of normalized log-odds data: {uint8_log_odds.shape}")
 
-        occupied_mask = grid.get_occupied_mask().astype(np.uint8)
+        occupied_mask = occ_grid.get_occupied_mask().astype(np.uint8)
         normalized_mask = cv2.normalize(occupied_mask, None, 0, 255, norm_type=cv2.NORM_MINMAX)
         uint8_mask = np.asarray(normalized_mask, dtype=np.uint8)
         console.print(f"Shape of normalized occupancy data: {uint8_mask.shape}")

@@ -1,12 +1,17 @@
 """Define classes to represent discretized search spaces."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple, overload
 
 import numpy as np
 
 from robotics_utils.geometry import Point2D
 from robotics_utils.spatial import Pose2D
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 
 class GridCell(NamedTuple):
@@ -63,12 +68,20 @@ class DiscreteGrid2D:
         """Convert a local-frame y-coordinate to the corresponding row index."""
         return int(np.floor(-y / self.resolution_m))
 
-    def col_to_local_x(self, col: int) -> float:
-        """Convert a column index into a local-frame x-coordinate at the center of the column."""
+    @overload
+    def col_to_local_x(self, col: int) -> float: ...
+    @overload
+    def col_to_local_x(self, col: NDArray[np.intp]) -> NDArray[np.floating]: ...
+    def col_to_local_x(self, col: int | NDArray[np.intp]) -> float | NDArray[np.floating]:
+        """Convert column index/indices into local-frame x-coordinate(s) at cell center(s)."""
         return (col + 0.5) * self.resolution_m
 
-    def row_to_local_y(self, row: int) -> float:
-        """Convert a row index into a local-frame y-coordinate at the center of the row."""
+    @overload
+    def row_to_local_y(self, row: int) -> float: ...
+    @overload
+    def row_to_local_y(self, row: NDArray[np.intp]) -> NDArray[np.floating]: ...
+    def row_to_local_y(self, row: int | NDArray[np.intp]) -> float | NDArray[np.floating]:
+        """Convert row index/indices into local-frame y-coordinate(s) at cell center(s)."""
         return -(row + 0.5) * self.resolution_m
 
     def world_to_cell(self, point_w: Point2D) -> GridCell:

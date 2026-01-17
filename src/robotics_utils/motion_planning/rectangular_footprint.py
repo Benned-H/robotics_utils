@@ -32,10 +32,11 @@ class RectangularFootprint:
         :param occupancy_grid: Occupancy grid representing occupied cells
         :return: True if a collision is detected, else False
         """
-        if robot_pose.ref_frame != occupancy_grid.origin.ref_frame:
+        grid = occupancy_grid.grid
+        if robot_pose.ref_frame != grid.origin.ref_frame:
             raise ValueError(
                 f"Cannot check collisions when robot pose is in frame '{robot_pose.ref_frame}' "
-                f"and occupancy grid origin is in frame '{occupancy_grid.origin.ref_frame}'.",
+                f"and occupancy grid origin is in frame '{grid.origin.ref_frame}'.",
             )
 
         # Compute the occupied cells' coordinates in the robot body frame
@@ -44,13 +45,13 @@ class RectangularFootprint:
         occupied_rows, occupied_cols = np.where(occupied_mask)
         occupied_homogeneous_g = np.array(
             [
-                (occupied_cols + 0.5) * occupancy_grid.resolution_m,
-                (occupancy_grid.height_cells - occupied_rows - 0.5) * occupancy_grid.resolution_m,
+                grid.col_to_local_x(occupied_cols),
+                grid.row_to_local_y(occupied_rows),
                 np.ones_like(occupied_cols),
             ],
         )
 
-        transform_w_g = occupancy_grid.origin.to_homogeneous_matrix()  # Grid w.r.t. world
+        transform_w_g = grid.origin.to_homogeneous_matrix()  # Grid w.r.t. world
         transform_w_r = robot_pose.to_homogeneous_matrix()  # Robot body w.r.t. world
         transform_r_g = np.linalg.inv(transform_w_r) @ transform_w_g  # Grid w.r.t. robot body
 
