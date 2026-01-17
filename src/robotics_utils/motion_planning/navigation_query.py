@@ -1,4 +1,4 @@
-"""Define a class representing a navigation feasibility query."""
+"""Define a class representing a navigation query."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class NavigationQuery:
-    """Navigation feasibility query for 2D path planning.
+    """Navigation query for 2D path planning.
 
     This data structure encapsulates all information needed to perform a
     navigation feasibility check or path planning query on a 2D occupancy grid.

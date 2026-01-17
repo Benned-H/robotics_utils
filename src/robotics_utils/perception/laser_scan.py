@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
     from robotics_utils.reconstruction import PointCloud
     from robotics_utils.spatial import Pose2D
 
@@ -17,7 +19,7 @@ class LaserScan2D:
     def __init__(
         self,
         sensor_pose: Pose2D,
-        beam_data: np.ndarray,
+        beam_data: NDArray[np.floating],
         range_min_m: float,
         range_max_m: float,
     ) -> None:
@@ -86,6 +88,6 @@ class LaserScan2D:
         )
 
     @property
-    def num_points(self) -> int:
-        """Get the number of valid points in the laser scan."""
+    def num_beams(self) -> int:
+        """Get the number of beams in the laser scan."""
         return self.beam_data.shape[0]

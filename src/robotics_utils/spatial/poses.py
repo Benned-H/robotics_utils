@@ -9,6 +9,7 @@ import numpy as np
 
 from robotics_utils.geometry import Point2D, Point3D
 from robotics_utils.io.yaml_utils import load_yaml_data
+from robotics_utils.math import normalize_angle
 from robotics_utils.spatial.frames import DEFAULT_FRAME
 from robotics_utils.spatial.rotations import EulerRPY, Quaternion
 
@@ -85,6 +86,10 @@ class Pose2D:
         """Convert the 2D pose into an (x,y,yaw) tuple."""
         return (float(self.x), float(self.y), float(self.yaw_rad))
 
+    def to_array(self) -> NDArray[np.float64]:
+        """Convert the 2D pose to a NumPy array."""
+        return np.asarray([self.x, self.y, self.yaw_rad], dtype=np.float64)
+
     @property
     def position(self) -> Point2D:
         """Retrieve the (x,y) position of the 2D pose."""
@@ -140,6 +145,18 @@ class Pose2D:
             [[cos_yaw, -sin_yaw, self.x], [sin_yaw, cos_yaw, self.y], [0, 0, 1]],
             dtype=np.float64,
         )
+
+    def approx_equal(self, other: Pose2D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
+        """Evaluate whether another Pose2D is approximately equal to this one."""
+        if self.ref_frame != other.ref_frame:
+            return False
+
+        self_array = self.to_array()
+        self_array[2] = normalize_angle(self.yaw_rad)
+        other_array = other.to_array()
+        other_array[2] = normalize_angle(other.yaw_rad)
+
+        return np.allclose(self_array, other_array, rtol=rtol, atol=atol)
 
 
 @dataclass(frozen=True)
@@ -250,7 +267,7 @@ class Pose3D:
         return Pose3D.from_xyz_rpy(x, y, z, roll, pitch, yaw, ref_frame)
 
     @classmethod
-    def from_homogeneous_matrix(cls, matrix: np.ndarray, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
+    def from_homogeneous_matrix(cls, matrix: NDArray, ref_frame: str = DEFAULT_FRAME) -> Pose3D:
         """Construct a Pose3D from a 4x4 homogeneous transformation matrix."""
         if matrix.shape != (4, 4):
             raise ValueError(f"Expected a 4x4 matrix but received shape {matrix.shape}")
@@ -259,7 +276,7 @@ class Pose3D:
         orientation = Quaternion.from_homogeneous_matrix(matrix)
         return Pose3D(position, orientation, ref_frame)
 
-    def to_homogeneous_matrix(self) -> np.ndarray:
+    def to_homogeneous_matrix(self) -> NDArray[np.float64]:
         """Convert the Pose3D into a 4x4 homogeneous transformation matrix."""
         matrix = self.orientation.to_homogeneous_matrix()
         matrix[:3, 3] = self.position.to_array()

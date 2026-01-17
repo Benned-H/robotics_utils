@@ -59,12 +59,15 @@ def bresenham_line(c0: GridCell, c1: GridCell) -> list[GridCell]:
 class OccupancyGrid2D:
     """A 2D occupancy grid using log-odds to represent the probability of occupancy."""
 
-    def __init__(self, grid: DiscreteGrid2D) -> None:
+    def __init__(self, grid: DiscreteGrid2D, min_obstacle_depth_m: float = 0.1) -> None:
         """Initialize an occupancy grid.
 
         :param grid: Defines the origin, resolution, height, and width of the grid
+        :param min_obstacle_depth_m: Minimum depth (meters) assumed for obstacles when ray-tracing
         """
         self.grid = grid
+        self.min_obstacle_depth_m = min_obstacle_depth_m
+        """Minimum depth (meters) assumed for any obstacle when ray-tracing."""
 
         # Log-odds representation: L = log( p(occupied) / p(free) )
         # Initialize to log( 0.5 / 0.5 ) = log(1) = 0 (equal probability of occupied and free)
@@ -91,7 +94,7 @@ class OccupancyGrid2D:
         :param p_free: Probability that a cell is occupied given a ray passes through it
         :param p_occupied: Probability that a cell is occupied given a laser hits in it
         """
-        if not scan.num_points:
+        if not scan.num_beams:
             return
 
         # Convert probabilities into log-odds (see pg. 286 of ProbRob)
@@ -104,12 +107,15 @@ class OccupancyGrid2D:
 
         sensor_grid_cell = self.grid.world_to_cell(Point2D(sensor_world_x, sensor_world_y))
 
-        for i in range(scan.num_points):
+        for i in range(scan.num_beams):
             range_m, bearing_rad = scan.beam_data[i]
 
             beam_yaw_rad = sensor_yaw_rad + bearing_rad  # World-frame yaw of the beam
-            end_w_x = sensor_world_x + range_m * np.cos(beam_yaw_rad)  # Endpoint in world frame
-            end_w_y = sensor_world_y + range_m * np.sin(beam_yaw_rad)
+            cos_yaw = np.cos(beam_yaw_rad)
+            sin_yaw = np.sin(beam_yaw_rad)
+
+            end_w_x = sensor_world_x + range_m * cos_yaw  # Endpoint in world frame
+            end_w_y = sensor_world_y + range_m * sin_yaw
 
             end_grid_cell = self.grid.world_to_cell(Point2D(end_w_x, end_w_y))
 
@@ -121,9 +127,17 @@ class OccupancyGrid2D:
                 if self.grid.is_valid_cell(cell):
                     self.log_odds[cell.row, cell.col] += l_free
 
-            # Update occupied cell at the endpoint of the beam
-            if self.grid.is_valid_cell(end_grid_cell):
-                self.log_odds[end_grid_cell.row, end_grid_cell.col] += l_occupied
+            # Ray trace past the endpoint by the minimum depth of any obstacle
+            past_end_x = end_w_x + self.min_obstacle_depth_m * cos_yaw
+            past_end_y = end_w_y + self.min_obstacle_depth_m * sin_yaw
+            past_end_cell = self.grid.world_to_cell(Point2D(past_end_x, past_end_y))
+
+            obstacle_cells = bresenham_line(end_grid_cell, past_end_cell)
+
+            # Update occupied cells at the end of the beam
+            for cell in obstacle_cells:
+                if self.grid.is_valid_cell(cell):
+                    self.log_odds[cell.row, cell.col] += l_occupied
 
     def get_occupied_mask(self, p_threshold: float = 0.5) -> NDArray[np.bool]:
         """Compute a Boolean mask of occupied cells (occupancy probability > threshold).

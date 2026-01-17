@@ -24,7 +24,7 @@ class Point2D:
     y: float
 
     @classmethod
-    def from_array(cls, arr: np.ndarray) -> Point2D:
+    def from_array(cls, arr: NDArray[np.floating]) -> Point2D:
         """Construct a Point2D from a NumPy array."""
         if arr.shape != (2,):
             raise ValueError(f"Cannot construct Point2D from an array of shape {arr.shape}.")
@@ -54,7 +54,7 @@ class Point3D:
         return Point3D(0, 0, 0)
 
     @classmethod
-    def from_array(cls, arr: np.ndarray) -> Point3D:
+    def from_array(cls, arr: NDArray[np.floating]) -> Point3D:
         """Construct a Point3D from a NumPy array."""
         if arr.shape == (3, 1):
             arr = arr.reshape(3)
@@ -69,7 +69,7 @@ class Point3D:
         return np.asarray([self.x, self.y, self.z], dtype=np.float64)
 
     @classmethod
-    def from_homogeneous_coordinate(cls, coord: NDArray) -> Point3D:
+    def from_homogeneous_coordinate(cls, coord: NDArray[np.floating]) -> Point3D:
         """Construct a Point3D instance from a homogeneous coordinate given as a NumPy array."""
         if coord.shape != (4,):
             raise ValueError(f"Homogeneous coordinate should have shape (4,), got {coord.shape}.")

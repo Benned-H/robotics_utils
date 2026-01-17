@@ -13,6 +13,8 @@ from robotics_utils.collision_models import Box, Cylinder, PrimitiveShape, Spher
 from robotics_utils.geometry import Point2D
 
 if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
     from robotics_utils.motion_planning import DiscreteGrid2D
     from robotics_utils.spatial import Pose3D
     from robotics_utils.states import ObjectKinematicState
@@ -32,7 +34,7 @@ class CollisionModelRasterizer:
         grid: DiscreteGrid2D,
         min_height_m: float,
         max_height_m: float,
-    ) -> np.ndarray:
+    ) -> NDArray[np.bool]:
         """Rasterize an object's collision model into a mask for an occupancy grid.
 
         :param obj: Kinematic state of the object to be rasterized
@@ -78,7 +80,7 @@ class CollisionModelRasterizer:
         grid: DiscreteGrid2D,
         min_height_m: float,
         max_height_m: float,
-    ) -> np.ndarray:
+    ) -> NDArray[np.bool]:
         """Rasterize a collision mesh into a mask for an occupancy grid.
 
         Computes the convex hull of all mesh vertices within the height range,
@@ -92,7 +94,7 @@ class CollisionModelRasterizer:
         :param max_height_m: Maximum height (meters) of the mesh to include
         :return: Boolean mask where True indicates the mesh's footprint
         """
-        mask = np.zeros((grid.height_cells, grid.width_cells), dtype=bool)
+        mask = np.zeros((grid.height_cells, grid.width_cells), dtype=np.bool)
 
         # Transform mesh vertices into the world frame
         transform_w_o = obj_pose.to_homogeneous_matrix()
@@ -141,7 +143,7 @@ class CollisionModelRasterizer:
         grid: DiscreteGrid2D,
         min_height_m: float,
         max_height_m: float,
-    ) -> np.ndarray:
+    ) -> NDArray[np.bool]:
         """Rasterize a primitive collision geometry into a mask for an occupancy grid.
 
         :param primitive: Primitive shape to be rasterized
