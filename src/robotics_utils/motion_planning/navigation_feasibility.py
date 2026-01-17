@@ -35,7 +35,7 @@ class NavigationFeasibilityChecker:
         :param robot_footprint: Robot footprint used for collision checking
         :param resolution_m: Grid resolution in meters (default: 0.1 m)
         :param grid_size_m: Grid size in meters (default: 30 m x 30 m)
-        :param ref_frame: Name of the global reference (default: "map")
+        :param ref_frame: Name of the global reference frame (default: "map")
         """
         self.robot_footprint = robot_footprint
 
@@ -58,8 +58,8 @@ class NavigationFeasibilityChecker:
         """Create an occupancy grid copy with the given objects' footprints marked as free.
 
         :param objects: List of objects to be removed from the occupancy grid
-        :param min_height_m: Minimum height for object rasterization (default: 0.1 m)
-        :param max_height_m: Maximum height for object rasterization (default: 2.0 m)
+        :param min_height_m: Minimum height for object rasterization
+        :param max_height_m: Maximum height for object rasterization
         :return: Modified occupancy grid based on the requested removals
         """
         grid = self.occupancy_grid.copy()

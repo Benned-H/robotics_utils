@@ -32,7 +32,7 @@ def main() -> None:
 
     lidar_pose_ui = ParamUI[Pose2D](prompt="Provide a LiDAR sensor pose:")
     num_scans_ui = ParamUI[int](prompt="Number of LiDAR scans to simulate:", default=1)
-    num_beams_ui = ParamUI[int](prompt="Number of LiDAR beams to use:", default=10000)
+    num_beams_ui = ParamUI[int](prompt="Number of LiDAR beams per scan:", default=10000)
     std_dev_ui = ParamUI[float](
         prompt="Standard deviation (m) of LiDAR range measurements:",
         default=0.1,
