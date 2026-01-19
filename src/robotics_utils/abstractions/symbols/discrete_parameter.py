@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Dict
 
 from robotics_utils.abstractions.symbols.objects import ObjectSymbol
 
@@ -34,5 +35,5 @@ class DiscreteParameter:
         return self.name if self.name.startswith("?") else f"?{self.name}"
 
 
-Bindings = dict[str, ObjectSymbol]
+Bindings = Dict[str, ObjectSymbol]
 """A mapping from parameter names to symbols representing bound concrete objects."""

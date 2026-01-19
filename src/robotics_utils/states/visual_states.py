@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic
+from typing import TYPE_CHECKING, Any, Dict, Generic
 
 from robotics_utils.spatial import Pose3D
 from robotics_utils.vision import Image, ImageT
@@ -50,7 +50,7 @@ class ObjectViewpoint(Generic[ImageT]):
         return {"camera_id": self.camera.name, "pose": pose_data}
 
 
-ObservationSchema = dict[str, ObjectViewpoint]
+ObservationSchema = Dict[str, ObjectViewpoint]
 """A schema of named camera viewpoints capturing the visual state of objects of some type."""
 
 

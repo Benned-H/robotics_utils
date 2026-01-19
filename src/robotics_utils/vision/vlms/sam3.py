@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+from importlib_metadata import version
+
+try:
+    from transformers import BatchEncoding, Sam3Model, Sam3Processor
+
+    SAM3_AVAILABLE = True
+except ImportError:
+    SAM3_AVAILABLE = False
+
 import os
 
 # Set PyTorch CUDA allocator to use expandable segments to reduce fragmentation
@@ -10,7 +19,6 @@ os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import numpy as np
 import torch
-from transformers import BatchEncoding, Sam3Model, Sam3Processor
 
 from robotics_utils.vision import BoundingBox, PixelXY, RGBImage, determine_pytorch_device
 from robotics_utils.vision.vlms.segmentation import ObjectSegmentation, ObjectSegmentations
@@ -21,6 +29,11 @@ class SAM3:
 
     def __init__(self) -> None:
         """Initialize a SAM 3 model for object segmentation."""
+        if not SAM3_AVAILABLE:
+            raise ImportError(
+                f"Cannot import SAM 3 with 'transformers' version: {version('transformers')}",
+            )
+
         self.device = determine_pytorch_device()
 
         self.model = Sam3Model.from_pretrained("facebook/sam3").to(self.device)
