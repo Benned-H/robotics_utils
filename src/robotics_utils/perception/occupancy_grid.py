@@ -25,9 +25,9 @@ def bresenham_line(c0: GridCell, c1: GridCell) -> list[GridCell]:
     :return: List of (row, col) cell indices along the line
     """
     x0 = c0.col
-    y0 = -c0.row
+    y0 = c0.row
     x1 = c1.col
-    y1 = -c1.row
+    y1 = c1.row
 
     cells = []
 
@@ -39,7 +39,7 @@ def bresenham_line(c0: GridCell, c1: GridCell) -> list[GridCell]:
 
     x, y = x0, y0
     while True:
-        cells.append(GridCell(-y, x))
+        cells.append(GridCell(y, x))
 
         if x == x1 and y == y1:
             break

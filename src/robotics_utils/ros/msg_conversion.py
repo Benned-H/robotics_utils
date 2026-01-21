@@ -282,10 +282,6 @@ def occupancy_grid_to_msg(grid: OccupancyGrid2D) -> OccupancyGrid:
     The log-odds values are converted into occupancy probabilities in the range [0, 100].
     Cells with log-odds of exactly 0.0 (never updated) are marked as unknown (-1).
 
-    Note: DiscreteGrid2D uses an upper-left origin with rows increasing downward (negative y),
-    while ROS OccupancyGrid expects a lower-left origin with rows increasing upward. This
-    function flips the data vertically and adjusts the origin accordingly.
-
     :param grid: OccupancyGrid2D with log-odds occupancy values
     :return: nav_msgs/OccupancyGrid message
     """
@@ -301,26 +297,7 @@ def occupancy_grid_to_msg(grid: OccupancyGrid2D) -> OccupancyGrid:
     msg.info.resolution = grid.grid.resolution_m
     msg.info.width = grid.grid.width_cells
     msg.info.height = grid.grid.height_cells
-
-    # Compute the lower-left corner position for ROS origin
-    # Our grid origin is at upper-left; ROS expects lower-left
-    # Lower-left corner in local frame: (0, -height * resolution)
-    origin_pose = grid.grid.origin
-    local_y_offset = -grid.grid.height_cells * grid.grid.resolution_m
-    cos_yaw = np.cos(origin_pose.yaw_rad)
-    sin_yaw = np.sin(origin_pose.yaw_rad)
-
-    # Transform local lower-left corner to world frame
-    ros_origin_x = origin_pose.x - local_y_offset * sin_yaw
-    ros_origin_y = origin_pose.y + local_y_offset * cos_yaw
-
-    ros_origin = Pose3D.from_xyz_rpy(
-        x=ros_origin_x,
-        y=ros_origin_y,
-        yaw_rad=origin_pose.yaw_rad,
-        ref_frame=origin_pose.ref_frame,
-    )
-    msg.info.origin = pose_to_msg(ros_origin)
+    msg.info.origin = pose_to_msg(grid.grid.origin.to_3d())
 
     # Reference: Equation (4.14) on pg. 95 of ProbRob
     # Use numerically stable sigmoid: 1 / (1 + exp(-x)) instead of 1 - 1 / (1 + exp(x))
@@ -331,9 +308,6 @@ def occupancy_grid_to_msg(grid: OccupancyGrid2D) -> OccupancyGrid:
     occupancy_values = (p_occupied * 100).astype(np.int8)
     unobserved_mask = grid.log_odds == 0.0
     occupancy_values[unobserved_mask] = -1
-
-    # Flip vertically: our row 0 is at top, ROS expects row 0 at bottom
-    occupancy_values = np.flipud(occupancy_values)
 
     # Data is row-major, starting with (0, 0) - flatten the array
     msg.data = occupancy_values.flatten().tolist()

@@ -47,7 +47,7 @@ def main() -> None:
 
         # Initialize an empty occupancy grid
         discrete_grid = DiscreteGrid2D(
-            origin=Pose2D(-5, 5, 0),
+            origin=Pose2D(-5, -5, 0),
             resolution_m=0.05,
             width_cells=200,
             height_cells=200,
@@ -87,7 +87,8 @@ def main() -> None:
         uint8_mask = np.asarray(normalized_mask, dtype=np.uint8)
         console.print(f"Shape of normalized occupancy data: {uint8_mask.shape}")
 
-        stacked_grid_data = np.vstack([uint8_log_odds, uint8_mask], dtype=np.uint8)
+        stacked_grid_data = np.vstack([uint8_mask, uint8_log_odds], dtype=np.uint8)
+        stacked_grid_data = np.flipud(stacked_grid_data)
         console.print(f"Shape of stacked grid data: {stacked_grid_data.shape}")
 
         stacked_image_data = cv2.applyColorMap(stacked_grid_data, colormap=cv2.COLORMAP_BONE)

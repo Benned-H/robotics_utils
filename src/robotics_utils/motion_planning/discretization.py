@@ -34,7 +34,7 @@ class DiscreteGrid2D:
     ) -> None:
         """Initialize the 2D grid.
 
-        :param origin: Origin pose of the grid in a global frame (upper-left corner)
+        :param origin: Origin pose of the grid in a global frame (bottom-left corner)
         :param resolution_m: Size of cells in the grid (meters)
         :param width_cells: Grid width in cells (along x-axis)
         :param height_cells: Grid height in cells (along y-axis)
@@ -66,7 +66,7 @@ class DiscreteGrid2D:
 
     def local_y_to_row(self, y: float) -> int:
         """Convert a local-frame y-coordinate to the corresponding row index."""
-        return int(np.floor(-y / self.resolution_m))
+        return int(np.floor(y / self.resolution_m))
 
     @overload
     def col_to_local_x(self, col: int) -> float: ...
@@ -82,7 +82,7 @@ class DiscreteGrid2D:
     def row_to_local_y(self, row: NDArray[np.intp]) -> NDArray[np.floating]: ...
     def row_to_local_y(self, row: int | NDArray[np.intp]) -> float | NDArray[np.floating]:
         """Convert row index/indices into local-frame y-coordinate(s) at cell center(s)."""
-        return -(row + 0.5) * self.resolution_m
+        return (row + 0.5) * self.resolution_m
 
     def world_to_cell(self, point_w: Point2D) -> GridCell:
         """Convert a world-frame (x, y) point to the corresponding grid indices."""
