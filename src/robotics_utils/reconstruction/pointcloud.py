@@ -9,6 +9,7 @@ import numpy as np
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
+    from robotics_utils.spatial import Pose3D
     from robotics_utils.vision import DepthImage, RGBDImage
     from robotics_utils.vision.cameras import CameraIntrinsics
     from robotics_utils.vision.vlms import ObjectSegmentation
@@ -19,7 +20,7 @@ class PointCloud:
 
     def __init__(
         self,
-        points: NDArray[np.float64],
+        points: NDArray[np.floating],
         colors: NDArray[np.uint8] | None = None,
     ) -> None:
         """Initialize the pointcloud using a NumPy array of shape (N, 3).
@@ -39,6 +40,24 @@ class PointCloud:
     def __len__(self) -> int:
         """Retrieve the length of (i.e., number of points in) the pointcloud."""
         return self.points.shape[0]
+
+    def transform(self, pose_t_c: Pose3D) -> PointCloud:
+        """Transform all points in the point cloud by the given pose.
+
+        :param pose_t_c: Pose of the cloud's current frame (c) relative to the target frame (t)
+        :return: New PointCloud with transformed points in the target frame (colors are preserved)
+        """
+        # Convert points to homogeneous coordinates: (N, 3) -> (N, 4)
+        ones = np.ones((self.points.shape[0], 1), dtype=self.points.dtype)
+        homogeneous_points_c = np.hstack([self.points, ones])  # (N, 4)
+
+        # Apply transformation: (4, 4) @ (4, N) -> (4, N) -> transpose to (N, 4)
+        transform_t_c = pose_t_c.to_homogeneous_matrix()
+        homogeneous_points_t = (transform_t_c @ homogeneous_points_c.T).T  # (N, 4)
+
+        points_t = homogeneous_points_t[:, :3]  # Relative to target frame (t)
+
+        return PointCloud(points=points_t, colors=self.colors)
 
     @classmethod
     def from_depth_image(cls, depth: DepthImage, depth_intrinsics: CameraIntrinsics) -> PointCloud:

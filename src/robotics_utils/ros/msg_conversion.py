@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import struct
 from typing import TYPE_CHECKING
 
+import numpy as np
 import rospy
 from geometry_msgs.msg import Point, Pose, PoseStamped, Transform, TransformStamped, Vector3
 from geometry_msgs.msg import Quaternion as QuaternionMsg
 from moveit_msgs.msg import CollisionObject
-from sensor_msgs.msg import JointState
+from nav_msgs.msg import MapMetaData, OccupancyGrid
+from sensor_msgs import point_cloud2
+from sensor_msgs.msg import JointState, PointCloud2, PointField
 from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
+from std_msgs.msg import Header
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 from robotics_utils.collision_models import Box, CollisionModel, Cylinder, PrimitiveShape, Sphere
@@ -21,6 +26,8 @@ if TYPE_CHECKING:
     import trimesh
 
     from robotics_utils.kinematics import Configuration
+    from robotics_utils.perception import OccupancyGrid2D
+    from robotics_utils.reconstruction import PointCloud
 
 
 def point_to_msg(point: Point3D) -> Point:
@@ -209,6 +216,40 @@ def trajectory_from_msg(traj_msg: JointTrajectory) -> Trajectory:
     return Trajectory([trajectory_point_from_msg(p_msg, joint_names) for p_msg in traj_msg.points])
 
 
+def pointcloud_to_msg(cloud: PointCloud, frame_id: str = DEFAULT_FRAME) -> PointCloud2:
+    """Convert a point cloud into a sensor_msgs/PointCloud2 message.
+
+    :param cloud: PointCloud with XYZ points and optional RGB colors
+    :param frame_id: Reference frame for the point cloud
+    :return: PointCloud2 message containing the point data
+    """
+    header = Header()
+    header.stamp = rospy.Time.now()
+    header.frame_id = frame_id
+
+    if cloud.colors is None:  # XYZ-only point cloud
+        return point_cloud2.create_cloud_xyz32(header, cloud.points)
+
+    # XYZ-RGB point cloud - pack RGB into a single float32
+    fields = [
+        PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
+        PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
+        PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
+        PointField(name="rgb", offset=12, datatype=PointField.FLOAT32, count=1),
+    ]
+
+    points_with_rgb = []
+    for i in range(len(cloud)):
+        r, g, b = cloud.colors[i]
+        # Pack RGB as a single 32-bit integer, then reinterpret as float32
+        rgb_int = (int(r) << 16) | (int(g) << 8) | int(b)
+        rgb_packed = struct.unpack("f", struct.pack("I", rgb_int))[0]
+        x, y, z = cloud.points[i]
+        points_with_rgb.append([x, y, z, rgb_packed])
+
+    return point_cloud2.create_cloud(header, fields, points_with_rgb)
+
+
 def make_collision_object_msg(
     object_name: str,
     object_type: str,
@@ -232,4 +273,69 @@ def make_collision_object_msg(
     msg.primitive_poses = [Pose() for _ in collision_model.primitives]
 
     msg.operation = CollisionObject.ADD
+    return msg
+
+
+def occupancy_grid_to_msg(grid: OccupancyGrid2D) -> OccupancyGrid:
+    """Convert an OccupancyGrid2D into a nav_msgs/OccupancyGrid message.
+
+    The log-odds values are converted into occupancy probabilities in the range [0, 100].
+    Cells with log-odds of exactly 0.0 (never updated) are marked as unknown (-1).
+
+    Note: DiscreteGrid2D uses an upper-left origin with rows increasing downward (negative y),
+    while ROS OccupancyGrid expects a lower-left origin with rows increasing upward. This
+    function flips the data vertically and adjusts the origin accordingly.
+
+    :param grid: OccupancyGrid2D with log-odds occupancy values
+    :return: nav_msgs/OccupancyGrid message
+    """
+    msg = OccupancyGrid()
+
+    # Header
+    msg.header.stamp = rospy.Time.now()
+    msg.header.frame_id = grid.grid.origin.ref_frame
+
+    # MapMetaData
+    msg.info = MapMetaData()
+    msg.info.map_load_time = msg.header.stamp
+    msg.info.resolution = grid.grid.resolution_m
+    msg.info.width = grid.grid.width_cells
+    msg.info.height = grid.grid.height_cells
+
+    # Compute the lower-left corner position for ROS origin
+    # Our grid origin is at upper-left; ROS expects lower-left
+    # Lower-left corner in local frame: (0, -height * resolution)
+    origin_pose = grid.grid.origin
+    local_y_offset = -grid.grid.height_cells * grid.grid.resolution_m
+    cos_yaw = np.cos(origin_pose.yaw_rad)
+    sin_yaw = np.sin(origin_pose.yaw_rad)
+
+    # Transform local lower-left corner to world frame
+    ros_origin_x = origin_pose.x - local_y_offset * sin_yaw
+    ros_origin_y = origin_pose.y + local_y_offset * cos_yaw
+
+    ros_origin = Pose3D.from_xyz_rpy(
+        x=ros_origin_x,
+        y=ros_origin_y,
+        yaw_rad=origin_pose.yaw_rad,
+        ref_frame=origin_pose.ref_frame,
+    )
+    msg.info.origin = pose_to_msg(ros_origin)
+
+    # Reference: Equation (4.14) on pg. 95 of ProbRob
+    # Use numerically stable sigmoid: 1 / (1 + exp(-x)) instead of 1 - 1 / (1 + exp(x))
+    # to avoid overflow when log_odds has large positive values
+    p_occupied = 1 / (1 + np.exp(-grid.log_odds))
+
+    # Scale to [0, 100] as int8; mark unobserved cells (log_odds == 0) as unknown (-1)
+    occupancy_values = (p_occupied * 100).astype(np.int8)
+    unobserved_mask = grid.log_odds == 0.0
+    occupancy_values[unobserved_mask] = -1
+
+    # Flip vertically: our row 0 is at top, ROS expects row 0 at bottom
+    occupancy_values = np.flipud(occupancy_values)
+
+    # Data is row-major, starting with (0, 0) - flatten the array
+    msg.data = occupancy_values.flatten().tolist()
+
     return msg
