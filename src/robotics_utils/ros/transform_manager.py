@@ -6,7 +6,13 @@ import time
 from typing import TYPE_CHECKING
 
 import rospy
-from tf2_ros import Buffer, TransformBroadcaster, TransformException, TransformListener
+from tf2_ros import (
+    Buffer,
+    StaticTransformBroadcaster,
+    TransformBroadcaster,
+    TransformException,
+    TransformListener,
+)
 
 from robotics_utils.ros.msg_conversion import pose_from_tf_stamped_msg, pose_to_tf_stamped_msg
 from robotics_utils.spatial import Pose2D, Pose3D
@@ -22,6 +28,7 @@ class TransformManager:
 
     # Delay initialization of TF2 objects until ROS is available
     _tf_broadcaster: TransformBroadcaster | None = None
+    _static_tf_broadcaster: StaticTransformBroadcaster | None = None
     _tf_buffer: Buffer | None = None
     _tf_listener: TransformListener | None = None
 
@@ -51,13 +58,21 @@ class TransformManager:
         return TransformManager._tf_broadcaster
 
     @staticmethod
+    def static_tf_broadcaster() -> StaticTransformBroadcaster:
+        """Retrieve the static transform broadcaster, initializing it if necessary."""
+        if TransformManager._static_tf_broadcaster is None:
+            TransformManager._static_tf_broadcaster = StaticTransformBroadcaster()
+        return TransformManager._static_tf_broadcaster
+
+    @staticmethod
     def tf_buffer() -> Buffer:
         """Retrieve the transform buffer, initializing it if necessary.
 
         :return: Transform buffer used to store known transforms
         """
         if TransformManager._tf_buffer is None:
-            TransformManager._tf_buffer = Buffer()
+            cache_duration = rospy.Duration.from_sec(30.0)  # Cache the last 30 seconds of TFs
+            TransformManager._tf_buffer = Buffer(cache_time=cache_duration)
         return TransformManager._tf_buffer
 
     @staticmethod
@@ -82,6 +97,18 @@ class TransformManager:
         tf_stamped_msg.header.stamp = rospy.Time.now()
 
         TransformManager.tf_broadcaster().sendTransform(tf_stamped_msg)
+
+    @staticmethod
+    def broadcast_static_transform(frame_name: str, relative_pose: Pose3D) -> None:
+        """Broadcast a pose as a static transform (available at any timestamp) into /tf.
+
+        :param frame_name: Name of the reference frame to be updated
+        :param relative_pose: Transform of the frame relative to its parent frame
+        """
+        tf_stamped_msg = pose_to_tf_stamped_msg(relative_pose, frame_name)
+        tf_stamped_msg.header.stamp = rospy.Time.now()
+
+        TransformManager.static_tf_broadcaster().sendTransform(tf_stamped_msg)
 
     @staticmethod
     def lookup_transform(

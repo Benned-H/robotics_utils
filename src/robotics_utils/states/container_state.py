@@ -11,7 +11,7 @@ from robotics_utils.io.logging import log_info
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from robotics_utils.kinematics import KinematicTree
+    from robotics_utils.states.object_centric_state import ObjectCentricState
     from robotics_utils.states.object_states import ObjectKinematicState
 
 
@@ -90,40 +90,39 @@ class ContainerState:
         """Retrieve the current collision model of the container."""
         return self.open_model if self.is_open else self.closed_model
 
-    def update_kinematic_tree(self, tree: KinematicTree) -> None:
-        """Update the given kinematic tree according to the container state."""
-        tree.set_collision_model(self.name, self.current_collision_model)
+    def update_state(self, state: ObjectCentricState) -> None:
+        """Update an object-centric environment state according to this container state."""
+        state.kinematic_tree.set_collision_model(self.name, self.current_collision_model)
 
+        known_object_names = state.object_names
         if self.status == "open":  # If open, update all contained objects' state
             for obj_name, obj_state in self.contained_objects.items():
-                if obj_name not in tree.object_names:  # Add the object if it's new to the tree
-                    tree.object_names.add(obj_name)
+                if obj_name not in known_object_names:
+                    state.add_object(obj_name)  # Add the object if it's new to the state
 
-                tree.set_object_pose(obj_name, obj_state.pose)
-                tree.set_collision_model(obj_name, obj_state.collision_model)
+                state.set_object_pose(obj_name=obj_name, pose=obj_state.pose)
+                state.kinematic_tree.set_collision_model(obj_name, obj_state.collision_model)
 
-        elif self.status == "closed":  # If closed, clear contained objects' state in the tree
+        elif self.status == "closed":  # If closed, clear contained objects' poses from the state
             for obj_name in self.contained_objects:
-                removed_obj_state = tree.remove_object(obj_name)
-                if removed_obj_state is None:
-                    raise RuntimeError(f"Could not find the state of object '{obj_name}'.")
+                obj_pose = state.clear_object_pose(obj_name=obj_name)
+                if obj_pose is not None:
+                    self.contained_objects[obj_name].pose = obj_pose
 
-                self.contained_objects[obj_name] = removed_obj_state
-
-    def open(self, tree: KinematicTree) -> None:
-        """Open the container and update the kinematic tree accordingly."""
+    def open(self, state: ObjectCentricState) -> None:
+        """Open the container and update the given object-centric state accordingly."""
         if self.status == "open":
-            log_info(f"Container '{self.name}' is already open!")
+            log_info(f"Container '{self.name}' is already open.")
             return
 
         self.status = "open"
-        self.update_kinematic_tree(tree)
+        self.update_state(state=state)
 
-    def close(self, tree: KinematicTree) -> None:
-        """Close the container and update the kinematic tree accordingly."""
+    def close(self, state: ObjectCentricState) -> None:
+        """Close the container and update the given object-centric state accordingly."""
         if self.status == "closed":
-            log_info(f"Container '{self.name}' is already closed!")
+            log_info(f"Container '{self.name}' is already closed.")
             return
 
         self.status = "closed"
-        self.update_kinematic_tree(tree)
+        self.update_state(state=state)

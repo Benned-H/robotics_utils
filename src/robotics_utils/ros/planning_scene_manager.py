@@ -21,7 +21,7 @@ from robotics_utils.ros.msg_conversion import (
 from robotics_utils.ros.transform_manager import TransformManager
 from robotics_utils.skills import Outcome
 from robotics_utils.spatial import Pose3D
-from robotics_utils.states import KinematicSimulator, ObjectKinematicState
+from robotics_utils.states import ObjectKinematicState
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from robotics_utils.robots.manipulator import Manipulator
 
 
-class PlanningSceneManager(KinematicSimulator):
+class PlanningSceneManager:
     """A manager to update the state of the MoveIt planning scene."""
 
     def __init__(self, *, planning_frame: str) -> None:
@@ -210,7 +210,7 @@ class PlanningSceneManager(KinematicSimulator):
         move_object_msg.operation = CollisionObject.MOVE
         move_object_msg.pose = pose_to_msg(pose_p_o)
         move_object_msg.header.frame_id = self.planning_frame
-        move_object_msg.header.stamp = rospy.Time.now()
+        move_object_msg.header.stamp = rospy.Time(0)
 
         if not self.add_object_msg(move_object_msg):
             raise RuntimeError(f"Unable to set the pose of object '{obj_name}'.")

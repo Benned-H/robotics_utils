@@ -7,9 +7,6 @@ from pathlib import Path
 import rospy
 from rich.prompt import Prompt
 from spot_skills.srv import (
-    CloseDoor,
-    CloseDoorRequest,
-    CloseDoorResponse,
     NameService,
     NameServiceRequest,
     NameServiceResponse,
@@ -101,11 +98,6 @@ class SpotSkillsProtocol(SkillsProtocol):
         self._open_door_caller = ServiceCaller[OpenDoorRequest, OpenDoorResponse](
             "spot/open_door",
             OpenDoor,
-        )
-
-        self._close_door_caller = ServiceCaller[CloseDoorRequest, CloseDoorResponse](
-            "spot/close_door",
-            CloseDoor,
         )
 
         self._pose_lookup_caller = ServiceCaller[PoseLookupRequest, PoseLookupResponse](
@@ -439,35 +431,6 @@ class SpotSkillsProtocol(SkillsProtocol):
         return Outcome(response.success, response.message)
 
     @skill_method
-    def close_door(
-        self,
-        *,
-        hinge_on_left: bool = True,
-        body_pitch_rad: float = -0.1,
-        use_vision: bool = True,
-        door_height_m: float = 1.1,
-    ) -> Outcome:
-        """Close a previously opened door using vision and force control.
-
-        :param hinge_on_left: Whether the door's hinge is on the left, from Spot's perspective
-        :param body_pitch_rad: Pitch (radians) of Spot's body when taking the door handle image
-        :param use_vision: Whether to use vision for initial positioning
-        :param door_height_m: Default door height (m) if vision is unavailable
-        :return: Boolean success indicator and an outcome message
-        """
-        console.print("Commanding Spot to close the door...")
-        request = CloseDoorRequest(
-            hinge_on_left,
-            body_pitch_rad,
-            use_vision,
-            door_height_m,
-        )
-        response = self._close_door_caller(request)
-        if response is None:
-            return Outcome(success=False, message="CloseDoor service response was None.")
-        return Outcome(response.success, response.message)
-
-    @skill_method
     def _record_trajectory(
         self,
         output_path: Path,
@@ -565,14 +528,14 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not open_outcome.success:
             return open_outcome
 
-        # Reflect the given view pose if it doesn't have an IK solution
-        if self._arm.compute_ik(view_pose_o_ee) is None and yaw_symmetric:
-            rotate_object = Pose3D.from_xyz_rpy(yaw_rad=3.14159, ref_frame=object_name)
-            view_pose_o_ee = rotate_object @ view_pose_o_ee
+        # # Reflect the given view pose if it doesn't have an IK solution
+        # if self._arm.compute_ik(view_pose_o_ee) is None and yaw_symmetric:
+        #     rotate_object = Pose3D.from_xyz_rpy(yaw_rad=3.14159, ref_frame=object_name)
+        #     view_pose_o_ee = rotate_object @ view_pose_o_ee
 
-        view_outcome = self._move_ee_to_pose(view_pose_o_ee, f"view_{object_name}")
-        if not view_outcome.success:
-            return view_outcome
+        # view_outcome = self._move_ee_to_pose(view_pose_o_ee, f"view_{object_name}")
+        # if not view_outcome.success:
+        #     return view_outcome
 
         estimate_outcome = self.estimate_pose(object_name, duration_s=5.0)
         if not estimate_outcome.success:

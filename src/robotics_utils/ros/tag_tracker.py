@@ -18,7 +18,6 @@ from robotics_utils.state_estimation import PoseEstimateAverager
 from robotics_utils.vision.fiducials import AprilTagDetector, FiducialMarker, FiducialSystem
 
 if TYPE_CHECKING:
-    from robotics_utils.states import KinematicSimulator
     from robotics_utils.vision.cameras import RGBCamera
 
 
@@ -41,7 +40,7 @@ class TagTracker:
         self.rgb_cameras = cameras
         self.pose_averager = PoseEstimateAverager(window_size)
 
-        self.simulators: list[KinematicSimulator] = []
+        self.simulators: list[KinematicSimulator] = []  # TODO: Replace w/ PlanningSceneManager
         """Kinematic simulators to be synchronized with the tag tracker state."""
 
         self.frame_to_parent: dict[str, int] = {}
