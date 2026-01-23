@@ -48,8 +48,7 @@ class CallLoopThread:
             while not rospy.is_shutdown():
                 if self._resource_manager is not None and self._resource_manager.should_pause:
                     self._resource_manager.acknowledge_pause(self._name)
-                    while self._resource_manager.should_pause and not rospy.is_shutdown():
-                        rospy.sleep(0.05)
+                    self._resource_manager.wait_for_resume()  # Waits for a grace period
                     self._resource_manager.acknowledge_resume(self._name)
 
                 self._function()
