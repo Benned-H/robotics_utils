@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from robotics_utils.collision_models import CollisionModel
+from robotics_utils.io.yaml_utils import load_yaml_data
+from robotics_utils.spatial import DEFAULT_FRAME, Pose3D
+from robotics_utils.states.container_state import ContainerState
 from robotics_utils.states.kinematic_tree import KinematicTree
+from robotics_utils.states.object_states import ObjectKinematicState
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from robotics_utils.kinematics import Configuration
-    from robotics_utils.spatial import Pose3D
-    from robotics_utils.states.container_state import ContainerState
 
 
 class ObjectCentricState:
@@ -33,6 +38,54 @@ class ObjectCentricState:
         self._containers: dict[str, ContainerState] = {}
         """A map from the name of each container to its current state."""
 
+    @classmethod
+    def from_yaml(cls, yaml_path: Path) -> ObjectCentricState:
+        """Construct an ObjectCentricState instance using data from the given YAML file."""
+        expected_keys = {"robots", "objects"}
+        yaml_data: dict[str, Any] = load_yaml_data(yaml_path, required_keys=expected_keys)
+
+        default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
+
+        robot_names = list(yaml_data["robots"].keys())
+        object_names = list(yaml_data["objects"].keys())
+
+        state = ObjectCentricState(
+            robot_names=robot_names,
+            object_names=object_names,
+            root_frame=default_frame,
+        )
+
+        for robot_name, robot_data in yaml_data["robots"].items():
+            base_pose_data = robot_data.get("base_pose")
+            if base_pose_data is None:
+                raise KeyError(f"Robot '{robot_name}' has no base pose specified.")
+            base_pose = Pose3D.from_yaml_data(base_pose_data, default_frame=default_frame)
+
+            state.set_robot_base_pose(robot_name, base_pose)
+
+        for obj_name, obj_data in yaml_data["objects"].items():
+            pose_data = obj_data.get("pose")
+            if pose_data is not None:
+                obj_pose = Pose3D.from_yaml_data(pose_data, default_frame=default_frame)
+                state.set_object_pose(obj_name, obj_pose)
+
+            collision_data = obj_data.get("collision_model")
+            if collision_data is not None:
+                c_model = CollisionModel.from_yaml_data(collision_data, yaml_path=yaml_path)
+                state.kinematic_tree.set_collision_model(obj_name, c_model)
+
+            container_data = obj_data.get("container")
+            if container_data is not None:
+                container_state = ContainerState.from_yaml_data(
+                    container_name=obj_name,
+                    yaml_data=container_data,
+                    yaml_path=yaml_path,
+                    object_states=state.known_kinematic_states,
+                )
+                state.add_container(container_state)
+
+        return state
+
     @property
     def robot_names(self) -> list[str]:
         """Provide read-only access to the known robot names in the object-centric state."""
@@ -44,10 +97,26 @@ class ObjectCentricState:
         return self._object_names
 
     @property
+    def known_object_poses(self) -> dict[str, Pose3D]:
+        """Retrieve a dictionary mapping object names to their poses (if known)."""
+        return self.kinematic_tree.get_poses(frame_names=set(self._object_names))
+
+    @property
     def known_robot_base_poses(self) -> dict[str, Pose3D]:
         """Retrieve a dictionary mapping robot names to their base poses (if known)."""
         frame_names = {f"{robot_name}_base_pose" for robot_name in self._robot_names}
         return self.kinematic_tree.get_poses(frame_names=frame_names)
+
+    @property
+    def known_kinematic_states(self) -> dict[str, ObjectKinematicState]:
+        """Retrieve a dictionary mapping object names to their kinematic states (if known)."""
+        obj_states: dict[str, ObjectKinematicState] = {}
+        for obj_name, obj_pose in self.known_object_poses.items():
+            collision_model = self.kinematic_tree.get_collision_model(frame_name=obj_name)
+            if collision_model is not None:
+                obj_states[obj_name] = ObjectKinematicState(obj_name, obj_pose, collision_model)
+
+        return obj_states
 
     def add_object(self, obj_name: str) -> None:
         """Add the given object name to the set of known object names."""

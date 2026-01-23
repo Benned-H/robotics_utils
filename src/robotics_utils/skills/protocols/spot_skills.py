@@ -26,7 +26,7 @@ from spot_skills.srv import (
 
 from robotics_utils.geometry import Point3D
 from robotics_utils.io import console
-from robotics_utils.kinematics import KinematicTree, Waypoints
+from robotics_utils.kinematics import Waypoints
 from robotics_utils.motion_planning import MotionPlanningQuery
 from robotics_utils.motion_planning.grasping import PickPoses
 from robotics_utils.robots import GripperAngleLimits
@@ -119,6 +119,23 @@ class SpotSkillsProtocol(SkillsProtocol):
             ProbeSurface,
         )
 
+        self._grasp_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
+            "spot/grasp_object",
+            NameService,
+        )
+        self._release_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
+            "spot/release_object",
+            NameService,
+        )
+        self._reset_state_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
+            "spot/reset_state",
+            NameService,
+        )
+        self._set_open_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
+            "spot/set_container_open",
+            NameService,
+        )
+
         self._gripper = ROSAngularGripper(
             limits=GripperAngleLimits(
                 open_rad=SPOT_GRIPPER_OPEN_RAD,
@@ -139,7 +156,10 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         self._pose_broadcaster = PoseBroadcastThread()
 
-        self._kinematic_tree = KinematicTree.from_yaml(config.env_yaml)
+    @property
+    def planning_scene(self) -> PlanningSceneManager:
+        """Access the active interface to the MoveIt planning scene."""
+        return self._arm.planning_scene
 
     def spin_once(self, duration_s: float = 0.1) -> None:
         """Sleep for the given duration (in seconds) to allow background processing."""
@@ -290,10 +310,13 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not stow_outcome.success:
             return stow_outcome
 
-        # Update the mesh of the opened drawer's container in MoveIt
-        self._kinematic_tree.open_container(container_name)
+        # Request that the mesh of the opened drawer be updated in MoveIt
+        request = NameServiceRequest(name=container_name)
+        response = self._set_open_caller(request)
+        if response is None:
+            return Outcome(success=False, message="Set container open service returned None.")
 
-        return Outcome(success=True, message="Successfully opened the drawer.")
+        return Outcome(success=response.success, message=response.message)
 
     @skill_method
     def _take_control(self) -> Outcome:
@@ -373,7 +396,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         response = self._pose_lookup_caller(request)
         if response is None:
-            return Outcome(False, "Pose lookup service response was None.")
+            return Outcome(success=False, message="Pose lookup service response was None.")
 
         output_pose = None
         if response.success:
@@ -394,7 +417,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         response = self._traj_playback_caller(request)
 
         if response is None:
-            return Outcome(False, "Trajectory playback service response was None.")
+            return Outcome(success=False, message="Trajectory playback service response was None.")
 
         return Outcome(response.success, response.message)
 
@@ -472,7 +495,11 @@ class SpotSkillsProtocol(SkillsProtocol):
         :return: Boolean success indicator and an outcome message
         """
         console.print(f"Grasping object '{object_name}'...")
-        return self._arm.grasp(object_name=object_name)
+        response = self._grasp_caller(NameServiceRequest(name=object_name))
+        if response is None:
+            return Outcome(success=False, message="Grasp object service returned None.")
+
+        return Outcome(success=response.success, message=response.message)
 
     @skill_method
     def _release_object(self, object_name: str) -> Outcome:
@@ -482,7 +509,11 @@ class SpotSkillsProtocol(SkillsProtocol):
         :return: Boolean success indicator and an outcome message
         """
         console.print(f"Releasing object '{object_name}'...")
-        return self._arm.release(object_name=object_name)
+        response = self._release_caller(NameServiceRequest(name=object_name))
+        if response is None:
+            return Outcome(success=False, message="Release object service returned None.")
+
+        return Outcome(success=response.success, message=response.message)
 
     @skill_method
     def pick(
@@ -663,19 +694,9 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not move_to_place_outcome.success:
             return move_to_place_outcome
 
-        # Look up the pose of the end-effector w.r.t. the surface before releasing
-        curr_pose_s_ee = TransformManager.lookup_transform(self._arm.ee_link_name, surface_name)
-        if curr_pose_s_ee is None:
-            return Outcome(False, f"Unable to place '{object_name}' due to pose lookup failure.")
-        pose_ee_o = grasped_pose_o_ee.inverse(pose_frame=self._arm.ee_link_name)
-        curr_pose_s_o = curr_pose_s_ee @ pose_ee_o
-
-        # Release the object (i.e., open the gripper, then update the kinematic state)
         release_outcome = self._release_object(object_name)
         if not release_outcome.success:
             return release_outcome
-
-        TransformManager.broadcast_transform(object_name, curr_pose_s_o)
 
         postplace_outcome = self._move_ee_to_pose(postplace_pose_s_ee, f"postplace_{object_name}")
         if not postplace_outcome.success:
@@ -689,20 +710,23 @@ class SpotSkillsProtocol(SkillsProtocol):
         return Outcome(success=True, message=f"Placed '{object_name}' on '{surface_name}'.")
 
     @skill_method
-    def _reset_planning_scene(
+    def _reset_state(
         self,
         yaml_path: Path = Path("/docker/spot_skills/src/spot_skills/config/env.yaml"),
     ) -> Outcome:
-        """Reset the MoveIt planning scene to the state specified by a YAML file.
+        """Reset the environment state as specified by a YAML file.
 
         :param yaml_path: Filepath to a YAML file specifying environment geometry
         :return: Boolean success indicator and outcome message
         """
-        console.print(f"Resetting the MoveIt planning scene based on the YAML file: {yaml_path}")
-        return PlanningSceneManager.reset_per_yaml(
-            yaml_path=yaml_path,
-            planning_frame=self.planning_frame,
-        )
+        console.print(f"Resetting the environment state based on the YAML file: {yaml_path}")
+
+        request = NameServiceRequest(name=str(yaml_path))
+        response = self._reset_state_caller(request)
+        if response is None:
+            return Outcome(success=False, message="Reset state service returned None.")
+
+        return Outcome(success=response.success, message=response.message)
 
     @skill_method
     def estimate_pose(self, object_name: str, duration_s: float) -> Outcome:

@@ -94,7 +94,7 @@ extend-immutable-calls = [
     "robotics_utils.spatial.Pose3D.from_sequence",
     "robotics_utils.spatial.Pose3D.from_homogeneous_matrix",
     "robotics_utils.spatial.Pose3D.identity",
-    "robotics_utils.spatial.Point3D",
+    "robotics_utils.geometry.Point3D",
 ]
 
 [tool.ruff.lint.per-file-ignores]

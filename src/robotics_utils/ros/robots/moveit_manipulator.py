@@ -197,9 +197,15 @@ class MoveItManipulator(Manipulator):
         if pose_ee_o is None:
             return Outcome(False, f"Failed to look up pose when grasping '{object_name}'.")
 
-        # Update the pose of the object in TF and MoveIt
-        TransformManager.broadcast_transform(object_name, pose_ee_o)
-        success = self.planning_scene.grasp_object(object_name, self.robot_name, self)
+        TransformManager.broadcast_transform(object_name, pose_ee_o)  # Update object's pose in TF
+
+        success = self.planning_scene.attach_object(
+            obj_name=object_name,
+            robot_name=self.robot_name,
+            ee_link_name=self.ee_link_name,
+            touch_links=self.gripper.link_names,
+        )  # Attach the object to the robot's end-effector in MoveIt's planning scene
+
         message = (
             f"Successfully grasped '{object_name}'."
             if success
@@ -218,11 +224,12 @@ class MoveItManipulator(Manipulator):
         if not self.gripper.open():
             return Outcome(False, f"Failed to open gripper when releasing '{object_name}'.")
 
-        success = self.planning_scene.release_object(
-            object_name,
-            self.robot_name,
-            self.ee_link_name,
+        success = self.planning_scene.detach_object(
+            obj_name=object_name,
+            robot_name=self.robot_name,
+            ee_link_name=self.ee_link_name,
         )
+
         message = (
             f"Successfully released '{object_name}'."
             if success

@@ -250,32 +250,6 @@ def pointcloud_to_msg(cloud: PointCloud, frame_id: str = DEFAULT_FRAME) -> Point
     return point_cloud2.create_cloud(header, fields, points_with_rgb)
 
 
-def make_collision_object_msg(
-    object_name: str,
-    object_type: str,
-    object_pose: Pose3D,
-    collision_model: CollisionModel,
-) -> CollisionObject:
-    """Construct a moveit_msgs/CollisionObject message using the given data."""
-    msg = CollisionObject()
-    msg.header.frame_id = object_pose.ref_frame
-    msg.pose = pose_to_msg(object_pose)
-
-    msg.id = object_name
-    msg.type.key = object_type  # Ignore 'db' field of message
-
-    msg.meshes = [trimesh_to_msg(mesh) for mesh in collision_model.meshes]
-    msg.mesh_poses = [Pose() for _ in collision_model.meshes]
-
-    msg.primitives = [primitive_shape_to_msg(shape) for shape in collision_model.primitives]
-
-    # TODO: Frames used to be shifted to bottom of objects
-    msg.primitive_poses = [Pose() for _ in collision_model.primitives]
-
-    msg.operation = CollisionObject.ADD
-    return msg
-
-
 def occupancy_grid_to_msg(grid: OccupancyGrid2D) -> OccupancyGrid:
     """Convert an OccupancyGrid2D into a nav_msgs/OccupancyGrid message.
 
