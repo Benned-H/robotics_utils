@@ -354,12 +354,15 @@ class SpotSkillsProtocol(SkillsProtocol):
         ee_target: Pose3D,
         target_name: str = "ee_target",
         ignored_objects: str = "",
+        *,
+        display_and_pause: bool = False,
     ) -> Outcome:
         """Move Spot's end-effector to the specified pose.
 
         :param ee_target: End-effector target pose
         :param target_name: Name describing the end-effector target pose
         :param ignored_objects: Comma-separated list of object names to ignore (defaults to "")
+        :param display_and_pause: If True, display the trajectory in RViz and pause for user input
         :return: Boolean success indicator and an outcome message
         """
         console.print(f"Moving Spot's end-effector to '{target_name}': {ee_target}")
@@ -373,6 +376,10 @@ class SpotSkillsProtocol(SkillsProtocol):
         plan_msg = self._arm.planner.compute_motion_plan(query)
         if plan_msg is None:
             return Outcome(success=False, message="No motion plan found.")
+
+        if display_and_pause:
+            self._arm.planner.visualize_plan(plan_msg)
+            Prompt.ask("Press [bold]Enter[/] to execute the visualized trajectory...")
 
         with console.status("Executing trajectory..."):
             success = self._arm.execute_trajectory_msg(plan_msg)
@@ -519,12 +526,6 @@ class SpotSkillsProtocol(SkillsProtocol):
     def pick(
         self,
         object_name: str = "eraser1",
-        view_pose_o_ee: Pose3D = Pose3D.from_xyz_rpy(
-            x=-0.05,
-            z=0.5,
-            pitch_rad=1.5708,
-            ref_frame="eraser1",
-        ),
         pre_grasp_rad: float = -0.9,
         pre_grasp_x_m: float = 0.1,
         pose_o_g: Pose3D = Pose3D.from_xyz_rpy(
@@ -542,7 +543,6 @@ class SpotSkillsProtocol(SkillsProtocol):
         """Pick the named object using Spot's gripper.
 
         :param object_name: Name of the object to be picked
-        :param view_pose_o_ee: End-effector pose (w.r.t. the object) used to view the object
         :param pre_grasp_rad: Angle (radians) to open the gripper before grasping
         :param pre_grasp_x_m: Offset (abs. m) of the pre-grasp pose "back" (-x) from the grasp pose
         :param pose_o_g: Object-relative end-effector pose used to grasp the object
@@ -554,19 +554,10 @@ class SpotSkillsProtocol(SkillsProtocol):
         """
         console.print(f"Picking object '{object_name}'...")
 
-        # 1. Fully open the gripper, move to the view pose, and re-pose-estimate the object
+        # 1. Fully open the gripper and re-pose-estimate the object
         open_outcome = self.open_gripper()
         if not open_outcome.success:
             return open_outcome
-
-        # # Reflect the given view pose if it doesn't have an IK solution
-        # if self._arm.compute_ik(view_pose_o_ee) is None and yaw_symmetric:
-        #     rotate_object = Pose3D.from_xyz_rpy(yaw_rad=3.14159, ref_frame=object_name)
-        #     view_pose_o_ee = rotate_object @ view_pose_o_ee
-
-        # view_outcome = self._move_ee_to_pose(view_pose_o_ee, f"view_{object_name}")
-        # if not view_outcome.success:
-        #     return view_outcome
 
         estimate_outcome = self.estimate_pose(object_name, duration_s=5.0)
         if not estimate_outcome.success:
@@ -610,7 +601,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         if pauses:
             Prompt.ask("Press [bold]Enter[/] to move to the pre-grasp pose")
 
-        pre_outcome = self._move_ee_to_pose(valid_poses.pregrasp_pose)
+        pre_outcome = self._move_ee_to_pose(valid_poses.pregrasp_pose, display_and_pause=pauses)
         if not pre_outcome.success:
             return pre_outcome
 
@@ -618,9 +609,9 @@ class SpotSkillsProtocol(SkillsProtocol):
         if pauses:
             Prompt.ask("Press [bold]Enter[/] to move to the grasp pose")
 
-        move_to_grasp_outcome = self._move_ee_to_pose(valid_poses.grasp_pose)
-        if not move_to_grasp_outcome.success:
-            return move_to_grasp_outcome
+        to_grasp_outcome = self._move_ee_to_pose(valid_poses.grasp_pose, display_and_pause=pauses)
+        if not to_grasp_outcome.success:
+            return to_grasp_outcome
 
         # 6. Grasp the object by closing the gripper
         if pauses:
@@ -634,7 +625,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         if pauses:
             Prompt.ask("Press [bold]Enter[/] to move to the post-grasp pose")
 
-        post_outcome = self._move_ee_to_pose(valid_poses.postgrasp_pose)
+        post_outcome = self._move_ee_to_pose(valid_poses.postgrasp_pose, display_and_pause=pauses)
         if not post_outcome.success:
             return post_outcome
 

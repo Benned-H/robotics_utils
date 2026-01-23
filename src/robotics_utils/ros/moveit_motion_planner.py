@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Tuple
 
 import rospy
-from moveit_msgs.msg import MoveItErrorCodes, RobotTrajectory
+from moveit_commander import MoveGroupCommander, RobotCommander
+from moveit_msgs.msg import DisplayTrajectory, MoveItErrorCodes, RobotTrajectory
 
 from robotics_utils.ros.msg_conversion import pose_to_msg, pose_to_stamped_msg
 from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
@@ -14,7 +15,6 @@ from robotics_utils.spatial import Pose3D
 
 if TYPE_CHECKING:
     from geometry_msgs.msg import Pose as PoseMsg
-    from moveit_commander import MoveGroupCommander
 
     from robotics_utils.motion_planning import MotionPlanningQuery
 
@@ -33,6 +33,9 @@ class MoveItMotionPlanner:
         """Initialize the MoveIt motion planner with an interface to the relevant move group."""
         self._move_group = move_group
         self._planning_scene = PlanningSceneManager(planning_frame=planning_frame)
+
+        self._robot = RobotCommander()
+        self._display_pub = rospy.Publisher("/move_group/display_planned_path", DisplayTrajectory)
 
     @property
     def planning_frame(self) -> str:
@@ -110,3 +113,10 @@ class MoveItMotionPlanner:
         )
 
         return (plan if fraction > 0.0 else None, fraction)
+
+    def visualize_plan(self, plan: RobotTrajectory) -> None:
+        """Visualize the given trajectory in RViz."""
+        display_traj = DisplayTrajectory()
+        display_traj.trajectory_start = self._robot.get_current_state()
+        display_traj.trajectory = [plan]
+        self._display_pub.publish(display_traj)
