@@ -350,3 +350,6 @@ class Pose3D:
             and self.position.approx_equal(other.position, rtol=rtol, atol=atol)
             and self.orientation.approx_equal(other.orientation, rtol=rtol, atol=atol)
         )
+
+
+PoseT = TypeVar("PoseT", Pose2D, Pose3D)

@@ -161,10 +161,6 @@ class SpotSkillsProtocol(SkillsProtocol):
         """Access the active interface to the MoveIt planning scene."""
         return self._arm.planning_scene
 
-    def spin_once(self, duration_s: float = 0.1) -> None:
-        """Sleep for the given duration (in seconds) to allow background processing."""
-        rospy.sleep(duration_s)  # TODO: When should this be called?
-
     @skill_method
     def navigate_to_waypoint(self, waypoint: str) -> Outcome:
         """Navigate to the named waypoint using global path planning.
@@ -173,14 +169,6 @@ class SpotSkillsProtocol(SkillsProtocol):
         :return: Boolean success indicator and an outcome message
         """
         console.print(f"Navigating to waypoint '{waypoint}'...")
-        if waypoint not in self._waypoints:
-            return Outcome(
-                success=False,
-                message=(
-                    f"Cannot navigate to unknown waypoint: '{waypoint}'. "
-                    f"Available waypoints: {self._waypoints.waypoint_names}."
-                ),
-            )
 
         request = NameServiceRequest(name=waypoint)
         response = self._nav_to_waypoint_caller(request)
@@ -448,6 +436,15 @@ class SpotSkillsProtocol(SkillsProtocol):
         :return: Boolean success indicator and an outcome message
         """
         console.print("Commanding Spot to open the door...")
+
+        # Begin by navigating to the "open_door" waypoint
+        nav_outcome = self.navigate_to_waypoint("open_door")
+        if not nav_outcome.success:
+            return Outcome(
+                success=False,
+                message=f"Failed to navigate to 'open_door' waypoint: {nav_outcome}",
+            )
+
         request = OpenDoorRequest(
             body_pitch_rad,
             is_pull,
@@ -527,14 +524,14 @@ class SpotSkillsProtocol(SkillsProtocol):
         self,
         object_name: str = "eraser1",
         pre_grasp_rad: float = -0.9,
-        pre_grasp_x_m: float = 0.1,
+        pre_grasp_x_m: float = 0.15,
         pose_o_g: Pose3D = Pose3D.from_xyz_rpy(
             x=-0.02,
-            z=0.25,
+            z=0.24,
             pitch_rad=1.5708,
             ref_frame="eraser1",
         ),
-        lift_z_m: float = 0.1,
+        lift_z_m: float = 0.15,
         *,
         pauses: bool = False,
         yaw_symmetric: bool = True,

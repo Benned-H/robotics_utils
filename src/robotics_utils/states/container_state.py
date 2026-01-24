@@ -100,7 +100,7 @@ class ContainerState:
                 if obj_name not in known_object_names:
                     state.add_object(obj_name)  # Add the object if it's new to the state
 
-                state.set_object_pose(obj_name=obj_name, pose=obj_state.pose)
+                state.set_known_object_pose(obj_name=obj_name, pose=obj_state.pose)
                 state.kinematic_tree.set_collision_model(obj_name, obj_state.collision_model)
 
         elif self.status == "closed":  # If closed, clear contained objects' poses from the state

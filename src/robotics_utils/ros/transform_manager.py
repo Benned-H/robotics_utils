@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 import rospy
 from tf2_ros import (
@@ -15,7 +15,7 @@ from tf2_ros import (
 )
 
 from robotics_utils.ros.msg_conversion import pose_from_tf_stamped_msg, pose_to_tf_stamped_msg
-from robotics_utils.spatial import Pose2D, Pose3D
+from robotics_utils.spatial import Pose2D, Pose3D, PoseT
 
 if TYPE_CHECKING:
     from geometry_msgs.msg import TransformStamped
@@ -177,27 +177,26 @@ class TransformManager:
         return pose_p_c
 
     @staticmethod
-    def convert_to_frame(
-        pose_c_p: Pose3D | Pose2D,
-        target_frame: str,
-        timeout_s: float = 5.0,
-    ) -> Pose3D:
+    def convert_to_frame(pose: PoseT, target_frame: str, timeout_s: float = 5.0) -> PoseT:
         """Convert the given pose into the target reference frame.
 
-        Frames: Frame implied by the pose (p), current ref. frame (c), target ref. frame (t)
-
-        :param pose_c_p: Pose (frame p) w.r.t. its current reference frame (frame c)
+        :param pose: 2D or 3D pose (frame p) w.r.t. its current reference frame (frame c)
         :param target_frame: Target reference frame (frame t) of the output pose
-        :param timeout_s: Duration (seconds) after which the conversion times out (default: 5 sec)
-        :return: Pose3D relative to the target reference frame (i.e., pose_t_p)
+        :param timeout_s: Duration (seconds) after which conversion times out (default: 5 seconds)
+        :return: Pose (2D or 3D, same type as input pose) w.r.t. target frame (i.e., pose_t_p)
+        :raises TypeError: If the given pose has an unrecognized type
         :raises RuntimeError: If the transform lookup between the two frames fails
         """
-        if isinstance(pose_c_p, Pose2D):
-            pose_c_p = pose_c_p.to_3d()
-
-        current_frame = pose_c_p.ref_frame
+        current_frame = pose.ref_frame
         if current_frame == target_frame:
-            return pose_c_p
+            return pose
+
+        if isinstance(pose, Pose2D):
+            pose_c_p = pose.to_3d()
+        elif isinstance(pose, Pose3D):
+            pose_c_p = pose
+        else:
+            raise TypeError(f"Unrecognized pose type: {pose} (type {type(pose)}).")
 
         pose_t_c = None
         end_time = time.time() + timeout_s
@@ -207,4 +206,8 @@ class TransformManager:
         if pose_t_c is None:
             raise RuntimeError(f"Lookup from frame '{current_frame}' to '{target_frame}' failed")
 
-        return pose_t_c @ pose_c_p
+        result_3d = pose_t_c @ pose_c_p
+
+        if isinstance(pose, Pose2D):
+            return result_3d.to_2d()
+        return result_3d

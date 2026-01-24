@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-@dataclass(frozen=True)
+@dataclass
 class FiducialMarker:
     """A visual fiducial marker used for pose estimation."""
 
@@ -59,7 +59,7 @@ class FiducialMarker:
         return self.id_to_frame_name(self.id)
 
 
-@dataclass(frozen=True)
+@dataclass
 class FiducialSystem:
     """A system of known visual fiducial markers and fiducial-detecting cameras."""
 

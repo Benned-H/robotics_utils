@@ -35,7 +35,11 @@ class MoveItMotionPlanner:
         self._planning_scene = PlanningSceneManager(planning_frame=planning_frame)
 
         self._robot = RobotCommander()
-        self._display_pub = rospy.Publisher("/move_group/display_planned_path", DisplayTrajectory)
+        self._display_pub = rospy.Publisher(
+            "/move_group/display_planned_path",
+            DisplayTrajectory,
+            queue_size=1,
+        )
 
     @property
     def planning_frame(self) -> str:

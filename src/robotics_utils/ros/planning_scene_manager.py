@@ -207,6 +207,20 @@ class PlanningSceneManager:
             self._attached_objects[(robot_name, ee_link_name)].remove(obj_name)
         return is_detached
 
+    def detach_all_objects(self) -> bool:
+        """Detach all attached objects in the planning scene (used to reset the scene)."""
+        attached_map = self._attached_objects.copy()
+        all_detached = True  # Have all objects succeeded so far?
+        for (robot_name, ee_link_name), attached_objects in attached_map.items():
+            for obj_name in attached_objects:
+                detached = self.detach_object(
+                    obj_name=obj_name,
+                    robot_name=robot_name,
+                    ee_link_name=ee_link_name,
+                )
+                all_detached = all_detached and detached
+        return all_detached
+
     def get_attached_objects(self, robot_name: str) -> set[str]:
         """Retrieve the names of objects attached to the named robot (defaults to empty set)."""
         all_attached = set()
@@ -245,7 +259,7 @@ class PlanningSceneManager:
 
     def set_state(self, state: ObjectCentricState, attempts_per_obj: int = 3) -> bool:
         """Update the MoveIt planning scene to reflect the given environment state."""
-        kinematic_states = state.known_kinematic_states
+        kinematic_states = state.available_kinematic_states
         known_objects = set(kinematic_states.keys())
         unknown_objects = set(state.object_names).difference(known_objects)
 

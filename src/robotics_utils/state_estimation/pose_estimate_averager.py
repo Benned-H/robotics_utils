@@ -55,7 +55,7 @@ class PoseEstimateAverager:
             return self._averages[frame_name]  # Return the cached average if previously computed
 
         poses_data = self._data.get(frame_name)
-        self._averages[frame_name] = average_poses(poses_data) if poses_data else None
+        self._averages[frame_name] = average_poses(poses_data.copy()) if poses_data else None
         return self._averages[frame_name]
 
     def compute_all_averages(self) -> dict[str, Pose3D | None]:

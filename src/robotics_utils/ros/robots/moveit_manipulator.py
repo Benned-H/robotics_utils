@@ -181,10 +181,10 @@ class MoveItManipulator(Manipulator):
 
         return dict(zip(self.joint_names, list(ik_solution)))
 
-    def grasp(self, object_name: str) -> Outcome:
-        """Grasp the named object using the manipulator's gripper (and close the gripper).
+    def grasp(self, object_name: str) -> Outcome[Pose3D]:
+        """Grasp the named object by closing the manipulator's gripper.
 
-        :return: Boolean success of the grasp and an outcome message
+        :return: Boolean success, outcome message, and end-effector relative pose of the object
         """
         if self.gripper is None:
             return Outcome(False, f"Cannot grasp '{object_name}' because gripper is None.")
@@ -196,8 +196,6 @@ class MoveItManipulator(Manipulator):
         pose_ee_o = TransformManager.lookup_transform(object_name, self.ee_link_name)
         if pose_ee_o is None:
             return Outcome(False, f"Failed to look up pose when grasping '{object_name}'.")
-
-        TransformManager.broadcast_transform(object_name, pose_ee_o)  # Update object's pose in TF
 
         success = self.planning_scene.attach_object(
             obj_name=object_name,
@@ -211,7 +209,7 @@ class MoveItManipulator(Manipulator):
             if success
             else f"Failed to grasp '{object_name}' because the planning scene was not updated."
         )
-        return Outcome(success=success, message=message)
+        return Outcome(success=success, message=message, output=pose_ee_o)
 
     def release(self, object_name: str) -> Outcome:
         """Release the named object using the manipulator's gripper.

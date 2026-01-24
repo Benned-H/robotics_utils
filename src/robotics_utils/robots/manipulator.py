@@ -62,10 +62,10 @@ class Manipulator(ABC):
         ...
 
     @abstractmethod
-    def grasp(self, object_name: str) -> Outcome:
+    def grasp(self, object_name: str) -> Outcome[Pose3D]:
         """Grasp the named object using the manipulator's gripper.
 
-        :return: Boolean success of the grasp and an outcome message
+        :return: Boolean success, outcome message, and end-effector relative pose of the object
         """
         ...
 

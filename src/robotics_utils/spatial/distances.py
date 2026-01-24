@@ -22,7 +22,7 @@ def euclidean_distance_2d_m(pose_a: Pose2D, pose_b: Pose2D, *, change_frames: bo
     if change_frames and pose_a.ref_frame != pose_b.ref_frame:
         from robotics_utils.ros.transform_manager import TransformManager  # noqa: PLC0415
 
-        pose_a = TransformManager.convert_to_frame(pose_a.to_3d(), pose_b.ref_frame).to_2d()
+        pose_a = TransformManager.convert_to_frame(pose_a, pose_b.ref_frame)
 
     return float(np.linalg.norm(np.array([pose_a.x - pose_b.x, pose_a.y - pose_b.y])))
 

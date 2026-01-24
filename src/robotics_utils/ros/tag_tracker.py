@@ -54,13 +54,14 @@ class TagTracker:
 
         self.update_thread = CallLoopThread(
             self._update_estimates,
+            loop_hz=20.0,
             name="TagTracker",
             resource_manager=resource_manager,
         )
 
     @property
     def all_estimated_poses(self) -> dict[str, Pose3D]:
-        """Retrieve a map from reference frame names to their estimated poses (if known)."""
+        """Retrieve a map from reference frame names to their estimated poses (if available)."""
         estimated_poses: dict[str, Pose3D] = {
             frame_name: pose_avg
             for frame_name, pose_avg in self.pose_averager.compute_all_averages().items()
@@ -76,7 +77,7 @@ class TagTracker:
         return estimated_poses
 
     def get_estimated_pose(self, frame_name: str) -> Pose3D | None:
-        """Retrieve the world-frame estimated pose of a reference frame (or None if unknown).
+        """Retrieve the world-frame estimated pose of a reference frame (or None if unavailable).
 
         :param frame_name: Name of a reference frame
         :return: Estimated pose of the frame, or None if no estimate exists
