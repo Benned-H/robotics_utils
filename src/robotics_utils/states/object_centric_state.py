@@ -133,6 +133,11 @@ class ObjectCentricState:
         if obj_name not in self._object_names:
             self._object_names.append(obj_name)
 
+    def add_robot(self, robot_name: str) -> None:
+        """Add the given robot name to the set of known robot names."""
+        if robot_name not in self._robot_names:
+            self._robot_names.append(robot_name)
+
     def set_known_object_pose(self, obj_name: str, pose: Pose3D) -> None:
         """Set the pose of the named object from a "known" source of truth.
 

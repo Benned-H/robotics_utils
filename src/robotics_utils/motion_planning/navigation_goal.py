@@ -13,11 +13,11 @@ class NavigationGoal:
 
     pose: Pose2D
 
-    reached_distance_m: float
+    goal_reached_m: float = 0.2
     """Distance (meters) within which a base pose is considered to have 'reached' the goal."""
 
-    reached_abs_angle_rad: float
-    """Absolute angle (radians) from this goal's yaw for it to be considered 'reached'."""
+    goal_yaw_tolerance_rad: float = 0.3
+    """Absolute angle (radians) within which the robot's yaw is 'close enough' to the goal yaw."""
 
     def check_reached_by(self, base_pose: Pose2D, *, change_frames: bool) -> bool:
         """Check whether the given base pose has 'reached' the goal base pose.
@@ -34,8 +34,8 @@ class NavigationGoal:
         distance_2d_m = euclidean_distance_2d_m(base_pose, self.pose, change_frames=change_frames)
         angle_error_rad = angle_difference_rad(base_pose.yaw_rad, self.pose.yaw_rad)
 
-        distance_reached = distance_2d_m < self.reached_distance_m
-        angle_reached = angle_error_rad < self.reached_abs_angle_rad
+        distance_reached = distance_2d_m < self.goal_reached_m
+        angle_reached = angle_error_rad < self.goal_yaw_tolerance_rad
         result = distance_reached and angle_reached
 
         log_info(f"Current Euclidean distance to goal pose: {distance_2d_m} m")

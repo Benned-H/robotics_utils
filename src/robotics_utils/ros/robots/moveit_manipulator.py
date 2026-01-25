@@ -10,32 +10,32 @@ import rospy
 from moveit_commander import MoveGroupCommander, roscpp_initialize
 from trac_ik_python.trac_ik import IK
 
-from robotics_utils.motion_planning import MotionPlanningQuery
+from robotics_utils.motion_planning import MotionPlanningQuery, Trajectory
 from robotics_utils.robots import Manipulator
 from robotics_utils.ros import PlanningSceneManager, TransformManager, get_ros_param
 from robotics_utils.ros.moveit_motion_planner import MoveItMotionPlanner
-from robotics_utils.ros.msg_conversion import trajectory_to_msg
+from robotics_utils.ros.msg_conversion import trajectory_from_msg, trajectory_to_msg
 from robotics_utils.skills import Outcome
 
 if TYPE_CHECKING:
     from moveit_msgs.msg import RobotTrajectory
 
     from robotics_utils.kinematics import Configuration
-    from robotics_utils.motion_planning import Trajectory
     from robotics_utils.robots.angular_gripper import AngularGripper
     from robotics_utils.spatial import Pose3D
 
 
-class MoveItManipulator(Manipulator):
+class MoveItManipulator(Manipulator[Trajectory]):
     """A MoveIt-based interface for a robot manipulator."""
 
     def __init__(
         self,
+        *,
         name: str,
         robot_name: str,
         base_frame: str,
         planning_frame: str,
-        gripper: AngularGripper | None,
+        gripper: AngularGripper,
     ) -> None:
         """Initialize the manipulator with names, frames, and (optionally) a gripper.
 
@@ -113,6 +113,18 @@ class MoveItManipulator(Manipulator):
 
         return pose_b_ee
 
+    def compute_motion_plan(self, query: MotionPlanningQuery) -> Trajectory | None:
+        """Compute a motion plan for the given planning query.
+
+        :param query: Specifies an end-effector target and (optionally) objects to ignore
+        :return: Computed motion plan trajectory, or None if no plan was found
+        """
+        robot_traj_msg = self.planner.compute_motion_plan(query=query)
+        if robot_traj_msg is None:
+            return None
+
+        return trajectory_from_msg(robot_traj_msg.joint_trajectory)
+
     def execute_motion_plan(self, trajectory: Trajectory) -> bool:
         """Execute the given trajectory on the manipulator using MoveIt.
 
@@ -186,9 +198,6 @@ class MoveItManipulator(Manipulator):
 
         :return: Boolean success, outcome message, and end-effector relative pose of the object
         """
-        if self.gripper is None:
-            return Outcome(False, f"Cannot grasp '{object_name}' because gripper is None.")
-
         if not self.gripper.close():
             return Outcome(False, f"Failed to close gripper when grasping '{object_name}'.")
 
@@ -211,16 +220,19 @@ class MoveItManipulator(Manipulator):
         )
         return Outcome(success=success, message=message, output=pose_ee_o)
 
-    def release(self, object_name: str) -> Outcome:
+    def release(self, object_name: str, placed_frame: str) -> Outcome[Pose3D]:
         """Release the named object using the manipulator's gripper.
 
-        :return: Boolean success of the release and an outcome message
-        """
-        if self.gripper is None:
-            return Outcome(False, f"Cannot release '{object_name}' because gripper is None.")
+        :param object_name: Name of the held object to be released
+        :param placed_frame: Parent frame of the object after it has been released
 
+        :return: Boolean success, outcome message, and resulting relative pose of the object
+        """
         if not self.gripper.open():
             return Outcome(False, f"Failed to open gripper when releasing '{object_name}'.")
+
+        # Find the current pose of the released object w.r.t. its placement frame
+        new_obj_pose = TransformManager.lookup_transform(object_name, parent_frame=placed_frame)
 
         success = self.planning_scene.detach_object(
             obj_name=object_name,
@@ -233,4 +245,4 @@ class MoveItManipulator(Manipulator):
             if success
             else f"Failed to release '{object_name}' because the planning scene was not updated."
         )
-        return Outcome(success=success, message=message)
+        return Outcome(success=success, message=message, output=new_obj_pose)

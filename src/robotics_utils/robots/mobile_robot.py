@@ -1,9 +1,14 @@
 """Define a general-purpose interface for a mobile robot base."""
 
-from abc import ABC, abstractmethod
+from __future__ import annotations
 
-from robotics_utils.motion_planning.navigation_goal import NavigationGoal
-from robotics_utils.spatial import Pose2D
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from robotics_utils.motion_planning import NavigationGoal
+    from robotics_utils.skills import Outcome
+    from robotics_utils.spatial import Pose2D
 
 
 class MobileRobot(ABC):
@@ -13,6 +18,26 @@ class MobileRobot(ABC):
     @abstractmethod
     def current_base_pose(self) -> Pose2D:
         """Retrieve the robot's current base pose."""
+        ...
+
+    @abstractmethod
+    def compute_navigation_plan(self, initial: Pose2D, goal: Pose2D) -> list[Pose2D] | None:
+        """Compute a navigation plan between the two given robot base poses.
+
+        :param initial: Robot base pose from which the plan begins
+        :param goal: Target base pose to be reached by the navigation plan
+        :return: Navigation plan (list of base pose waypoints), or None if no plan is found
+        """
+        ...
+
+    @abstractmethod
+    def execute_navigation_plan(self, nav_plan: list[Pose2D], timeout_s: float = 60.0) -> Outcome:
+        """Execute the given navigation plan on the mobile robot.
+
+        :param nav_plan: Navigation plan of 2D base pose waypoints
+        :param timeout_s: Duration (seconds) after which the plan times out (default: 60 seconds)
+        :return: Boolean success indicator and explanatory message
+        """
         ...
 
     def goal_reached(self, goal: NavigationGoal, *, change_frames: bool) -> bool:
