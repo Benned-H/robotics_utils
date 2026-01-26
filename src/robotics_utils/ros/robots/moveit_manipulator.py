@@ -11,9 +11,9 @@ from moveit_commander import MoveGroupCommander, roscpp_initialize
 from trac_ik_python.trac_ik import IK
 
 from robotics_utils.motion_planning import MotionPlanningQuery, Trajectory
+from robotics_utils.motion_planning.ros import MoveItMotionPlanner, PlanningSceneManager
 from robotics_utils.robots import Manipulator
-from robotics_utils.ros import PlanningSceneManager, TransformManager, get_ros_param
-from robotics_utils.ros.moveit_motion_planner import MoveItMotionPlanner
+from robotics_utils.ros import TransformManager, get_ros_param
 from robotics_utils.ros.msg_conversion import trajectory_from_msg, trajectory_to_msg
 from robotics_utils.skills import Outcome
 

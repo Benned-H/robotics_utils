@@ -45,7 +45,7 @@ class ObjectCentricState:
         self.robot_configurations: dict[str, Configuration] = {}
         """A map from the name of each robot to its current joint configuration."""
 
-        self._containers: dict[str, ContainerState] = {}
+        self.containers: dict[str, ContainerState] = {}
         """A map from the name of each container to its current state."""
 
     @classmethod
@@ -222,7 +222,7 @@ class ObjectCentricState:
 
     def add_container(self, container_state: ContainerState) -> None:
         """Update the object-centric state based on the given container state."""
-        self._containers[container_state.name] = container_state
+        self.containers[container_state.name] = container_state
         container_state.update_state(self)
 
     def open_container(self, container_name: str) -> None:
@@ -230,18 +230,18 @@ class ObjectCentricState:
 
         :raises ValueError: If the container name is unrecognized
         """
-        if container_name not in self._containers:
+        if container_name not in self.containers:
             raise ValueError(f"Cannot open unknown container: '{container_name}'.")
-        self._containers[container_name].open(self)
+        self.containers[container_name].open(self)
 
     def close_container(self, container_name: str) -> None:
         """Close the named container and update the state accordingly.
 
         :raises ValueError: If the container name is unrecognized
         """
-        if container_name not in self._containers:
+        if container_name not in self.containers:
             raise ValueError(f"Cannot close unknown container: '{container_name}'.")
-        self._containers[container_name].close(self)
+        self.containers[container_name].close(self)
 
     def update_estimated_poses(self, pose_estimates: dict[str, Pose3D]) -> None:
         """Update the object-centric state based on the given pose estimates.

@@ -8,8 +8,8 @@ import rospy
 from moveit_commander import MoveGroupCommander, RobotCommander
 from moveit_msgs.msg import DisplayTrajectory, MoveItErrorCodes, RobotTrajectory
 
+from robotics_utils.motion_planning.ros.planning_scene_manager import PlanningSceneManager
 from robotics_utils.ros.msg_conversion import pose_to_msg, pose_to_stamped_msg
-from robotics_utils.ros.planning_scene_manager import PlanningSceneManager
 from robotics_utils.ros.transform_manager import TransformManager as TFManager
 from robotics_utils.spatial import Pose3D
 

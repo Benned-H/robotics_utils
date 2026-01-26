@@ -28,10 +28,9 @@ from robotics_utils.geometry import Point3D
 from robotics_utils.io import console
 from robotics_utils.kinematics import Waypoints
 from robotics_utils.motion_planning import MotionPlanningQuery
-from robotics_utils.motion_planning.grasping import PickPoses
+from robotics_utils.motion_planning.ros import PickPoses, PlanningSceneManager
 from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import (
-    PlanningSceneManager,
     PoseBroadcastThread,
     ServiceCaller,
     TransformManager,

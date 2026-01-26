@@ -9,7 +9,6 @@ import numpy as np
 import rospy
 from geometry_msgs.msg import Point, Pose, PoseStamped, Transform, TransformStamped, Vector3
 from geometry_msgs.msg import Quaternion as QuaternionMsg
-from moveit_msgs.msg import CollisionObject
 from nav_msgs.msg import MapMetaData, OccupancyGrid
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import JointState, PointCloud2, PointField
@@ -17,7 +16,7 @@ from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
 from std_msgs.msg import Header
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
-from robotics_utils.collision_models import Box, CollisionModel, Cylinder, PrimitiveShape, Sphere
+from robotics_utils.collision_models import Box, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.geometry import Point3D
 from robotics_utils.motion_planning import Trajectory, TrajectoryPoint
 from robotics_utils.spatial import DEFAULT_FRAME, Pose3D, Quaternion

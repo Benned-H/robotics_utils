@@ -1,9 +1,7 @@
 """Import ROS-related classes and definitions."""
 
 from .call_loop_thread import CallLoopThread as CallLoopThread
-from .moveit_motion_planner import MoveItMotionPlanner as MoveItMotionPlanner
 from .params import get_ros_param as get_ros_param
-from .planning_scene_manager import PlanningSceneManager as PlanningSceneManager
 from .pose_broadcast_thread import PoseBroadcastThread as PoseBroadcastThread
 from .services import ServiceCaller as ServiceCaller
 from .services import WaitUntilServiceCalled as WaitUntilServiceCalled

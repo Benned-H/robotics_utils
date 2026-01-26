@@ -101,5 +101,10 @@ uv venv --clear && uv sync --extra vision
 To generate a dependency graph for the codebase, run:
 
 ```bash
-uv run pyreverse --colorized src/robotics_utils
+uv run pyreverse -my -A -k --colorized src/robotics_utils
 ```
+
+<!-- uv run pyreverse \
+  -S \ ???
+  -o dot \
+  src/robotics_utils -->

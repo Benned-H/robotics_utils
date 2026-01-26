@@ -61,13 +61,16 @@ class SimulatedMobileBase(MobileRobot):
         :param goal: Target base pose to be reached by the navigation plan
         :return: Navigation plan (list of base pose waypoints), or None if no plan is found
         """
-        query = NavigationQuery(
-            start_pose=initial,
-            goal_pose=goal,
-            occupancy_grid=self.occupancy_grid,
-            robot_footprint=self.robot_footprint,
-        )
-        return plan_se2_path(query)
+        return [initial, goal]
+
+        # TODO: Replace dummy planner with actual below implementation!
+        # query = NavigationQuery(
+        #     start_pose=initial,
+        #     goal_pose=goal,
+        #     occupancy_grid=self.occupancy_grid,
+        #     robot_footprint=self.robot_footprint,
+        # )
+        # return plan_se2_path(query)
 
     def execute_navigation_plan(self, nav_plan: list[Pose2D], timeout_s: float = 60.0) -> Outcome:
         """Execute the given navigation plan on the simulated robot base.

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from robotics_utils.geometry import Point2D
-from robotics_utils.motion_planning import DiscreteGrid2D, GridCell
+from robotics_utils.motion_planning.discretization import DiscreteGrid2D, GridCell
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
