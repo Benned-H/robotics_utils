@@ -114,7 +114,15 @@ class ObjectCentricState:
     def robot_base_poses(self) -> dict[str, Pose3D]:
         """Retrieve a dictionary mapping robot names to their base poses (if available)."""
         frame_names = {f"{robot_name}_base_pose" for robot_name in self._robot_names}
-        return self.kinematic_tree.get_poses(frame_names=frame_names)
+        frame_poses = self.kinematic_tree.get_poses(frame_names=frame_names)
+
+        robot_base_poses: dict[str, Pose3D] = {}
+        for robot_name in self._robot_names:
+            pose = frame_poses.get(f"{robot_name}_base_pose")
+            if pose is not None:
+                robot_base_poses[robot_name] = pose
+
+        return robot_base_poses
 
     @property
     def available_kinematic_states(self) -> dict[str, ObjectKinematicState]:

@@ -20,8 +20,6 @@ class SimulatedMobileBase(MobileRobot):
     def __init__(
         self,
         env_state: ObjectCentricState,
-        occupancy_grid: OccupancyGrid2D,
-        robot_footprint: RectangularFootprint,
         *,
         robot_name: str,
         base_frame: str,
@@ -29,8 +27,6 @@ class SimulatedMobileBase(MobileRobot):
         """Initialize the simulated mobile base with the current environment state.
 
         :param env_state: State of the simulated environment (used to update the robot's base pose)
-        :param occupancy_grid: 2D occupancy grid used for collision-aware path planning
-        :param robot_footprint: Robot footprint used for collision checking during navigation
         :param robot_name: Name of the robot
         :param base_frame: Name of the reference frame of the robot's mobile base
         """
@@ -38,10 +34,11 @@ class SimulatedMobileBase(MobileRobot):
             env_state.add_robot(robot_name)
 
         self.env_state = env_state
-        self.occupancy_grid = occupancy_grid
-        self.robot_footprint = robot_footprint
         self.robot_name = robot_name
         self.base_frame = base_frame
+
+        self.occupancy_grid: OccupancyGrid2D | None = None
+        self.robot_footprint: RectangularFootprint | None = None
 
     @property
     def current_base_pose(self) -> Pose2D:
