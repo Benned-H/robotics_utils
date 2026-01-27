@@ -3,53 +3,71 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic
+from typing import TYPE_CHECKING, Dict, Generic
 
+from robotics_utils.io.pydantic_schemata import (
+    ImageObservationSchema,
+    ViewpointSchema,
+    ViewpointTemplatesSchema,
+)
 from robotics_utils.spatial import Pose3D
 from robotics_utils.vision import Image, ImageT
 
 if TYPE_CHECKING:
-    from robotics_utils.io.pydantic_schemata import ImageObservationSchema, ViewpointSchema
     from robotics_utils.vision.cameras import Camera
 
 
 @dataclass(frozen=True)
 class Viewpoint(Generic[ImageT]):
-    """An object-relative viewpoint from which a camera captures visual observations."""
+    """A viewpoint from which a camera captures visual observations (typically object-relative).
+
+    Because the same object-relative viewpoints are used for all objects of a given type,
+    the `pose_c` frame `"OBJECT"` is used to denote that a viewpoint is object-relative.
+    """
 
     camera: Camera[ImageT]
     """Interface for the camera used at the viewpoint."""
 
-    pose_o_c: Pose3D
-    """Camera pose in the object's frame."""
+    pose_c: Pose3D
+    """Camera pose, typically in the object's frame (denoted by reference frame `"OBJECT"`)."""
 
     @classmethod
-    def from_schema(
-        cls,
-        schema: ViewpointSchema,
-        default_frame: str,
-        cameras: dict[str, Camera],
-    ) -> Viewpoint:
+    def from_schema(cls, schema: ViewpointSchema, cameras: dict[str, Camera]) -> Viewpoint:
         """Construct a viewpoint from validated data loaded from file.
 
         :param schema: Validated data representing a viewpoint
-        :param default_frame: Default frame used for the camera pose if unspecified
         :param cameras: Map from camera names to camera objects
         :return: Constructed Viewpoint instance
         """
         camera = cameras[schema.camera_id]
-        pose = Pose3D.from_schema(schema.pose, default_frame=default_frame)
+        pose = Pose3D.from_schema(schema.pose, default_frame="OBJECT")
         return Viewpoint(camera, pose)
 
-    # TODO
-    # def to_yaml_data(self, default_frame: str) -> dict[str, Any]:
-    #     """Convert the object viewpoint into a form suitable for export to YAML.
+    def to_schema(self, default_frame: str) -> ViewpointSchema:
+        """Convert the viewpoint into an equivalent Pydantic schema."""
+        pose_schema = self.pose_o_c.to_schema(default_frame=default_frame)
+        return ViewpointSchema(camera_id=self.camera.name, pose=pose_schema)
 
-    #     :param default_frame: Default frame used for poses in the relevant YAML file
-    #     :return: Dictionary of data representing the object viewpoint
-    #     """
-    #     pose_data = self.pose_o_c.to_yaml_data(default_frame=default_frame)
-    #     return {"camera_id": self.camera.name, "pose": pose_data}
+
+NamedViewpoints = Dict[str, Viewpoint]
+"""A map from viewpoint names to the corresponding viewpoints."""
+
+
+class ViewpointTemplates(dict[str, NamedViewpoints]):
+    """A configuration specifying viewpoint templates for the object types in a domain."""
+
+    @classmethod
+    def from_schema(cls, schema: ViewpointTemplatesSchema, cameras: dict[str, Camera]) -> cls:
+        """Construct viewpoint templates from data loaded from file."""
+        templates = ViewpointTemplates()
+
+        for obj_type, vp_schemas in schema.root.items():
+            viewpoints: NamedViewpoints = {}
+            for vp_name, vp_schema in vp_schemas.items():
+                viewpoints[vp_name] = Viewpoint.from_schema(vp_schema, cameras)
+            templates[obj_type] = viewpoints
+
+        return templates
 
 
 @dataclass(frozen=True)
@@ -79,14 +97,13 @@ class ImageObservation(Generic[ImageT]):
         pose = Pose3D.from_schema(schema.pose, default_frame=default_frame)
         return ImageObservation(image, pose)
 
-    # TODO
-    # def to_yaml_data(self, default_frame: str) -> dict[str, Any]:
-    #     """Convert the image observation into a form suitable for export to YAML."""
-    #     if self.image.filepath is None:
-    #         raise ValueError("Cannot export an image without a filepath to YAML.")
+    def to_schema(self) -> ImageObservationSchema:
+        """Convert the image observation into a schema format."""
+        if self.image.filepath is None:
+            raise ValueError("Cannot convert to schema due to unknown (None) image filepath.")
 
-    #     pose_data = self.pose_o_c.to_yaml_data(default_frame=default_frame)
-    #     return {"image_path": self.image.filepath.as_posix(), "pose": pose_data}
+        pose_schema = self.pose_o_c.to_schema()
+        return ImageObservationSchema(image_path=self.image.filepath, pose=pose_schema)
 
 
 class ObjectVisualState:

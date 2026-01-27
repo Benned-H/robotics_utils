@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, List, Literal, Set, Tuple, Union
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, model_validator
 from typing_extensions import Annotated
 
 from robotics_utils.io.yaml_utils import load_yaml_data
@@ -17,17 +17,20 @@ if TYPE_CHECKING:
 # Pose Schemata
 # =============================================================================
 
+XYZ_RPY = Tuple[float, float, float, float, float, float]
+"""A six-tuple of floats representing an SE(3) pose."""
+
 
 class Pose3DDictSchema(BaseModel):
     """Schema for specifying a Pose3D as a dictionary."""
 
-    xyz_rpy: Tuple[float, float, float, float, float, float]
+    xyz_rpy: XYZ_RPY
     frame: str
 
     model_config = ConfigDict(extra="forbid")
 
 
-Pose3DSchema = Union[Tuple[float, float, float, float, float, float], Pose3DDictSchema]
+Pose3DSchema = Union[XYZ_RPY, Pose3DDictSchema]
 """A Pose3D can be specified using a 6-tuple or a dictionary with `xyz_rpy` and `frame`."""
 
 
@@ -189,8 +192,17 @@ class ViewpointSchema(BaseModel):
 
     camera_id: str
     pose: Pose3DSchema
+    """Pose data for the viewpoint (uses the object frame if unspecified)."""
 
     model_config = ConfigDict(extra="forbid")
+
+
+NamedViewpointsSchema = Dict[str, ViewpointSchema]
+"""A map from viewpoint names to the corresponding viewpoint schemas."""
+
+
+class ViewpointTemplatesSchema(RootModel[Dict[str, NamedViewpointsSchema]]):
+    """Schema mapping object types to their templates of viewpoints."""
 
 
 class ImageObservationSchema(BaseModel):
@@ -202,11 +214,11 @@ class ImageObservationSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class ObjectVisualStateSchema(BaseModel):
-    """Schema for the visual state of an object."""
+# class ObjectVisualStateSchema(BaseModel):
+#     """Schema for the visual state of an object."""
 
-    viewpoints: Dict[str, ViewpointSchema] = Field(default_factory=dict)
-    observations: Dict[str, ImageObservationSchema] = Field(default_factory=dict)
+#     viewpoints: Dict[str, ViewpointSchema] = Field(default_factory=dict)
+#     observations: Dict[str, ImageObservationSchema] = Field(default_factory=dict)
 
 
 # =============================================================================

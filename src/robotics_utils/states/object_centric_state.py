@@ -11,6 +11,7 @@ from robotics_utils.spatial import Pose2D, Pose3D
 from robotics_utils.states.container_state import ContainerState
 from robotics_utils.states.kinematic_tree import KinematicTree
 from robotics_utils.states.object_states import ObjectKinematicState
+from robotics_utils.states.visual_states import ObjectVisualState
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -47,6 +48,9 @@ class ObjectCentricState:
 
         self.containers: dict[str, ContainerState] = {}
         """A map from the name of each container to its current state."""
+
+        self._visual_states: dict[str, ObjectVisualState] = {}
+        """A map from object names to their visual states (for those that have them)."""
 
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> ObjectCentricState:

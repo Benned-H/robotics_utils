@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Tuple, TypeVar
 import numpy as np
 
 from robotics_utils.geometry import Point2D, Point3D
-from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.math import normalize_angle
 from robotics_utils.spatial.frames import DEFAULT_FRAME
 from robotics_utils.spatial.rotations import EulerRPY, Quaternion
@@ -19,7 +18,7 @@ if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
-    from robotics_utils.io.pydantic_schemata import Pose3DSchema
+    from robotics_utils.io.pydantic_schemata import Pose3DDictSchema, Pose3DSchema
 
 Multiply2D = TypeVar("Multiply2D", "Pose2D", Point2D)
 Multiply3D = TypeVar("Multiply3D", "Pose3D", Point3D)
@@ -298,16 +297,16 @@ class Pose3D:
 
         return cls.from_sequence(data=schema.xyz_rpy, ref_frame=schema.frame)
 
-    def to_yaml_data(self, default_frame: str | None = None) -> dict[str, Any] | list[float]:
-        """Convert the pose into a form suitable for export to YAML.
+    def to_schema(self, default_frame: str | None = None) -> Pose3DSchema:
+        """Convert the pose into a Pydantic schema format.
 
-        :param default_frame: Optional default frame used in the YAML file (defaults to None)
-        :return: Dictionary or list of data representing the pose
+        :param default_frame: Optional default frame assumed for the schema (default: None)
+        :return: Constructed Pose3DSchema instance
         """
         if default_frame is not None and default_frame == self.ref_frame:
-            return list(self.to_xyz_rpy())
+            return self.to_xyz_rpy()
 
-        return {"xyz_rpy": self.to_xyz_rpy(), "frame": self.ref_frame}
+        return Pose3DDictSchema(xyz_rpy=self.to_xyz_rpy(), frame=self.ref_frame)
 
     def to_2d(self) -> Pose2D:
         """Convert the 3D pose into a 2D pose by discarding its z-coordinate, roll, and pitch."""
