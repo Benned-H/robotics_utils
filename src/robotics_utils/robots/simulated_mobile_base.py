@@ -79,10 +79,10 @@ class SimulatedMobileBase(MobileRobot):
         if not nav_plan:
             return Outcome(success=False, message="Cannot execute an empty navigation plan.")
 
-        final_pose = nav_plan[-1].to_3d()
+        final_pose = nav_plan[-1]
         self.env_state.set_robot_base_pose(self.robot_name, base_pose=final_pose)
 
-        success = self.env_state.get_robot_base_pose(self.robot_name) == final_pose
+        success = self.env_state.get_robot_base_pose(self.robot_name).to_2d() == final_pose
         message = (
             f"Successfully moved '{self.robot_name}' to the end of the navigation plan."
             if success

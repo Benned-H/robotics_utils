@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from robotics_utils.collision_models import CollisionModel
 from robotics_utils.io.pydantic_schemata import ObjectCentricStateSchema
-from robotics_utils.spatial import Pose3D
+from robotics_utils.spatial import Pose2D, Pose3D
 from robotics_utils.states.container_state import ContainerState
 from robotics_utils.states.kinematic_tree import KinematicTree
 from robotics_utils.states.object_states import ObjectKinematicState
@@ -183,15 +183,22 @@ class ObjectCentricState:
         self._pose_sources.pop(obj_name, None)
         return self.kinematic_tree.clear_pose(frame_name=obj_name)
 
-    def set_robot_base_pose(self, robot_name: str, base_pose: Pose3D) -> None:
+    def set_robot_base_pose(self, robot_name: str, base_pose: Pose2D | Pose3D) -> None:
         """Set the base pose of the named robot.
 
         :param robot_name: Name of the robot assigned the given base pose
-        :param base_pose: New base pose of the robot
+        :param base_pose: New base pose of the robot (2D or 3D)
         :raises ValueError: If the robot name is unrecognized
         """
         if robot_name not in self._robot_names:
             raise ValueError(f"Cannot set the base pose of an unknown robot: '{robot_name}'.")
+
+        # If the given base pose is 2D, maintain the robot's z-coordinate (if available)
+        prev_base_pose = self.get_robot_base_pose(robot_name)
+        prev_z = 0.0 if prev_base_pose is None else prev_base_pose.position.z
+
+        if isinstance(base_pose, Pose2D):
+            base_pose = base_pose.to_3d(z=prev_z)
 
         self.kinematic_tree.set_pose(f"{robot_name}_base_pose", base_pose)
 

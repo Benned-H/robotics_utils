@@ -64,6 +64,9 @@ class MoveItManipulator(Manipulator[Trajectory]):
 
         self._ik_solver = IK(self.base_frame, self._ee_link, urdf_string=robot_urdf)
 
+        # # TODO: Clean up; wanted to see if these values work/help
+        # self._touch_links: list[str] = ["arm_link_wr1"]
+
     @property
     def ee_link_name(self) -> str:
         """Retrieve the name of the manipulator's end-effector link."""
@@ -198,27 +201,35 @@ class MoveItManipulator(Manipulator[Trajectory]):
 
         :return: Boolean success, outcome message, and end-effector relative pose of the object
         """
-        if not self.gripper.close():
-            return Outcome(False, f"Failed to close gripper when grasping '{object_name}'.")
-
-        # Find the current pose of the grasped object w.r.t. the end-effector
+        # Find the current pose of the to-be-grasped object w.r.t. the end-effector
         pose_ee_o = TransformManager.lookup_transform(object_name, self.ee_link_name)
         if pose_ee_o is None:
             return Outcome(False, f"Failed to look up pose when grasping '{object_name}'.")
 
-        success = self.planning_scene.attach_object(
+        # TODO: Clean up below once working permutation is found
+        touch_links = list(self.gripper.link_names)  # + self._touch_links
+        attached = self.planning_scene.attach_object(
             obj_name=object_name,
             robot_name=self.robot_name,
             ee_link_name=self.ee_link_name,
-            touch_links=self.gripper.link_names,
+            touch_links=touch_links,
         )  # Attach the object to the robot's end-effector in MoveIt's planning scene
 
-        message = (
-            f"Successfully grasped '{object_name}'."
-            if success
-            else f"Failed to grasp '{object_name}' because the planning scene was not updated."
+        if not attached:
+            return Outcome(
+                success=False,
+                message=f"Failed to attach '{object_name}' in the MoveIt planning scene.",
+            )
+
+        # Close the gripper only after the object has been attached
+        if not self.gripper.close():
+            return Outcome(False, f"Failed to close gripper when grasping '{object_name}'.")
+
+        return Outcome(
+            success=True,
+            message=f"Successfully grasped '{object_name}'.",
+            output=pose_ee_o,
         )
-        return Outcome(success=success, message=message, output=pose_ee_o)
 
     def release(self, object_name: str, placed_frame: str) -> Outcome[Pose3D]:
         """Release the named object using the manipulator's gripper.

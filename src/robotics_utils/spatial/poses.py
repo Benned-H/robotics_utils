@@ -108,11 +108,12 @@ class Pose2D:
 
         return {"x_y_yaw": list(self), "frame": self.ref_frame}
 
-    def to_3d(self) -> Pose3D:
+    def to_3d(self, z: float = 0.0) -> Pose3D:
         """Convert the 2D pose into an equivalent Pose3D."""
         return Pose3D.from_xyz_rpy(
             x=self.x,
             y=self.y,
+            z=z,
             yaw_rad=self.yaw_rad,
             ref_frame=self.ref_frame,
         )

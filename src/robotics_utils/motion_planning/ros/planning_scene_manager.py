@@ -259,13 +259,20 @@ class PlanningSceneManager:
 
     def set_state(self, state: ObjectCentricState, attempts_per_obj: int = 3) -> bool:
         """Update the MoveIt planning scene to reflect the given environment state."""
+        # Get all currently attached objects - these should be skipped
+        all_attached: set[str] = set()
+        for attached_set in self._attached_objects.values():
+            all_attached.update(attached_set)
+
         kinematic_states = state.available_kinematic_states
         known_objects = set(kinematic_states.keys())
         unknown_objects = set(state.object_names).difference(known_objects)
 
         # Remove any objects in the planning scene that don't have a specified state
+        # (but don't remove attached objects)
         to_be_removed = self._added_objects.difference(known_objects)
         to_be_removed.update(unknown_objects)
+        to_be_removed.difference_update(all_attached)
 
         all_removed = True
         for obj_name in to_be_removed:
@@ -274,8 +281,12 @@ class PlanningSceneManager:
                 all_removed = all_removed and removed
 
         # Add updated versions of all objects with known kinematic states
+        # (but skip attached objects - they move with the robot)
         all_added = True
         for kin_state in kinematic_states.values():
+            if kin_state.name in all_attached:
+                continue
+
             attempts_left = attempts_per_obj
             object_added = False
             while attempts_left and not object_added:

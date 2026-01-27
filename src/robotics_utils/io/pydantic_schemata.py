@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Literal, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Set, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from typing_extensions import Annotated
 
 from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.spatial.frames import DEFAULT_FRAME
@@ -20,13 +21,13 @@ if TYPE_CHECKING:
 class Pose3DDictSchema(BaseModel):
     """Schema for specifying a Pose3D as a dictionary."""
 
-    xyz_rpy: tuple[float, float, float, float, float, float]
+    xyz_rpy: Tuple[float, float, float, float, float, float]
     frame: str
 
     model_config = ConfigDict(extra="forbid")
 
 
-Pose3DSchema = tuple[float, float, float, float, float, float] | Pose3DDictSchema
+Pose3DSchema = Union[Tuple[float, float, float, float, float, float], Pose3DDictSchema]
 """A Pose3D can be specified using a 6-tuple or a dictionary with `xyz_rpy` and `frame`."""
 
 
@@ -78,7 +79,7 @@ PrimitiveShapeSchema = Annotated[
 class TranslateTransformSchema(BaseModel):
     """Schema for a translation transform."""
 
-    translate: tuple[float, float, float]
+    translate: Tuple[float, float, float]
 
     model_config = ConfigDict(extra="forbid")
 
@@ -86,7 +87,7 @@ class TranslateTransformSchema(BaseModel):
 class RotateTransformSchema(BaseModel):
     """Schema for a rotation transform specified using Euler angles in radians."""
 
-    rotate: tuple[float, float, float]
+    rotate: Tuple[float, float, float]
 
     model_config = ConfigDict(extra="forbid")
 
@@ -94,7 +95,7 @@ class RotateTransformSchema(BaseModel):
 class ScaleTransformSchema(BaseModel):
     """Schema for a scaling transform (uniform or non-uniform across axes)."""
 
-    scale: float | tuple[float, float, float]
+    scale: Union[float, Tuple[float, float, float]]
 
     model_config = ConfigDict(extra="forbid")
 
@@ -116,7 +117,7 @@ class MeshSchema(BaseModel):
     """Schema for a mesh loaded from file with optional transforms."""
 
     filepath: str = Field(description="Path to mesh file (relative to YAML file location)")
-    transforms: list[MeshTransformSchema] = Field(default_factory=list)
+    transforms: List[MeshTransformSchema] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -129,8 +130,8 @@ class MeshSchema(BaseModel):
 class CollisionModelSchema(BaseModel):
     """Schema for a collision model containing meshes and/or primitive shapes."""
 
-    meshes: list[MeshSchema] = Field(default_factory=list)
-    primitives: list[PrimitiveShapeSchema] = Field(default_factory=list)
+    meshes: List[MeshSchema] = Field(default_factory=list)
+    primitives: List[PrimitiveShapeSchema] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -152,7 +153,7 @@ class FiducialMarkerSchema(BaseModel):
 
     id: int
     size_cm: float = Field(gt=0, description="Size of the marker's black square (centimeters)")
-    relative_frames: dict[str, Pose3DDictSchema] = Field(default_factory=dict)
+    relative_frames: Dict[str, Pose3DDictSchema] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -160,8 +161,8 @@ class FiducialMarkerSchema(BaseModel):
 class FiducialSystemSchema(BaseModel):
     """Schema for a system of fiducial markers."""
 
-    markers: dict[str, FiducialMarkerSchema]
-    camera_names: set[str]
+    markers: Dict[str, FiducialMarkerSchema]
+    camera_names: Set[str]
 
     @classmethod
     def validate_yaml(cls, yaml_path: Path) -> FiducialSystemSchema:
@@ -204,8 +205,8 @@ class ImageObservationSchema(BaseModel):
 class ObjectVisualStateSchema(BaseModel):
     """Schema for the visual state of an object."""
 
-    viewpoints: dict[str, ViewpointSchema] = Field(default_factory=dict)
-    observations: dict[str, ImageObservationSchema] = Field(default_factory=dict)
+    viewpoints: Dict[str, ViewpointSchema] = Field(default_factory=dict)
+    observations: Dict[str, ImageObservationSchema] = Field(default_factory=dict)
 
 
 # =============================================================================
@@ -228,7 +229,7 @@ class ContainerSchema(BaseModel):
     status: Literal["open", "closed"]
     open_model: CollisionModelSchema
     closed_model: CollisionModelSchema
-    contains: dict[str, ContainedObjectSchema] = Field(default_factory=dict)
+    contains: Dict[str, ContainedObjectSchema] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -241,9 +242,9 @@ class ContainerSchema(BaseModel):
 class ObjectSchema(BaseModel):
     """Schema for an object in the environment."""
 
-    pose: Pose3DSchema | None = None
-    collision_model: CollisionModelSchema | None = None
-    container: ContainerSchema | None = None
+    pose: Union[Pose3DSchema, None] = None
+    collision_model: Union[CollisionModelSchema, None] = None
+    container: Union[ContainerSchema, None] = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -267,8 +268,8 @@ class RobotSchema(BaseModel):
 class ObjectCentricStateSchema(BaseModel):
     """Schema for an object-centric environment state."""
 
-    robots: dict[str, RobotSchema]
-    objects: dict[str, ObjectSchema]
+    robots: Dict[str, RobotSchema]
+    objects: Dict[str, ObjectSchema]
     default_frame: str = DEFAULT_FRAME
 
     model_config = ConfigDict(extra="allow")  # Allow other fields such as waypoints
@@ -285,4 +286,4 @@ class ObjectCentricStateSchema(BaseModel):
         try:
             return ObjectCentricStateSchema.model_validate(yaml_data)
         except ValidationError as v_err:
-            raise ValidationError(f"Validation error in {yaml_path}: {v_err}") from v_err
+            raise RuntimeError(f"Validation error in {yaml_path}: {v_err}") from v_err
