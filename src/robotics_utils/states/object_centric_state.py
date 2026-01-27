@@ -87,10 +87,9 @@ class ObjectCentricState:
             container_data = obj_data.get("container")
             if container_data is not None:
                 container_state = ContainerState.from_yaml_data(
-                    container_name=obj_name,
+                    name=obj_name,
                     yaml_data=container_data,
                     yaml_path=yaml_path,
-                    object_states=state.available_kinematic_states,
                 )
                 state.add_container(container_state)
 
