@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, get_args
+from typing import TYPE_CHECKING, Literal
 
 from robotics_utils.collision_models import CollisionModel
 from robotics_utils.io.logging import log_info
@@ -11,6 +11,7 @@ from robotics_utils.spatial import Pose3D
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from robotics_utils.io.pydantic_schemata import ContainerSchema
     from robotics_utils.states.object_centric_state import ObjectCentricState
 
 
@@ -44,43 +45,22 @@ class ContainerState:
         """A map from contained objects' names to their poses when the container is open."""
 
     @classmethod
-    def from_yaml_data(
-        cls,
-        name: str,
-        yaml_data: dict[str, Any],
-        yaml_path: Path,
-    ) -> ContainerState:
-        """Construct a ContainerState instance from a dictionary of YAML data.
+    def from_schema(cls, name: str, schema: ContainerSchema, yaml_path: Path) -> ContainerState:
+        """Construct a ContainerState instance from validated data loaded from YAML.
 
         :param name: Name of the container
-        :param yaml_data: YAML data specifying the initial state of the container
-        :param yaml_path: Path to the YAML file the YAML data was loaded from
-        :return: Constructed initial state of the container
-        :raises KeyError: If the YAML data is missing a required key
+        :param schema: Validated data representing the container state
+        :param yaml_path: Path to the YAML file the schema data was loaded from
+        :return: Constructed ContainerState instance
         """
-        for required_key in ["status", "open_model", "closed_model"]:
-            if required_key not in yaml_data:
-                raise KeyError(f"ContainerState needs YAML key '{required_key}', got {yaml_data}")
+        status = schema.status
+        open_model = CollisionModel.from_schema(schema=schema.open_model, yaml_path=yaml_path)
+        closed_model = CollisionModel.from_schema(schema=schema.closed_model, yaml_path=yaml_path)
 
-        status = yaml_data["status"]
-        if status not in get_args(ContainerStatus):
-            raise ValueError(f"Container must be 'open' or 'closed'; got '{status}'.")
-
-        open_model_data = yaml_data["open_model"]
-        open_model = CollisionModel.from_yaml_data(open_model_data, yaml_path)
-
-        closed_model_data = yaml_data["closed_model"]
-        closed_model = CollisionModel.from_yaml_data(closed_model_data, yaml_path)
-
-        container = ContainerState(name, status, open_model, closed_model)
-
-        for obj_name, obj_data in yaml_data.get("contains", {}).items():
-            open_data = obj_data["pose_when_open"]
-            closed_data = obj_data["pose_when_closed"]
-
-            open_pose = Pose3D.from_yaml_data(open_data, default_frame=name)
-            closed_pose = Pose3D.from_yaml_data(closed_data, default_frame=name)
-
+        container = ContainerState(name, status, open_model=open_model, closed_model=closed_model)
+        for obj_name, obj_schema in schema.contains.items():
+            open_pose = Pose3D.from_schema(obj_schema.pose_when_open, default_frame=name)
+            closed_pose = Pose3D.from_schema(obj_schema.pose_when_closed, default_frame=name)
             container.add_object(obj_name, pose_when_open=open_pose, pose_when_closed=closed_pose)
 
         return container

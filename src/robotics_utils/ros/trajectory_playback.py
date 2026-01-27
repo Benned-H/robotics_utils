@@ -51,24 +51,27 @@ class TrajectoryPlayback:
             queue_size=20,
         )
 
+    # TODO: Needs replacement with schema
     def load_relative_trajectory(self, yaml_path: Path) -> list[Pose3D]:
         """Load a relative trajectory from the given YAML file.
 
         :param yaml_path: Path to a YAML file to be imported
         :return: Imported relative trajectory as a list of 3D poses
         """
-        yaml_data = load_yaml_data(yaml_path, required_keys={"transforms"})
-        poses_data: list[dict] = yaml_data["transforms"]
+        raise NotImplementedError("load_relative_trajectory is not implemented using Pydantic.")
 
-        # These poses track the end-effector frame relative to its initial pose
-        relative_poses = [Pose3D.from_yaml_data(pose_dict) for pose_dict in poses_data]
+        # yaml_data = load_yaml_data(yaml_path, required_keys={"transforms"})
+        # poses_data: list[dict] = yaml_data["transforms"]
 
-        curr_pose_b_ee = self.manipulator.get_current_ee_pose()
-        if curr_pose_b_ee is None:
-            raise RuntimeError("Unable to load relative trajectory due to failed frame lookup.")
+        # # These poses track the end-effector frame relative to its initial pose
+        # relative_poses = [Pose3D.from_yaml_data(pose_dict) for pose_dict in poses_data]
 
-        # Adjust the relative poses so that they're relative to the current body frame
-        return [curr_pose_b_ee @ rel_pose_ee for rel_pose_ee in relative_poses]
+        # curr_pose_b_ee = self.manipulator.get_current_ee_pose()
+        # if curr_pose_b_ee is None:
+        #     raise RuntimeError("Unable to load relative trajectory due to failed frame lookup.")
+
+        # # Adjust the relative poses so that they're relative to the current body frame
+        # return [curr_pose_b_ee @ rel_pose_ee for rel_pose_ee in relative_poses]
 
     def _filter_poses(self, poses: list[Pose3D]) -> list[Pose3D]:
         """Filter the waypoints in the given trajectory based on distance and angle.

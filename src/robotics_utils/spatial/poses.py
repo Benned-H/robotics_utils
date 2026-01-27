@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
+    from robotics_utils.io.pydantic_schemata import Pose3DSchema
+
 Multiply2D = TypeVar("Multiply2D", "Pose2D", Point2D)
 Multiply3D = TypeVar("Multiply3D", "Pose3D", Point3D)
 
@@ -283,24 +285,17 @@ class Pose3D:
         return matrix
 
     @classmethod
-    def from_yaml_data(cls, pose_data: dict | list, default_frame: str = DEFAULT_FRAME) -> Pose3D:
-        """Construct a Pose3D instance from data imported from YAML.
+    def from_schema(cls, schema: Pose3DSchema, default_frame: str = DEFAULT_FRAME) -> Pose3D:
+        """Construct a Pose3D instance from a schema of validated data.
 
-        :param pose_data: Dictionary or list of YAML data representing a 3D pose
-        :param default_frame: Default frame used for the pose, if the YAML doesn't provide one
+        :param schema: Validated data representing a Pose3D
+        :param default_frame: Default frame used for the pose, if not specified by the schema
         :return: Constructed Pose3D instance
-        :raises TypeError: If the given YAML data has an unsupported type
         """
-        if isinstance(pose_data, dict):
-            xyz_rpy = pose_data["xyz_rpy"]
-            ref_frame = pose_data["frame"]
-        elif isinstance(pose_data, list):
-            xyz_rpy = pose_data
-            ref_frame = default_frame
-        else:
-            raise TypeError(f"Cannot load Pose3D from YAML data of type {type(pose_data)}")
+        if isinstance(schema, tuple):
+            return cls.from_sequence(data=schema, ref_frame=default_frame)
 
-        return Pose3D.from_sequence(xyz_rpy, ref_frame)
+        return cls.from_sequence(data=schema.xyz_rpy, ref_frame=schema.frame)
 
     def to_yaml_data(self, default_frame: str | None = None) -> dict[str, Any] | list[float]:
         """Convert the pose into a form suitable for export to YAML.
@@ -312,23 +307,6 @@ class Pose3D:
             return list(self.to_xyz_rpy())
 
         return {"xyz_rpy": self.to_xyz_rpy(), "frame": self.ref_frame}
-
-    @classmethod
-    def load_named_poses(cls, yaml_path: Path, collection_name: str) -> dict[str, Pose3D]:
-        """Load a collection of named poses from the given YAML file.
-
-        :param yaml_path: Path to a YAML file containing pose data
-        :param collection_name: Name of collection of poses to be imported (e.g., "object_poses")
-        :return: Dictionary mapping pose-frame names to their imported 3D poses
-        """
-        yaml_data = load_yaml_data(yaml_path, required_keys={collection_name})
-        default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
-        poses_data: dict[str, Any] = yaml_data[collection_name]
-
-        return {
-            pose_name: Pose3D.from_yaml_data(pose_data, default_frame)
-            for pose_name, pose_data in poses_data.items()
-        }
 
     def to_2d(self) -> Pose2D:
         """Convert the 3D pose into a 2D pose by discarding its z-coordinate, roll, and pitch."""

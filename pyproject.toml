@@ -19,6 +19,7 @@ dependencies = [
     "distinctipy",
     "scipy",
     "scikit-image",
+    "pydantic",
 ]
 
 # Optional dependencies support optional user features

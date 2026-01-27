@@ -2,25 +2,40 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Protocol
 
 import numpy as np
 
 from robotics_utils.geometry import AxisAlignedBoundingBox, Point3D
+from robotics_utils.io.pydantic_schemata import (
+    BoxPrimitiveSchema,
+    PrimitiveShapeSchema,
+    SpherePrimitiveSchema,
+)
 
 
-class PrimitiveShape(Protocol):
+class PrimitiveShape(ABC):
     """Protocol for primitive shapes."""
 
     @property
+    @abstractmethod
     def aabb(self) -> AxisAlignedBoundingBox:
         """Get the axis-aligned bounding box (AABB) of the primitive shape."""
-        ...
 
+    @abstractmethod
     def to_dimensions(self) -> list[float]:
         """Convert the primitive shape into a list of its dimensions."""
-        ...
+
+    @classmethod
+    def from_schema(cls, schema: PrimitiveShapeSchema) -> PrimitiveShape:
+        """Construct a primitive shape from the given validated data."""
+        if isinstance(schema, BoxPrimitiveSchema):
+            return Box(x_m=schema.x, y_m=schema.y, z_m=schema.z)
+        if isinstance(schema, SpherePrimitiveSchema):
+            return Sphere(radius_m=schema.radius)
+
+        return Cylinder(height_m=schema.height, radius_m=schema.radius)
 
 
 @dataclass(frozen=True)
@@ -83,21 +98,3 @@ class Cylinder(PrimitiveShape):
     def to_dimensions(self) -> list[float]:
         """Convert the cylinder into a list of its dimensions."""
         return [self.height_m, self.radius_m]
-
-
-def create_primitive_shape(data: dict[str, str | float]) -> PrimitiveShape:
-    """Create a primitive shape from its type and parameters."""
-    shape_type = data.get("type")
-    if shape_type is None:
-        raise KeyError(f"Cannot construct PrimitiveShape without 'type' key: {data}")
-
-    if shape_type == "box":
-        return Box(x_m=data["x"], y_m=data["y"], z_m=data["z"])
-
-    if shape_type == "sphere":
-        return Sphere(radius_m=data["radius"])
-
-    if shape_type == "cylinder":
-        return Cylinder(height_m=data["height"], radius_m=data["radius"])
-
-    raise ValueError(f"Unknown primitive shape type: {shape_type}")

@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from robotics_utils.collision_models.meshes import compute_aabb, load_trimesh_from_yaml_data
-from robotics_utils.collision_models.primitive_shapes import PrimitiveShape, create_primitive_shape
+from robotics_utils.collision_models.meshes import compute_aabb, load_mesh_from_schema
+from robotics_utils.collision_models.primitive_shapes import PrimitiveShape
 from robotics_utils.geometry import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     import trimesh
+
+    from robotics_utils.io.pydantic_schemata import CollisionModelSchema
 
 
 @dataclass
@@ -30,15 +32,8 @@ class CollisionModel:
         return AxisAlignedBoundingBox.union((combined_mesh_aabb, combined_primitive_aabb))
 
     @classmethod
-    def from_yaml_data(cls, data: dict[str, Any], yaml_path: Path) -> CollisionModel:
-        """Create a collision model from data loaded from the specified YAML file."""
-        meshes = [load_trimesh_from_yaml_data(md, yaml_path) for md in data.get("meshes", [])]
-
-        primitives = [
-            create_primitive_shape(shape_data) for shape_data in data.get("primitives", [])
-        ]
-
-        if not meshes and not primitives:
-            raise ValueError("Collision model must have at least one mesh or geometric primitive")
-
+    def from_schema(cls, schema: CollisionModelSchema, yaml_path: Path) -> CollisionModel:
+        """Construct a CollisionModel using validated data imported from a YAML file."""
+        meshes = [load_mesh_from_schema(mesh_schema, yaml_path) for mesh_schema in schema.meshes]
+        primitives = [PrimitiveShape.from_schema(p_schema) for p_schema in schema.primitives]
         return CollisionModel(meshes=meshes, primitives=primitives)

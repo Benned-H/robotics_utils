@@ -2,61 +2,35 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
 
 import trimesh
 
 from robotics_utils.geometry import AxisAlignedBoundingBox, Point3D
-from robotics_utils.io.yaml_utils import load_yaml_data
+from robotics_utils.io.pydantic_schemata import (
+    MeshSchema,
+    MeshTransformSchema,
+    RotateTransformSchema,
+    ScaleTransformSchema,
+    TranslateTransformSchema,
+)
 from robotics_utils.spatial import EulerRPY
 
 
-def load_trimesh_from_file(mesh_path: Path) -> trimesh.Trimesh:
-    """Load a mesh from the given file.
-
-    :param mesh_path: Filepath containing mesh data
-    :return: Loaded trimesh.Trimesh instance
-    """
-    if not mesh_path.exists():
-        raise FileNotFoundError(f"Cannot load mesh from nonexistent file: {mesh_path}")
-
-    return trimesh.load_mesh(mesh_path)
-
-
-def load_trimesh_from_yaml_data(data: dict[str, Any], yaml_path: Path) -> trimesh.Trimesh:
-    """Construct a trimesh.Trimesh instance from data imported from the specified YAML file."""
-    if "filepath" not in data:
-        raise KeyError(f"No mesh filepath was provided in the YAML data: {data}")
-
-    relative_path = Path(data["filepath"])  # Path relative to the parent of the YAML file
-    mesh_path = yaml_path.parent / relative_path
+def load_mesh_from_schema(schema: MeshSchema, yaml_path: Path) -> trimesh.Trimesh:
+    """Load a trimesh.Trimesh instance from validated data imported from a YAML file."""
+    mesh_path = yaml_path.parent / schema.filepath
     if not mesh_path.exists():
         raise FileNotFoundError(f"Mesh file not found: {mesh_path}")
 
-    mesh = load_trimesh_from_file(mesh_path)
-
-    transforms = parse_mesh_transforms(data.get("transforms", []))
-    for transform in transforms:
+    mesh = trimesh.load_mesh(mesh_path)
+    for transform_schema in schema.transforms:
+        transform = MeshTransform.from_schema(transform_schema)
         transform.apply(mesh)
 
     return mesh
-
-
-def load_named_mesh(mesh_key: str, yaml_path: Path) -> trimesh.Trimesh:
-    """Load the specified mesh from the given YAML file.
-
-    :param mesh_key: YAML key used to access the imported mesh
-    :param yaml_path: Path to a YAML file specifying mesh data
-    :return: Constructed trimesh.Trimesh instance
-    """
-    yaml_data = load_yaml_data(yaml_path, required_keys={"meshes"})
-    mesh_data = yaml_data["meshes"].get(mesh_key)
-    if mesh_data is None:
-        raise KeyError(f"Could not find mesh named '{mesh_key}' in YAML file {yaml_path}")
-
-    return load_trimesh_from_yaml_data(mesh_data, yaml_path)
 
 
 def compute_aabb(mesh: trimesh.Trimesh) -> AxisAlignedBoundingBox:
@@ -68,11 +42,31 @@ def compute_aabb(mesh: trimesh.Trimesh) -> AxisAlignedBoundingBox:
     )
 
 
-class MeshTransform(Protocol):
-    """Protocol for transform operations on meshes."""
+class MeshTransform(ABC):
+    """Abstract base class for transform operations on meshes."""
 
+    @abstractmethod
     def apply(self, mesh: trimesh.Trimesh) -> None:
         """Apply the transform to the given mesh in-place."""
+
+    @classmethod
+    def from_schema(cls, schema: MeshTransformSchema) -> MeshTransform:
+        """Construct a MeshTransform from the given validated data."""
+        if isinstance(schema, TranslateTransformSchema):
+            return Translate(Point3D.from_sequence(schema.translate))
+        if isinstance(schema, RotateTransformSchema):
+            return Rotate(rpy=EulerRPY.from_sequence(schema.rotate))
+        if isinstance(schema, ScaleTransformSchema):
+            return Scale(schema.scale)
+
+        if schema == "center_mass":
+            return CenterMass()
+        if schema == "center_bounds":
+            return CenterBounds()
+        if schema == "bottom_at_zero_z":
+            return BottomAtZeroZ()
+
+        raise TypeError(f"Unexpected mesh transform schema: {schema}")
 
 
 @dataclass(frozen=True)
@@ -84,11 +78,6 @@ class Translate(MeshTransform):
     def apply(self, mesh: trimesh.Trimesh) -> None:
         """Translate the given mesh in-place."""
         mesh.apply_translation(self.xyz.to_array())
-
-    @classmethod
-    def from_list(cls, values: list[float]) -> Translate:
-        """Construct a Translate instance from a list of values."""
-        return Translate(xyz=Point3D.from_sequence(values))
 
 
 @dataclass(frozen=True)
@@ -102,11 +91,6 @@ class Rotate(MeshTransform):
         matrix = self.rpy.to_homogeneous_matrix()
         mesh.apply_transform(matrix)
 
-    @classmethod
-    def from_list(cls, values: list[float]) -> Rotate:
-        """Construct a Rotate instance from a list of values."""
-        return Rotate(rpy=EulerRPY.from_sequence(values))
-
 
 @dataclass(frozen=True)
 class Scale(MeshTransform):
@@ -117,16 +101,6 @@ class Scale(MeshTransform):
     def apply(self, mesh: trimesh.Trimesh) -> None:
         """Scale the given mesh in-place."""
         mesh.apply_scale(self.factor)
-
-    @classmethod
-    def from_value(cls, value: float | list[float]) -> Scale:
-        """Construct a Scale instance from a single value or list of values."""
-        if isinstance(value, list):
-            if len(value) != 3:
-                raise ValueError(f"Non-uniform scale expects 3 values, got {len(value)}")
-            return Scale(factor=(value[0], value[1], value[2]))
-
-        return Scale(factor=value)
 
 
 @dataclass(frozen=True)
@@ -156,32 +130,3 @@ class BottomAtZeroZ(MeshTransform):
         """Bottom-normalize the given mesh in-place."""
         _, _, min_z = mesh.bounds[0]
         mesh.apply_translation([0, 0, -min_z])
-
-
-def parse_mesh_transforms(transform_specs: list[dict[str, Any] | str]) -> list[MeshTransform]:
-    """Parse mesh transform specifications from YAML data."""
-    transforms: list[MeshTransform] = []
-
-    for spec in transform_specs:
-        if isinstance(spec, str):  # Named transforms
-            if spec == "center_mass":
-                transforms.append(CenterMass())
-            elif spec == "center_bounds":
-                transforms.append(CenterBounds())
-            elif spec == "bottom_at_zero_z":
-                transforms.append(BottomAtZeroZ())
-            else:
-                raise ValueError(f"Unknown named mesh transform: {spec}")
-        elif isinstance(spec, dict):  # Structured transforms
-            if "translate" in spec:
-                transforms.append(Translate.from_list(spec["translate"]))
-            elif "rotate" in spec:
-                transforms.append(Rotate.from_list(spec["rotate"]))
-            elif "scale" in spec:
-                transforms.append(Scale.from_value(spec["scale"]))
-            else:
-                raise ValueError(f"Unknown mesh transform type: {spec}")
-        else:
-            raise TypeError(f"Invalid transform specification type: {spec}")
-
-    return transforms

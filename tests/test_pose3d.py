@@ -34,7 +34,7 @@ def test_pose3d_to_xyz_rpy_and_back(pose: Pose3D) -> None:
     assert pose.approx_equal(result_pose, atol=1e-07)
 
 
-@given(poses_3d())
+@given(poses_3d())  # TODO: Needs updating per schema (also Pose3D.to_schema first)
 def test_pose3d_to_yaml_and_back(pose: Pose3D) -> None:
     """Verify that any Pose3D is unchanged after converting to and from YAML data."""
     # Arrange/Act - Given a 3D pose, convert to and from a dictionary for export to YAML

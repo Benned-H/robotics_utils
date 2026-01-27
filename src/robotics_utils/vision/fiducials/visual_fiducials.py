@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from robotics_utils.io.yaml_utils import load_yaml_data
+from robotics_utils.io.pydantic_schemata import FiducialMarkerSchema, FiducialSystemSchema
 from robotics_utils.spatial import Pose3D
 
 if TYPE_CHECKING:
@@ -27,26 +26,13 @@ class FiducialMarker:
         return f"{self.frame_name} ({self.size_cm} cm) has child frames: {child_frames}"
 
     @classmethod
-    def from_yaml_data(cls, marker_name: str, data: dict[str, Any]) -> FiducialMarker:
-        """Construct a FiducialMarker instance from imported YAML data.
-
-        :param marker_name: Name of the marker (e.g., "marker_123")
-        :param data: Marker data imported from YAML
-        :return: Constructed FiducialMarker instance
-        """
-        if not marker_name.startswith("marker_"):
-            raise ValueError(f"Visual fiducial name '{marker_name}' doesn't start with 'marker_'.")
-
-        id_digits = "".join(re.findall(r"\d+", marker_name))
-        marker_id = int(id_digits)
-        size_cm = data["size_cm"]
-
-        relative_frames: dict[str, Pose3D] = {}
-        for child_frame_name, pose_data in data.get("relative_frames", {}).items():
-            relative_pose = Pose3D.from_yaml_data(pose_data, default_frame=marker_name)
-            relative_frames[child_frame_name] = relative_pose
-
-        return FiducialMarker(marker_id, size_cm, relative_frames)
+    def from_schema(cls, marker_name: str, schema: FiducialMarkerSchema) -> FiducialMarker:
+        """Construct a FiducialMarker instance from validated data imported from file."""
+        relative_frames: dict[str, Pose3D] = {
+            frame: Pose3D.from_schema(p_schema, default_frame=marker_name)
+            for frame, p_schema in schema.relative_frames.items()
+        }
+        return FiducialMarker(schema.id, schema.size_cm, relative_frames)
 
     @staticmethod
     def id_to_frame_name(tag_id: int) -> str:
@@ -69,12 +55,11 @@ class FiducialSystem:
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> FiducialSystem:
         """Load a system of visual fiducial markers from a YAML file."""
-        yaml_data = load_yaml_data(yaml_path, required_keys={"markers", "cameras"})
+        schema = FiducialSystemSchema.validate_yaml(yaml_path)
 
         markers = [
-            FiducialMarker.from_yaml_data(fiducial_name, data)
-            for fiducial_name, data in yaml_data["markers"].items()
+            FiducialMarker.from_schema(m_name, m_schema)
+            for m_name, m_schema in schema.markers.items()
         ]
-        camera_names = set(yaml_data["cameras"])
 
-        return FiducialSystem(markers={m.id: m for m in markers}, camera_names=camera_names)
+        return FiducialSystem(markers={m.id: m for m in markers}, camera_names=schema.camera_names)

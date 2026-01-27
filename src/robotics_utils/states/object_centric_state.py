@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from robotics_utils.collision_models import CollisionModel
-from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.spatial import DEFAULT_FRAME, Pose3D
+from robotics_utils.io.pydantic_schemata import ObjectCentricStateSchema
+from robotics_utils.spatial import Pose3D
 from robotics_utils.states.container_state import ContainerState
 from robotics_utils.states.kinematic_tree import KinematicTree
 from robotics_utils.states.object_states import ObjectKinematicState
@@ -50,48 +50,30 @@ class ObjectCentricState:
 
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> ObjectCentricState:
-        """Construct an ObjectCentricState instance using data from the given YAML file."""
-        expected_keys = {"robots", "objects"}
-        yaml_data: dict[str, Any] = load_yaml_data(yaml_path, required_keys=expected_keys)
+        """Construct an ObjectCentricState using data loaded from the given YAML file."""
+        schema = ObjectCentricStateSchema.validate_yaml(yaml_path)
 
-        default_frame = yaml_data.get("default_frame", DEFAULT_FRAME)
+        robot_names = list(schema.robots.keys())
+        object_names = list(schema.objects.keys())
 
-        robot_names = list(yaml_data["robots"].keys())
-        object_names = list(yaml_data["objects"].keys())
+        state = ObjectCentricState(robot_names, object_names, root_frame=schema.default_frame)
 
-        state = ObjectCentricState(
-            robot_names=robot_names,
-            object_names=object_names,
-            root_frame=default_frame,
-        )
-
-        for robot_name, robot_data in yaml_data["robots"].items():
-            base_pose_data = robot_data.get("base_pose")
-            if base_pose_data is None:
-                raise KeyError(f"Robot '{robot_name}' has no base pose specified.")
-            base_pose = Pose3D.from_yaml_data(base_pose_data, default_frame=default_frame)
-
+        for robot_name, robot_schema in schema.robots.items():
+            base_pose = Pose3D.from_schema(robot_schema.base_pose, schema.default_frame)
             state.set_robot_base_pose(robot_name, base_pose)
 
-        for obj_name, obj_data in yaml_data["objects"].items():
-            pose_data = obj_data.get("pose")
-            if pose_data is not None:
-                obj_pose = Pose3D.from_yaml_data(pose_data, default_frame=default_frame)
-                state.set_known_object_pose(obj_name, obj_pose)
+        for obj_name, obj_schema in schema.objects.items():
+            if obj_schema.pose is not None:
+                obj_pose = Pose3D.from_schema(obj_schema.pose, default_frame=schema.default_frame)
+                state.set_known_object_pose(obj_name, pose=obj_pose)
 
-            collision_data = obj_data.get("collision_model")
-            if collision_data is not None:
-                c_model = CollisionModel.from_yaml_data(collision_data, yaml_path=yaml_path)
+            if obj_schema.collision_model is not None:
+                c_model = CollisionModel.from_schema(obj_schema.collision_model, yaml_path)
                 state.kinematic_tree.set_collision_model(obj_name, c_model)
 
-            container_data = obj_data.get("container")
-            if container_data is not None:
-                container_state = ContainerState.from_yaml_data(
-                    name=obj_name,
-                    yaml_data=container_data,
-                    yaml_path=yaml_path,
-                )
-                state.add_container(container_state)
+            if obj_schema.container is not None:
+                container = ContainerState.from_schema(obj_name, obj_schema.container, yaml_path)
+                state.add_container(container)
 
         return state
 
