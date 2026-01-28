@@ -8,17 +8,16 @@ from typing import TYPE_CHECKING, Any, Tuple, TypeVar
 import numpy as np
 
 from robotics_utils.geometry import Point2D, Point3D
+from robotics_utils.io.pydantic_schemata import Pose3DDictSchema, Pose3DSchema
 from robotics_utils.math import normalize_angle
 from robotics_utils.spatial.frames import DEFAULT_FRAME
 from robotics_utils.spatial.rotations import EulerRPY, Quaternion
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
-    from pathlib import Path
 
     from numpy.typing import NDArray
 
-    from robotics_utils.io.pydantic_schemata import Pose3DDictSchema, Pose3DSchema
 
 Multiply2D = TypeVar("Multiply2D", "Pose2D", Point2D)
 Multiply3D = TypeVar("Multiply3D", "Pose3D", Point3D)

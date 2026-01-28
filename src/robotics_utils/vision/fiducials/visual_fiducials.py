@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from robotics_utils.io.pydantic_schemata import FiducialMarkerSchema, FiducialSystemSchema
+from robotics_utils.io.pydantic_schemata import (
+    FiducialMarkerSchema,
+    FiducialSystemSchema,
+    parse_marker_id,
+)
 from robotics_utils.spatial import Pose3D
 
 if TYPE_CHECKING:
@@ -28,11 +32,12 @@ class FiducialMarker:
     @classmethod
     def from_schema(cls, marker_name: str, schema: FiducialMarkerSchema) -> FiducialMarker:
         """Construct a FiducialMarker instance from validated data imported from file."""
+        marker_id = parse_marker_id(marker_name)
         relative_frames: dict[str, Pose3D] = {
             frame: Pose3D.from_schema(p_schema, default_frame=marker_name)
             for frame, p_schema in schema.relative_frames.items()
         }
-        return FiducialMarker(schema.id, schema.size_cm, relative_frames)
+        return FiducialMarker(marker_id, schema.size_cm, relative_frames)
 
     @staticmethod
     def id_to_frame_name(tag_id: int) -> str:
@@ -62,4 +67,4 @@ class FiducialSystem:
             for m_name, m_schema in schema.markers.items()
         ]
 
-        return FiducialSystem(markers={m.id: m for m in markers}, camera_names=schema.camera_names)
+        return FiducialSystem(markers={m.id: m for m in markers}, camera_names=schema.cameras)

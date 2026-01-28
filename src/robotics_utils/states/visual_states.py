@@ -53,7 +53,7 @@ NamedViewpoints = Dict[str, Viewpoint]
 """A map from viewpoint names to the corresponding viewpoints."""
 
 
-class ViewpointTemplates(dict[str, NamedViewpoints]):
+class ViewpointTemplates(Dict[str, NamedViewpoints]):
     """A configuration specifying viewpoint templates for the object types in a domain."""
 
     @classmethod

@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Literal, Set, Tuple, Union
+import re
+from pathlib import Path
+from typing import Dict, List, Literal, Set, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, model_validator
 from typing_extensions import Annotated
 
 from robotics_utils.io.yaml_utils import load_yaml_data
-from robotics_utils.spatial.frames import DEFAULT_FRAME
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 # =============================================================================
 # Pose Schemata
@@ -154,18 +152,44 @@ class CollisionModelSchema(BaseModel):
 class FiducialMarkerSchema(BaseModel):
     """Schema for a fiducial marker."""
 
-    id: int
     size_cm: float = Field(gt=0, description="Size of the marker's black square (centimeters)")
-    relative_frames: Dict[str, Pose3DDictSchema] = Field(default_factory=dict)
+    relative_frames: Dict[str, Pose3DSchema] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="forbid")
+
+
+MARKER_NAME_PATTERN = re.compile(r"^marker_(\d+)$")
+"""Pattern for marker names: `'marker_'` followed by an integer ID (e.g., `'marker_19'`)."""
+
+
+def parse_marker_id(marker_name: str) -> int:
+    """Extract the integer ID from a validated marker name.
+
+    :param marker_name: A marker name in the format 'marker_{id}'
+    :return: The integer ID extracted from the marker name
+    :raises ValueError: If the marker name doesn't match the expected format
+    """
+    match = MARKER_NAME_PATTERN.match(marker_name)
+    if not match:
+        raise ValueError(
+            f"Invalid marker name '{marker_name}'. "
+            "Expected format 'marker_{{id}}' (e.g., 'marker_19').",
+        )
+    return int(match.group(1))
 
 
 class FiducialSystemSchema(BaseModel):
     """Schema for a system of fiducial markers."""
 
     markers: Dict[str, FiducialMarkerSchema]
-    camera_names: Set[str]
+    cameras: Set[str]
+
+    @model_validator(mode="after")
+    def validate_marker_names(self) -> FiducialSystemSchema:
+        """Validate that all marker names follow the 'marker_{id}' format."""
+        for name in self.markers:
+            parse_marker_id(marker_name=name)
+        return self
 
     @classmethod
     def validate_yaml(cls, yaml_path: Path) -> FiducialSystemSchema:
@@ -179,7 +203,7 @@ class FiducialSystemSchema(BaseModel):
         try:
             return FiducialSystemSchema.model_validate(yaml_data)
         except ValidationError as v_err:
-            raise ValidationError(f"Validation error in {yaml_path}: {v_err}") from v_err
+            raise RuntimeError(f"Validation error in {yaml_path}: {v_err}") from v_err
 
 
 # =============================================================================
@@ -212,13 +236,6 @@ class ImageObservationSchema(BaseModel):
     pose: Pose3DSchema
 
     model_config = ConfigDict(extra="forbid")
-
-
-# class ObjectVisualStateSchema(BaseModel):
-#     """Schema for the visual state of an object."""
-
-#     viewpoints: Dict[str, ViewpointSchema] = Field(default_factory=dict)
-#     observations: Dict[str, ImageObservationSchema] = Field(default_factory=dict)
 
 
 # =============================================================================
@@ -282,7 +299,7 @@ class ObjectCentricStateSchema(BaseModel):
 
     robots: Dict[str, RobotSchema]
     objects: Dict[str, ObjectSchema]
-    default_frame: str = DEFAULT_FRAME
+    default_frame: str
 
     model_config = ConfigDict(extra="allow")  # Allow other fields such as waypoints
 

@@ -7,6 +7,9 @@ from pathlib import Path
 import rospy
 from rich.prompt import Prompt
 from spot_skills.srv import (
+    CaptureImageObservation,
+    CaptureImageObservationRequest,
+    CaptureImageObservationResponse,
     NameService,
     NameServiceRequest,
     NameServiceResponse,
@@ -134,6 +137,10 @@ class SpotSkillsProtocol(SkillsProtocol):
             "spot/set_container_open",
             NameService,
         )
+        self._image_obs_caller = ServiceCaller[
+            CaptureImageObservationRequest,
+            CaptureImageObservationResponse,
+        ]("spot/capture_image_observation", CaptureImageObservation)
 
         self._gripper = ROSAngularGripper(
             limits=GripperAngleLimits(
@@ -159,6 +166,30 @@ class SpotSkillsProtocol(SkillsProtocol):
     def planning_scene(self) -> PlanningSceneManager:
         """Access the active interface to the MoveIt planning scene."""
         return self._arm.planning_scene
+
+    @skill_method
+    def capture_image_observation(
+        self,
+        camera: str,
+        ref_frame: str = DEFAULT_FRAME,
+        image_path: Path = Path("data/spot-images/rgb.jpg"),
+    ) -> Outcome:
+        """Capture an image observation (image + camera pose) and save it to file.
+
+        :param camera: Camera used to capture the image observation
+        :param ref_frame: Reference frame used for the exported camera pose
+        :param image_path: Preferred filepath for the exported image
+        :return: Boolean success indicator and an outcome message
+        """
+        console.print(f"Capturing an image with camera '{camera}'...")
+
+        request = CaptureImageObservationRequest(camera, ref_frame, str(image_path.resolve()))
+        response = self._image_obs_caller(request)
+
+        if response is None:
+            return Outcome(success=False, message="CaptureImageObservation response was None.")
+
+        return Outcome(success=response.success, message=response.message)
 
     @skill_method
     def navigate_to_waypoint(self, waypoint: str) -> Outcome:
@@ -338,8 +369,14 @@ class SpotSkillsProtocol(SkillsProtocol):
     @skill_method
     def _move_ee_to_pose(
         self,
-        ee_target: Pose3D,
-        target_name: str = "ee_target",
+        ee_target: Pose3D = Pose3D.from_xyz_rpy(
+            x=0.978,
+            z=1.158,
+            pitch_rad=0.949,
+            yaw_rad=3.1416,
+            ref_frame="black_dresser",
+        ),
+        target_name: str = "",
         ignored_objects: str = "",
         *,
         display_and_pause: bool = False,
@@ -353,7 +390,13 @@ class SpotSkillsProtocol(SkillsProtocol):
         :return: Boolean success indicator and an outcome message
         """
         console.print(f"Moving Spot's end-effector to '{target_name}': {ee_target}")
-        self._pose_broadcaster.poses[target_name] = ee_target
+        if target_name:
+            self._pose_broadcaster.poses[target_name] = ee_target
+
+        default_pose_outcome = trigger_service("spot/default_body_pose")
+        if not default_pose_outcome.success:
+            return default_pose_outcome
+        time.sleep(5)  # Wait 5 seconds for transforms to account for the base pose
 
         ignored_objects_set = set()
         if ignored_objects.strip():
@@ -716,7 +759,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         return Outcome(success=response.success, message=response.message)
 
     @skill_method
-    def estimate_pose(self, object_name: str, duration_s: float) -> Outcome:
+    def estimate_pose(self, object_name: str, duration_s: float = 5.0) -> Outcome:
         """Estimate the pose of the named object using AprilTag markers.
 
         :param object_name: Name of the object to pose estimate

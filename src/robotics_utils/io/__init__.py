@@ -3,3 +3,4 @@
 from .logging import console as console
 from .logging import error_console as error_console
 from .logging import log_info as log_info
+from .path_utils import make_unique_path as make_unique_path
