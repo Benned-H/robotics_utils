@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -47,7 +48,7 @@ class ObjectCentricState:
         self.robot_configurations: dict[str, Configuration] = {}
         """A map from the name of each robot to its current joint configuration."""
 
-        self.robot_end_effectors: dict[str, set[str]] = {}
+        self._end_effectors: dict[str, set[str]] = defaultdict(set)
         """A map from the name of each robot to the set of the names of its end-effector links."""
 
         self._grasps: dict[tuple[str, str], GraspAttachment] = {}
@@ -135,6 +136,12 @@ class ObjectCentricState:
     def add_robot(self, robot_name: str) -> None:
         """Add the given robot name to the set of known robot names."""
         self._robot_names.add(robot_name)
+
+    def add_end_effector(self, *, robot_name: str, ee_link_name: str) -> None:
+        """Add the given end-effector name to the set of end-effectors for the named robot."""
+        if robot_name not in self.robot_names:
+            raise ValueError(f"Cannot add end-effector for unknown robot: '{robot_name}'.")
+        self._end_effectors[robot_name].add(ee_link_name)
 
     def set_known_object_pose(self, obj_name: str, pose: Pose3D) -> None:
         """Set the pose of the named object from a "known" source of truth.
@@ -238,7 +245,7 @@ class ObjectCentricState:
             raise ValueError(f"Cannot grasp an unknown object: '{g.obj_name}'.")
         if g.robot_name not in self.robot_names:
             raise ValueError(f"Cannot use unknown robot '{g.robot_name}' to grasp an object.")
-        if g.ee_link_name not in self.robot_end_effectors[g.robot_name]:
+        if g.ee_link_name not in self._end_effectors[g.robot_name]:
             raise ValueError(
                 f"Robot '{g.robot_name}' does not have end-effector: '{g.ee_link_name}'.",
             )

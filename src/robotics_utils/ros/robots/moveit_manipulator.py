@@ -16,6 +16,7 @@ from robotics_utils.robots import Manipulator
 from robotics_utils.ros import TransformManager, get_ros_param
 from robotics_utils.ros.msg_conversion import trajectory_from_msg, trajectory_to_msg
 from robotics_utils.skills import Outcome
+from robotics_utils.states import GraspAttachment, ObjectCentricState
 
 if TYPE_CHECKING:
     from moveit_msgs.msg import RobotTrajectory
@@ -63,9 +64,7 @@ class MoveItManipulator(Manipulator[Trajectory]):
         rospy.loginfo(f"[Manipulator {self.name}] Found robot description from ROS parameters.")
 
         self._ik_solver = IK(self.base_frame, self._ee_link, urdf_string=robot_urdf)
-
-        # # TODO: Clean up; wanted to see if these values work/help
-        # self._touch_links: list[str] = ["arm_link_wr1"]
+        self._env_state: ObjectCentricState | None = None
 
     @property
     def ee_link_name(self) -> str:
@@ -206,14 +205,13 @@ class MoveItManipulator(Manipulator[Trajectory]):
         if pose_ee_o is None:
             return Outcome(False, f"Failed to look up pose when grasping '{object_name}'.")
 
-        # TODO: Clean up below once working permutation is found
-        touch_links = list(self.gripper.link_names)  # + self._touch_links
+        # Attach the object to the robot's end-effector in MoveIt's planning scene
         attached = self.planning_scene.attach_object(
             obj_name=object_name,
             robot_name=self.robot_name,
             ee_link_name=self.ee_link_name,
-            touch_links=touch_links,
-        )  # Attach the object to the robot's end-effector in MoveIt's planning scene
+            touch_links=self.gripper.link_names,
+        )
 
         if not attached:
             return Outcome(
@@ -221,9 +219,20 @@ class MoveItManipulator(Manipulator[Trajectory]):
                 message=f"Failed to attach '{object_name}' in the MoveIt planning scene.",
             )
 
-        # Close the gripper only after the object has been attached
+        # Close the gripper only after attaching the object (so that MoveIt ignores any collisions)
         if not self.gripper.close():
             return Outcome(False, f"Failed to close gripper when grasping '{object_name}'.")
+
+        # If the environment state is available, update it with the attachment
+        if self._env_state is not None:
+            grasp_params = GraspAttachment(
+                obj_name=object_name,
+                robot_name=self.robot_name,
+                ee_link_name=self.ee_link_name,
+                pose_ee_o=pose_ee_o,
+                touching_link_names=self.gripper.link_names,
+            )
+            self._env_state.attach_grasp(grasp_params)
 
         return Outcome(
             success=True,
