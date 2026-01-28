@@ -45,7 +45,7 @@ class Viewpoint(Generic[ImageT]):
 
     def to_schema(self, default_frame: str) -> ViewpointSchema:
         """Convert the viewpoint into an equivalent Pydantic schema."""
-        pose_schema = self.pose_o_c.to_schema(default_frame=default_frame)
+        pose_schema = self.pose_c.to_schema(default_frame=default_frame)
         return ViewpointSchema(camera_id=self.camera.name, pose=pose_schema)
 
 

@@ -1,0 +1,15 @@
+# Specify object-relative end-effector viewpoints used to capture images
+cabinet:
+  handle:
+    camera_id: frontleft
+    pose: [0.3, 0.15, 0.2, 0, 0, 0]
+  view_inside:
+    camera_id: hand
+    pose: [0.1, 0, 0.2, 0, 0, 3.1416]
+
+window:
+  look_out:
+    camera_id: frontright
+    pose:
+      xyz_rpy: [5, 4, 0.6, 0, 0, 0]
+      frame: "room1"
