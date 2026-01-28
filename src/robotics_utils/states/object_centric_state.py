@@ -11,12 +11,13 @@ from robotics_utils.spatial import Pose2D, Pose3D
 from robotics_utils.states.container_state import ContainerState
 from robotics_utils.states.kinematic_tree import KinematicTree
 from robotics_utils.states.object_states import ObjectKinematicState
-from robotics_utils.states.visual_states import ObjectVisualState
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from robotics_utils.kinematics import Configuration
+    from robotics_utils.states.attachment import GraspAttachment
+    from robotics_utils.states.visual_states import ObjectVisualState
 
 
 class PoseSource(Enum):
@@ -29,8 +30,8 @@ class PoseSource(Enum):
 class ObjectCentricState:
     """An object-centric state of an environment."""
 
-    def __init__(self, robot_names: list[str], object_names: list[str], root_frame: str) -> None:
-        """Initialize the object-centric state with lists of known robots and objects.
+    def __init__(self, robot_names: set[str], object_names: set[str], root_frame: str) -> None:
+        """Initialize the object-centric state with sets of known robots and objects.
 
         :param robot_names: Names of robots in the environment
         :param object_names: Names of objects in the environment
@@ -46,6 +47,12 @@ class ObjectCentricState:
         self.robot_configurations: dict[str, Configuration] = {}
         """A map from the name of each robot to its current joint configuration."""
 
+        self.robot_end_effectors: dict[str, set[str]] = {}
+        """A map from the name of each robot to the set of the names of its end-effector links."""
+
+        self._grasps: dict[tuple[str, str], GraspAttachment] = {}
+        """A map from (robot name, end-effector name) tuples to their current grasp (if any)."""
+
         self.containers: dict[str, ContainerState] = {}
         """A map from the name of each container to its current state."""
 
@@ -57,8 +64,8 @@ class ObjectCentricState:
         """Construct an ObjectCentricState using data loaded from the given YAML file."""
         schema = ObjectCentricStateSchema.validate_yaml(yaml_path)
 
-        robot_names = list(schema.robots.keys())
-        object_names = list(schema.objects.keys())
+        robot_names = set(schema.robots.keys())
+        object_names = set(schema.objects.keys())
 
         state = ObjectCentricState(robot_names, object_names, root_frame=schema.default_frame)
 
@@ -82,19 +89,19 @@ class ObjectCentricState:
         return state
 
     @property
-    def robot_names(self) -> list[str]:
+    def robot_names(self) -> set[str]:
         """Provide read-only access to the known robot names in the object-centric state."""
         return self._robot_names
 
     @property
-    def object_names(self) -> list[str]:
+    def object_names(self) -> set[str]:
         """Provide read-only access to the known object names in the object-centric state."""
         return self._object_names
 
     @property
     def object_poses(self) -> dict[str, Pose3D]:
         """Retrieve a dictionary mapping object names to their poses (if available)."""
-        return self.kinematic_tree.get_poses(frame_names=set(self._object_names))
+        return self.kinematic_tree.get_poses(frame_names=self._object_names)
 
     @property
     def robot_base_poses(self) -> dict[str, Pose3D]:
@@ -123,13 +130,11 @@ class ObjectCentricState:
 
     def add_object(self, obj_name: str) -> None:
         """Add the given object name to the set of known object names."""
-        if obj_name not in self._object_names:
-            self._object_names.append(obj_name)
+        self._object_names.add(obj_name)
 
     def add_robot(self, robot_name: str) -> None:
         """Add the given robot name to the set of known robot names."""
-        if robot_name not in self._robot_names:
-            self._robot_names.append(robot_name)
+        self._robot_names.add(robot_name)
 
     def set_known_object_pose(self, obj_name: str, pose: Pose3D) -> None:
         """Set the pose of the named object from a "known" source of truth.
@@ -211,7 +216,7 @@ class ObjectCentricState:
 
         :param robot_name: Name of a robot
         :return: Base pose of the robot, if known, else None
-        :raises ValueError: If the robot name is unrecognized
+        :raises ValueError: If the robot name is not recognized
         """
         if robot_name not in self._robot_names:
             raise ValueError(f"Cannot get the base pose of an unknown robot: '{robot_name}'.")
@@ -219,6 +224,35 @@ class ObjectCentricState:
         base_pose_frame = f"{robot_name}_base_pose"
         pose_map = self.kinematic_tree.get_poses(frame_names={base_pose_frame})
         return pose_map.get(base_pose_frame)
+
+    def attach_grasp(self, g: GraspAttachment) -> None:
+        """Update the state by attaching a grasped object to a robot end-effector.
+
+        :param g: Specifies kinematic details of the grasp attachment
+        :raises ValueError: If the grasped object's name is not recognized
+        :raises ValueError: If the grasping robot's name is not recognized
+        :raises ValueError: If the robot does not have the named end-effector
+        :raises ValueError: If the end-effector name differs from the grasp pose reference frame
+        """
+        if g.obj_name not in self.object_names:
+            raise ValueError(f"Cannot grasp an unknown object: '{g.obj_name}'.")
+        if g.robot_name not in self.robot_names:
+            raise ValueError(f"Cannot use unknown robot '{g.robot_name}' to grasp an object.")
+        if g.ee_link_name not in self.robot_end_effectors[g.robot_name]:
+            raise ValueError(
+                f"Robot '{g.robot_name}' does not have end-effector: '{g.ee_link_name}'.",
+            )
+
+        parent_frame = g.pose_ee_o.ref_frame
+        if g.ee_link_name != parent_frame:
+            raise ValueError(
+                f"Grasp with end-effector '{g.ee_link_name}' used pose in frame '{parent_frame}'.",
+            )
+
+        self._grasps[(g.robot_name, g.ee_link_name)] = g
+
+        # Assume that the source of the grasp pose is authoritative
+        self.set_known_object_pose(obj_name=g.obj_name, pose=g.pose_ee_o)
 
     def add_container(self, container_state: ContainerState) -> None:
         """Update the object-centric state based on the given container state."""
