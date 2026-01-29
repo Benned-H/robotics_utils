@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from robotics_utils.states import ObjectKinematicState
 
 
+@dataclass
 class CollisionModelRasterizer:
     """Rasterize 3D collision models into 2D occupancy grid masks.
 
@@ -28,19 +30,21 @@ class CollisionModelRasterizer:
     for hypothetical world queries.
     """
 
-    @staticmethod
+    min_height_m: float
+    """Minimum height (meters) of included geometry during rasterization."""
+
+    max_height_m: float
+    """Maximum height (meters) of included geometry during rasterization."""
+
     def rasterize_object(
+        self,
         obj: ObjectKinematicState,
         grid: DiscreteGrid2D,
-        min_height_m: float,
-        max_height_m: float,
     ) -> NDArray[np.bool]:
         """Rasterize an object's collision model into a mask for an occupancy grid.
 
         :param obj: Kinematic state of the object to be rasterized
         :param grid: Structure of the occupancy grid for the rasterization
-        :param min_height_m: Minimum height (meters) of the object to include
-        :param max_height_m: Maximum height (meters) of the object to include
         :return: Boolean mask where True indicates the object footprint
         """
         if obj.pose.ref_frame != grid.origin.ref_frame:
@@ -52,34 +56,20 @@ class CollisionModelRasterizer:
         mask = np.zeros((grid.height_cells, grid.width_cells), dtype=bool)
 
         for mesh in obj.collision_model.meshes:
-            mesh_mask = CollisionModelRasterizer.rasterize_mesh(
-                mesh=mesh,
-                obj_pose=obj.pose,
-                grid=grid,
-                min_height_m=min_height_m,
-                max_height_m=max_height_m,
-            )
+            mesh_mask = self.rasterize_mesh(mesh, obj.pose, grid)
             mask |= mesh_mask
 
         for primitive in obj.collision_model.primitives:
-            primitive_mask = CollisionModelRasterizer.rasterize_primitive(
-                primitive=primitive,
-                obj_pose=obj.pose,
-                grid=grid,
-                min_height_m=min_height_m,
-                max_height_m=max_height_m,
-            )
+            primitive_mask = self.rasterize_primitive(primitive, obj.pose, grid)
             mask |= primitive_mask
 
         return mask
 
-    @staticmethod
     def rasterize_mesh(
+        self,
         mesh: trimesh.Trimesh,
         obj_pose: Pose3D,
         grid: DiscreteGrid2D,
-        min_height_m: float,
-        max_height_m: float,
     ) -> NDArray[np.bool]:
         """Rasterize a collision mesh into a mask for an occupancy grid.
 
@@ -90,8 +80,6 @@ class CollisionModelRasterizer:
         :param mesh: Collision mesh to be rasterized
         :param obj_pose: Object pose in the world frame
         :param grid: Structure of the occupancy grid for the rasterization
-        :param min_height_m: Minimum height (meters) of the mesh to include
-        :param max_height_m: Maximum height (meters) of the mesh to include
         :return: Boolean mask where True indicates the mesh's footprint
         """
         mask = np.zeros((grid.height_cells, grid.width_cells), dtype=np.bool)
@@ -102,7 +90,7 @@ class CollisionModelRasterizer:
 
         # Filter vertices by height (z-coordinate in the world frame)
         z_coords = vertices_world[:, 2]
-        height_mask = (z_coords >= min_height_m) & (z_coords <= max_height_m)
+        height_mask = (z_coords >= self.min_height_m) & (z_coords <= self.max_height_m)
         filtered_vertices = vertices_world[height_mask]
 
         if filtered_vertices.shape[0] < 3:  # Not enough vertices to form a polygon
@@ -136,34 +124,23 @@ class CollisionModelRasterizer:
 
         return mask
 
-    @staticmethod
     def rasterize_primitive(
+        self,
         primitive: PrimitiveShape,
         obj_pose: Pose3D,
         grid: DiscreteGrid2D,
-        min_height_m: float,
-        max_height_m: float,
     ) -> NDArray[np.bool]:
         """Rasterize a primitive collision geometry into a mask for an occupancy grid.
 
         :param primitive: Primitive shape to be rasterized
         :param obj_pose: Object pose in the world frame
         :param grid: Structure of the occupancy grid for the rasterization
-        :param min_height_m: Minimum height (meters) of the primitive to include
-        :param max_height_m: Maximum height (meters) of the primitive to include
         :return: Boolean mask where True indicates the primitive's footprint
         """
-        mesh = CollisionModelRasterizer._primitive_to_mesh(primitive)
-        return CollisionModelRasterizer.rasterize_mesh(
-            mesh,
-            obj_pose,
-            grid,
-            min_height_m,
-            max_height_m,
-        )
+        mesh = self._primitive_to_mesh(primitive)
+        return self.rasterize_mesh(mesh, obj_pose, grid)
 
-    @staticmethod
-    def _primitive_to_mesh(primitive: PrimitiveShape) -> trimesh.Trimesh:
+    def _primitive_to_mesh(self, primitive: PrimitiveShape) -> trimesh.Trimesh:
         """Convert a primitive shape to an equivalent trimesh mesh.
 
         :param primitive: Primitive shape to convert
