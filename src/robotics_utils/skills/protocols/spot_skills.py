@@ -170,7 +170,7 @@ class SpotSkillsProtocol(SkillsProtocol):
     @skill_method
     def capture_image_observation(
         self,
-        camera: str,
+        camera: str = "hand",
         ref_frame: str = DEFAULT_FRAME,
         image_path: Path = Path("data/spot-images/rgb.jpg"),
     ) -> Outcome:
@@ -370,11 +370,11 @@ class SpotSkillsProtocol(SkillsProtocol):
     def _move_ee_to_pose(
         self,
         ee_target: Pose3D = Pose3D.from_xyz_rpy(
-            x=0.978,
-            z=1.158,
-            pitch_rad=0.949,
-            yaw_rad=3.1416,
-            ref_frame="black_dresser",
+            x=6.52,
+            y=-4.365,
+            z=0.5,
+            pitch_rad=0.3,
+            yaw_rad=1.5708,
         ),
         target_name: str = "",
         ignored_objects: str = "",
@@ -419,7 +419,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         return Outcome(success=success, message=message)
 
     @skill_method
-    def _lookup_pose(self, child_frame: str, parent_frame: str) -> Outcome:
+    def _lookup_pose(self, child_frame: str, parent_frame: str = "map") -> Outcome:
         """Look up the pose of a frame w.r.t. a reference frame.
 
         :param child_frame: Name of the frame whose pose is found
