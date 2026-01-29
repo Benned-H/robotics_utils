@@ -3,7 +3,7 @@
 import click
 
 from robotics_utils.io.logging import log_info
-from robotics_utils.reconstruction import PointCloud
+from robotics_utils.perception import PointCloud
 from robotics_utils.vision.cameras import D455_SPEC, RealSense
 from robotics_utils.visualization import display_in_window
 from robotics_utils.visualization.open3d_visualizer import Open3DVisualizer

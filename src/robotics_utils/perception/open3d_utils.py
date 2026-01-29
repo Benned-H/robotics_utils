@@ -2,7 +2,7 @@
 
 import open3d as o3d
 
-from robotics_utils.reconstruction.pointcloud import PointCloud
+from robotics_utils.perception.pointcloud import PointCloud
 
 
 def pointcloud_to_o3d(pcd: PointCloud) -> o3d.geometry.PointCloud:

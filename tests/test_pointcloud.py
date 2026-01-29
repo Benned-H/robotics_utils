@@ -2,7 +2,7 @@
 
 from hypothesis import given
 
-from robotics_utils.reconstruction import PointCloud
+from robotics_utils.perception import PointCloud
 from robotics_utils.vision import DepthImage
 from robotics_utils.vision.cameras import CameraIntrinsics
 

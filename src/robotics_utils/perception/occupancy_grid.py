@@ -12,7 +12,9 @@ from robotics_utils.motion_planning.discretization import DiscreteGrid2D, GridCe
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
+    from robotics_utils.collision_models import CollisionModelRasterizer
     from robotics_utils.perception.laser_scan import LaserScan2D
+    from robotics_utils.states import ObjectKinematicState
 
 
 def bresenham_line(c0: GridCell, c1: GridCell) -> list[GridCell]:
@@ -54,6 +56,10 @@ def bresenham_line(c0: GridCell, c1: GridCell) -> list[GridCell]:
             y += sy
 
     return cells
+
+
+OCCUPIED_LOG_ODDS = 10.0  # TODO: It would be nice to derive these from probabilities instead
+FREE_SPACE_LOG_ODDS = -10.0
 
 
 class OccupancyGrid2D:
@@ -156,5 +162,43 @@ class OccupancyGrid2D:
         :return: New OccupancyGrid2D with the masked cells set to free space
         """
         grid_copy = self.copy()
-        grid_copy.log_odds[mask] = -10.0  # Use a large (but finite) negative value for stability
+        grid_copy.log_odds[mask] = FREE_SPACE_LOG_ODDS
         return grid_copy
+
+    def mask_as_occupied(self, mask: NDArray[np.bool]) -> OccupancyGrid2D:
+        """Create a copy of the occupancy grid in which the masked cells are set as occupied.
+
+        :param mask: Boolean mask specifying occupied grid cells
+        :return: New OccupancyGrid2D with the masked cells set as occupied
+        """
+        grid_copy = self.copy()
+        grid_copy.log_odds[mask] = OCCUPIED_LOG_ODDS
+        return grid_copy
+
+    def stamp_as_free(
+        self,
+        obj: ObjectKinematicState,
+        rasterizer: CollisionModelRasterizer,
+    ) -> OccupancyGrid2D:
+        """Rasterize an object into an occupancy mask and stamp it as free space in a grid copy.
+
+        :param obj: Kinematic state of the object (pose + collision model)
+        :param rasterizer: Rasterizes the object's collision model into a 2D occupancy mask
+        :return: Copy of the occupancy grid where the object's mask is marked as free space
+        """
+        mask = rasterizer.rasterize_object(obj=obj, grid=self.grid)
+        return self.mask_as_free(mask)
+
+    def stamp_as_occupied(
+        self,
+        obj: ObjectKinematicState,
+        rasterizer: CollisionModelRasterizer,
+    ) -> OccupancyGrid2D:
+        """Rasterize an object into an occupancy mask and stamp it as occupied in a grid copy.
+
+        :param obj: Kinematic state of the object (pose + collision model)
+        :param rasterizer: Rasterizes the object's collision model into a 2D occupancy mask
+        :return: Copy of the occupancy grid where the object's mask is marked as occupied
+        """
+        mask = rasterizer.rasterize_object(obj=obj, grid=self.grid)
+        return self.mask_as_occupied(mask)

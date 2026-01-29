@@ -1,8 +1,7 @@
-"""Define a class to rasterize 3D collision models into 2D occupancy grids."""
+"""Define a class to rasterize 3D collision models into 2D occupancy masks."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -10,7 +9,7 @@ import trimesh
 from scipy.spatial import ConvexHull, QhullError
 from skimage.draw import polygon
 
-from robotics_utils.collision_models import Box, Cylinder, PrimitiveShape, Sphere
+from robotics_utils.collision_models.primitive_shapes import Box, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.geometry import Point2D
 
 if TYPE_CHECKING:
@@ -21,20 +20,22 @@ if TYPE_CHECKING:
     from robotics_utils.states import ObjectKinematicState
 
 
-@dataclass
 class CollisionModelRasterizer:
-    """Rasterize 3D collision models into 2D occupancy grid masks.
+    """Rasterize 3D collision models into 2D occupancy masks.
 
     This class converts 3D collision geometries (meshes and primitives) into
     2D Boolean masks for use in occupancy grids, enabling "object removal"
     for hypothetical world queries.
     """
 
-    min_height_m: float
-    """Minimum height (meters) of included geometry during rasterization."""
+    def __init__(self, min_height_m: float = 0.1, max_height_m: float = 2.0) -> None:
+        """Initialize the rasterizer with height limits for rasterized objects.
 
-    max_height_m: float
-    """Maximum height (meters) of included geometry during rasterization."""
+        :param min_height_m: Minimum height (meters) of included object geometry (default: 0.1 m)
+        :param max_height_m: Maximum height (meters) of included object geometry (default: 2.0 m)
+        """
+        self.min_height_m = min_height_m
+        self.max_height_m = max_height_m
 
     def rasterize_object(
         self,

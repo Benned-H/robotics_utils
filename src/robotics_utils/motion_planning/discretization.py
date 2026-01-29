@@ -13,6 +13,8 @@ from robotics_utils.spatial import Pose2D
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
+    from robotics_utils.spatial.poses import Multiply2D
+
 
 class GridCell(NamedTuple):
     """A pair of (row, column) indices to a cell in a discrete grid."""
@@ -50,15 +52,27 @@ class DiscreteGrid2D:
         self._transform_w_g = origin.to_homogeneous_matrix()  # Grid frame -> World frame
         self._transform_g_w = np.linalg.inv(self._transform_w_g)  # World frame -> Grid frame
 
-    def to_grid_frame(self, pose_w: Pose2D) -> Pose2D:
-        """Convert a world-frame 2D pose into the reference frame of the grid."""
-        transform_g = self._transform_g_w @ pose_w.to_homogeneous_matrix()
-        return Pose2D.from_homogeneous_matrix(transform_g, ref_frame=self.frame_name)
+    def to_grid_frame(self, value_w: Multiply2D) -> Multiply2D:
+        """Convert a world-frame 2D pose or point into the reference frame of the grid."""
+        if isinstance(value_w, Pose2D):
+            transform_g = self._transform_g_w @ value_w.to_homogeneous_matrix()
+            return Pose2D.from_homogeneous_matrix(transform_g, ref_frame=self.frame_name)
+        if isinstance(value_w, Point2D):
+            h_coord_g = self._transform_g_w @ value_w.to_homogeneous_coordinate()
+            return Point2D.from_homogeneous_coordinate(h_coord_g)
 
-    def to_world_frame(self, pose_g: Pose2D) -> Pose2D:
-        """Convert a grid-frame 2D pose into the world reference frame."""
-        transform_w = self._transform_w_g @ pose_g.to_homogeneous_matrix()
-        return Pose2D.from_homogeneous_matrix(transform_w, ref_frame=self.origin.ref_frame)
+        raise NotImplementedError(f"Cannot transform type: {type(value_w)}.")
+
+    def to_world_frame(self, value_g: Multiply2D) -> Multiply2D:
+        """Convert a grid-frame 2D pose or point into the world reference frame."""
+        if isinstance(value_g, Pose2D):
+            transform_w = self._transform_w_g @ value_g.to_homogeneous_matrix()
+            return Pose2D.from_homogeneous_matrix(transform_w, ref_frame=self.origin.ref_frame)
+        if isinstance(value_g, Point2D):
+            h_coord_w = self._transform_w_g @ value_g.to_homogeneous_coordinate()
+            return Point2D.from_homogeneous_coordinate(h_coord_w)
+
+        raise NotImplementedError(f"Cannot transform type: {type(value_g)}.")
 
     def local_x_to_col(self, x: float) -> int:
         """Convert a local-frame x-coordinate to the corresponding column index."""

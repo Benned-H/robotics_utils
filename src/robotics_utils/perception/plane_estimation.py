@@ -11,11 +11,11 @@ import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from robotics_utils.geometry import Plane3D
-from robotics_utils.reconstruction.open3d_utils import pointcloud_to_o3d
+from robotics_utils.perception.open3d_utils import pointcloud_to_o3d
 from robotics_utils.visualization import Displayable
 
 if TYPE_CHECKING:
-    from robotics_utils.reconstruction.pointcloud import PointCloud
+    from robotics_utils.perception.pointcloud import PointCloud
 
 
 @dataclass(frozen=True)

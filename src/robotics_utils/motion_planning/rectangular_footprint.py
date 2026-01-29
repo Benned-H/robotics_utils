@@ -1,11 +1,17 @@
 """Define a class representing rectangular robot footprints for collision checking."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from robotics_utils.perception import OccupancyGrid2D
-from robotics_utils.spatial import Pose2D
+from robotics_utils.geometry import Point2D
+
+if TYPE_CHECKING:
+    from robotics_utils.perception import OccupancyGrid2D
+    from robotics_utils.spatial import Pose2D
 
 
 @dataclass(frozen=True)
@@ -25,12 +31,22 @@ class RectangularFootprint:
     half_length_y_m: float
     """Half-length (meters) of the robot along its body-frame y-axis."""
 
-    def check_collision(self, robot_pose: Pose2D, occupancy_grid: OccupancyGrid2D) -> bool:
+    @property
+    def corners(self) -> list[Point2D]:
+        """Retrieve the robot-frame coordinates of the corners of the footprint."""
+        return [
+            Point2D(self.max_x_m, self.half_length_y_m),
+            Point2D(self.max_x_m, -self.half_length_y_m),
+            Point2D(self.min_x_m, -self.half_length_y_m),
+            Point2D(self.min_x_m, self.half_length_y_m),
+        ]
+
+    def is_collision_free(self, robot_pose: Pose2D, occupancy_grid: OccupancyGrid2D) -> bool:
         """Check whether the robot collides with obstacles at the given pose.
 
         :param robot_pose: Robot pose in world frame
         :param occupancy_grid: Occupancy grid representing occupied cells
-        :return: True if a collision is detected, else False
+        :return: True if the base pose is collision-free, else False
         """
         grid = occupancy_grid.grid
         if robot_pose.ref_frame != grid.origin.ref_frame:
@@ -61,4 +77,4 @@ class RectangularFootprint:
         in_x = (self.min_x_m < occupied_x_r) & (occupied_x_r < self.max_x_m)
         in_y = np.abs(occupied_y_r) < self.half_length_y_m
 
-        return bool(np.any(in_x & in_y))
+        return not bool(np.any(in_x & in_y))

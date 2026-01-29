@@ -5,7 +5,7 @@ from __future__ import annotations
 import click
 
 from robotics_utils.io import console
-from robotics_utils.reconstruction import PlaneEstimate, PointCloud
+from robotics_utils.perception import PlaneEstimate, PointCloud
 from robotics_utils.vision import RGBImage
 from robotics_utils.vision.cameras import D415_SPEC, D455_SPEC, RealSense
 from robotics_utils.vision.vlms import SAM3

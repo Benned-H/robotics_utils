@@ -69,6 +69,10 @@ class Pose2D:
         h_result = self.to_homogeneous_matrix() @ h_coordinate
         return Point2D(x=h_result[0], y=h_result[1])
 
+    def __str__(self) -> str:
+        """Return a human-readable string representation of the Pose2D."""
+        return f"Pose2D({self.x:.2f}, {self.y:.2f}, {np.rad2deg(self.yaw_rad):.1f} deg)"
+
     @classmethod
     def from_sequence(cls, pose_seq: Sequence[float], ref_frame: str = DEFAULT_FRAME) -> Pose2D:
         """Construct a Pose2D from a sequence of values.

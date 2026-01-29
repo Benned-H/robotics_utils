@@ -5,3 +5,4 @@ from .primitive_shapes import Box as Box
 from .primitive_shapes import Cylinder as Cylinder
 from .primitive_shapes import PrimitiveShape as PrimitiveShape
 from .primitive_shapes import Sphere as Sphere
+from .rasterizer import CollisionModelRasterizer as CollisionModelRasterizer

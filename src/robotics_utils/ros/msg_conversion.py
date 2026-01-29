@@ -25,8 +25,7 @@ if TYPE_CHECKING:
     import trimesh
 
     from robotics_utils.kinematics import Configuration
-    from robotics_utils.perception import OccupancyGrid2D
-    from robotics_utils.reconstruction import PointCloud
+    from robotics_utils.perception import OccupancyGrid2D, PointCloud
 
 
 def point_to_msg(point: Point3D) -> Point:

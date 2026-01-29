@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import open3d as o3d
 
-from robotics_utils.reconstruction import PlaneEstimate, PointCloud, pointcloud_to_o3d
+from robotics_utils.perception import PlaneEstimate, PointCloud, pointcloud_to_o3d
 
 if TYPE_CHECKING:
     from types import TracebackType
