@@ -58,6 +58,13 @@ def bresenham_line(c0: GridCell, c1: GridCell) -> list[GridCell]:
     return cells
 
 
+def log_odds(p: float) -> float:
+    """Compute the log-odds of the given probability p."""
+    if p <= 0.0 or p >= 1.0:
+        raise ValueError(f"Invalid probability value: {p} (expected 0 < p < 1).")
+    return np.log(p / (1 - p))
+
+
 OCCUPIED_LOG_ODDS = 10.0  # TODO: It would be nice to derive these from probabilities instead
 FREE_SPACE_LOG_ODDS = -10.0
 
@@ -93,10 +100,18 @@ class OccupancyGrid2D:
         occ_grid.log_odds = np.copy(self.log_odds)
         return occ_grid
 
-    def update(self, scan: LaserScan2D, *, p_free: float = 0.1, p_occupied: float = 0.9) -> None:
+    def update(
+        self,
+        scan: LaserScan2D,
+        *,
+        clearing_scan: LaserScan2D | None = None,
+        p_free: float = 0.1,
+        p_occupied: float = 0.75,
+    ) -> None:
         """Update the occupancy grid using an inverse sensor model with ray tracing.
 
-        :param scan: Laser scan to be incorporated into the grid
+        :param scan: Laser scan used exclusively to mark occupied cells (all beams)
+        :param clearing_scan: Optional scan used for ray-tracing free space (if None, uses `scan`)
         :param p_free: Probability that a cell is occupied given a ray passes through it
         :param p_occupied: Probability that a cell is occupied given a laser hits in it
         """
@@ -105,39 +120,49 @@ class OccupancyGrid2D:
                 f"Laser scan is expressed in frame '{scan.sensor_pose.ref_frame}' "
                 f"but this occupancy grid is in frame '{self.grid.origin.ref_frame}'.",
             )
-
-        if not scan.num_beams:
-            return
+        if clearing_scan is not None:
+            scan_frame = scan.sensor_pose.ref_frame
+            clearing_frame = clearing_scan.sensor_pose.ref_frame
+            if scan_frame != clearing_frame:
+                raise RuntimeError(
+                    f"Occupancy-filling laser scan is expressed in frame '{scan_frame}' "
+                    f"but free-space-clearing laser scan is in frame '{clearing_frame}'.",
+                )
 
         # Convert probabilities into log-odds (see pg. 286 of ProbRob)
-        l_free = np.log(p_free / (1 - p_free))
-        l_occupied = np.log(p_occupied / (1 - p_occupied))
+        l_free = log_odds(p_free)
+        l_occupied = log_odds(p_occupied)
 
-        sensor_world_x = scan.sensor_pose.x
-        sensor_world_y = scan.sensor_pose.y
-        sensor_yaw_rad = scan.sensor_pose.yaw_rad
+        # Use the clearing scan for free-space ray-tracing
+        free_scan = clearing_scan if clearing_scan is not None else scan
+        free_sensor_w_x = free_scan.sensor_pose.x
+        free_sensor_w_y = free_scan.sensor_pose.y
+        free_sensor_grid_cell = self.grid.world_to_cell(Point2D(free_sensor_w_x, free_sensor_w_y))
 
-        sensor_grid_cell = self.grid.world_to_cell(Point2D(sensor_world_x, sensor_world_y))
-
-        for i in range(scan.num_beams):
-            range_m, bearing_rad = scan.beam_data[i]
-
-            beam_yaw_rad = sensor_yaw_rad + bearing_rad  # World-frame yaw of the beam
-            cos_yaw = np.cos(beam_yaw_rad)
-            sin_yaw = np.sin(beam_yaw_rad)
-
-            end_w_x = sensor_world_x + range_m * cos_yaw  # Endpoint in world frame
-            end_w_y = sensor_world_y + range_m * sin_yaw
-
+        for i in range(free_scan.num_beams):
+            range_m, bearing_rad = free_scan.beam_data[i]
+            beam_yaw_rad = free_scan.sensor_pose.yaw_rad + bearing_rad
+            end_w_x = free_sensor_w_x + range_m * np.cos(beam_yaw_rad)
+            end_w_y = free_sensor_w_y + range_m * np.sin(beam_yaw_rad)
             end_grid_cell = self.grid.world_to_cell(Point2D(end_w_x, end_w_y))
 
             # Ray trace from sensor to endpoint
-            ray_cells = bresenham_line(sensor_grid_cell, end_grid_cell)
+            ray_cells = bresenham_line(free_sensor_grid_cell, end_grid_cell)
 
             # Update free-space cells along the ray (excluding the endpoint)
             for cell in ray_cells[:-1]:
                 if self.grid.is_valid_cell(cell):
                     self.log_odds[cell.row, cell.col] += l_free
+
+        # Use all beam "hits" to mark occupied cells
+        for i in range(scan.num_beams):
+            range_m, bearing_rad = scan.beam_data[i]
+            beam_yaw_rad = scan.sensor_pose.yaw_rad + bearing_rad  # World-frame yaw of the beam
+            cos_yaw = np.cos(beam_yaw_rad)
+            sin_yaw = np.sin(beam_yaw_rad)
+            end_w_x = scan.sensor_pose.x + range_m * cos_yaw  # Endpoint in world frame
+            end_w_y = scan.sensor_pose.y + range_m * sin_yaw
+            end_grid_cell = self.grid.world_to_cell(Point2D(end_w_x, end_w_y))
 
             # Ray trace past the endpoint by the minimum depth of any obstacle
             past_end_x = end_w_x + self.min_obstacle_depth_m * cos_yaw
@@ -145,8 +170,6 @@ class OccupancyGrid2D:
             past_end_cell = self.grid.world_to_cell(Point2D(past_end_x, past_end_y))
 
             obstacle_cells = bresenham_line(end_grid_cell, past_end_cell)
-
-            # Update occupied cells at the end of the beam
             for cell in obstacle_cells:
                 if self.grid.is_valid_cell(cell):
                     self.log_odds[cell.row, cell.col] += l_occupied
