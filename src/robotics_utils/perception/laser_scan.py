@@ -91,3 +91,42 @@ class LaserScan2D:
     def num_beams(self) -> int:
         """Get the number of beams in the laser scan."""
         return self.beam_data.shape[0]
+
+    def filter_per_angle_bin(self, angle_resolution_rad: float | None = None) -> LaserScan2D:
+        """Filter the laser scan to keep only the minimum-range beam per angular bin.
+
+        :param angle_resolution_rad: Optional angular bin width (radians) (default: 1 degree)
+        :return: New LaserScan2D with only the minimum-range beam per angle bin
+        """
+        if angle_resolution_rad is None:
+            angle_resolution_rad = np.deg2rad(1.0)
+
+        if not self.num_beams:
+            return LaserScan2D(self.sensor_pose, np.empty((0, 2)), 0.0, float("inf"))
+
+        ranges_m = self.beam_data[:, 0]
+        angles_rad = self.beam_data[:, 1]
+
+        # Discretize the angle values to create bins
+        bin_indices = np.floor(angles_rad / angle_resolution_rad).astype(np.int32)
+
+        # Find the minimum-range index for each unique bin
+        unique_bins, inverse_indices = np.unique(bin_indices, return_inverse=True)
+        num_bins = len(unique_bins)
+
+        min_ranges_m = np.full(num_bins, np.inf)  # Initialize to infinity, which will get replaced
+        min_indices = np.zeros(num_bins, dtype=np.int64)  # Index of each bin's minimum-range beam
+
+        for beam_i, (range_m, bin_idx) in enumerate(zip(ranges_m, inverse_indices)):
+            if range_m < min_ranges_m[bin_idx]:
+                min_ranges_m[bin_idx] = range_m
+                min_indices[bin_idx] = beam_i
+
+        filtered_beam_data = self.beam_data[min_indices]
+
+        return LaserScan2D(
+            sensor_pose=self.sensor_pose,
+            beam_data=filtered_beam_data,
+            range_min_m=0.0,
+            range_max_m=float("inf"),  # Use permissive range limits to skip re-filtering
+        )

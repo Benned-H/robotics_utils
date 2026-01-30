@@ -100,6 +100,12 @@ class OccupancyGrid2D:
         :param p_free: Probability that a cell is occupied given a ray passes through it
         :param p_occupied: Probability that a cell is occupied given a laser hits in it
         """
+        if scan.sensor_pose.ref_frame != self.grid.origin.ref_frame:
+            raise RuntimeError(
+                f"Laser scan is expressed in frame '{scan.sensor_pose.ref_frame}' "
+                f"but this occupancy grid is in frame '{self.grid.origin.ref_frame}'.",
+            )
+
         if not scan.num_beams:
             return
 

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, NamedTuple, overload
 import numpy as np
 
 from robotics_utils.geometry import Point2D
-from robotics_utils.spatial import Pose2D
+from robotics_utils.spatial import DEFAULT_FRAME, Pose2D
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -51,6 +51,28 @@ class DiscreteGrid2D:
         # Cache transformation matrices for efficient coordinate conversion
         self._transform_w_g = origin.to_homogeneous_matrix()  # Grid frame -> World frame
         self._transform_g_w = np.linalg.inv(self._transform_w_g)  # World frame -> Grid frame
+
+    @classmethod
+    def from_bounds(
+        cls,
+        resolution_m: float,
+        ref_frame: str = DEFAULT_FRAME,
+        *,
+        x_min: float,
+        y_min: float,
+        x_max: float,
+        y_max: float,
+    ) -> DiscreteGrid2D:
+        """Construct a 2D grid of cells covering the specified area of the x-y plane."""
+        width_m = x_max - x_min
+        height_m = y_max - y_min
+
+        return DiscreteGrid2D(
+            origin=Pose2D(x=x_min, y=y_min, yaw_rad=0.0, ref_frame=ref_frame),
+            resolution_m=resolution_m,
+            width_cells=int(width_m / resolution_m),
+            height_cells=int(height_m / resolution_m),
+        )
 
     def to_grid_frame(self, value_w: Multiply2D) -> Multiply2D:
         """Convert a world-frame 2D pose or point into the reference frame of the grid."""
