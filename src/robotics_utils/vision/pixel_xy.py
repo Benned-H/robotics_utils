@@ -40,6 +40,10 @@ class PixelXY:
         """Convert the PixelXY to a dictionary of JSON data."""
         return {"x": self.x, "y": self.y}
 
+    def to_tuple(self) -> tuple[int, int]:
+        """Convert the PixelXY into a 2-tuple of integers."""
+        return (self.x, self.y)
+
     @property
     def x(self) -> int:
         """Retrieve the x-coordinate of this pixel."""

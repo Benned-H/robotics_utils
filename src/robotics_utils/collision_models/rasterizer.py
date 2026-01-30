@@ -74,9 +74,9 @@ class CollisionModelRasterizer:
     ) -> NDArray[np.bool]:
         """Rasterize a collision mesh into a mask for an occupancy grid.
 
-        Computes the convex hull of all mesh vertices within the height range,
-        then fills that polygon on the grid. This provides a conservative
-        (never underestimates) approximation of the mesh's 2D footprint.
+        Computes the convex hull of all mesh vertices whose z-extent overlaps
+        the height range, then fills that polygon on the grid. This provides a
+        conservative (never underestimates) approximation of the mesh's 2D footprint.
 
         :param mesh: Collision mesh to be rasterized
         :param obj_pose: Object pose in the world frame
@@ -89,36 +89,47 @@ class CollisionModelRasterizer:
         transform_w_o = obj_pose.to_homogeneous_matrix()
         vertices_world = trimesh.transform_points(mesh.vertices, transform_w_o)
 
-        # Filter vertices by height (z-coordinate in the world frame)
+        # Check if the mesh's z-extent overlaps with the height range
         z_coords = vertices_world[:, 2]
-        height_mask = (z_coords >= self.min_height_m) & (z_coords <= self.max_height_m)
-        filtered_vertices = vertices_world[height_mask]
 
-        if filtered_vertices.shape[0] < 3:  # Not enough vertices to form a polygon
-            for vertex in filtered_vertices:
-                grid_cell = grid.world_to_cell(Point2D.from_array(vertex))
-                if grid.is_valid_cell(grid_cell):
-                    mask[grid_cell.row, grid_cell.col] = True
+        if z_coords.max() < self.min_height_m or z_coords.min() > self.max_height_m:
             return mask
 
-        vertices_2d = filtered_vertices[:, :2]  # Project to 2D (x, y) coordinates
+        # Use all vertices for the 2D footprint because the mesh overlaps the height range
+        vertices_2d = vertices_world[:, :2]
+
+        for vertex in vertices_2d:
+            grid_cell = grid.world_to_cell(Point2D.from_array(vertex))
+            if grid.is_valid_cell(grid_cell):
+                mask[grid_cell.row, grid_cell.col] = True
+
+        if vertices_2d.shape[0] < 3:  # Not enough vertices to form a polygon; exit
+            return mask
 
         try:
             hull = ConvexHull(vertices_2d)
-        except QhullError:  # Degenerate case (e.g., collinear points); mark individual points
-            for vertex in vertices_2d:
-                grid_cell = grid.world_to_cell(Point2D.from_array(vertex))
-                if grid.is_valid_cell(grid_cell):
-                    mask[grid_cell.row, grid_cell.col] = True
+        except QhullError:  # Degenerate case (e.g., collinear points); exit
             return mask
 
         occupied_grid_rows = []
         occupied_grid_cols = []
         hull_vertices = hull.points[hull.vertices]  # Get only the boundary vertices, in order
-        for point in hull_vertices:
-            row, col = grid.world_to_cell(Point2D.from_array(point))
-            occupied_grid_rows.append(row)
-            occupied_grid_cols.append(col)
+
+        # Sample points along each hull edge to ensure that all cells along the edge are marked
+        for i, start_point in enumerate(hull_vertices):
+            end_point = hull_vertices[(i + 1) % len(hull_vertices)]
+            edge_vec = end_point - start_point
+            edge_length_m = np.linalg.norm(edge_vec)
+
+            # Sample at intervals smaller than grid resolution to guarantee cell coverage
+            num_samples = max(2, int(np.ceil(edge_length_m / grid.resolution_m)) + 1)
+            for t in np.linspace(0.0, 1.0, num_samples):
+                sample_point = start_point + t * edge_vec
+                cell = grid.world_to_cell(Point2D.from_array(sample_point))
+                occupied_grid_rows.append(cell.row)
+                occupied_grid_cols.append(cell.col)
+                if grid.is_valid_cell(cell):
+                    mask[cell.row, cell.col] = True
 
         rr, cc = polygon(r=occupied_grid_rows, c=occupied_grid_cols, shape=mask.shape)
         mask[rr, cc] = True
@@ -149,17 +160,29 @@ class CollisionModelRasterizer:
         :raises ValueError: If primitive type is not supported
         """
         if isinstance(primitive, Box):
-            return trimesh.primitives.Box(
+            mesh = trimesh.primitives.Box(
                 extents=[primitive.x_m, primitive.y_m, primitive.z_m],
             ).to_mesh()
 
+            # Translate so bottom sits at z=0 (trimesh centers boxes at origin)
+            mesh.apply_translation([0, 0, primitive.z_m / 2])
+            return mesh
+
         if isinstance(primitive, Sphere):
-            return trimesh.primitives.Sphere(radius=primitive.radius_m).to_mesh()
+            mesh = trimesh.primitives.Sphere(radius=primitive.radius_m).to_mesh()
+
+            # Translate so bottom sits at z=0 (trimesh centers spheres at origin)
+            mesh.apply_translation([0, 0, primitive.radius_m])
+            return mesh
 
         if isinstance(primitive, Cylinder):
-            return trimesh.primitives.Cylinder(
+            mesh = trimesh.primitives.Cylinder(
                 radius=primitive.radius_m,
                 height=primitive.height_m,
             ).to_mesh()
+
+            # Translate so bottom sits at z=0 (trimesh centers cylinders at origin)
+            mesh.apply_translation([0, 0, primitive.height_m / 2])
+            return mesh
 
         raise ValueError(f"Unexpected primitive shape type: {primitive} (type {type(primitive)})")

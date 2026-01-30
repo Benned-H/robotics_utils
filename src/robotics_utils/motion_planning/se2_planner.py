@@ -55,13 +55,13 @@ class SE2AStarPlanner(AStarPlanner[DiscreteSE2]):
                 continue
 
             # Compute heading index pointing to the neighbor cell
-            angle_rad = np.arctan2(-dr, dc)
+            angle_rad = np.arctan2(dr, dc)
             heading_idx = self.se2_space.headings.nearest_index(angle_rad)
 
             neighbor = DiscreteSE2(cell=new_cell, heading_idx=heading_idx)
             pose = self.se2_space.convert_discrete_to_pose(neighbor)
 
-            if not self.query.robot_footprint.check_collision(pose, self.query.occupancy_grid):
+            if self.query.robot_footprint.is_collision_free(pose, self.query.occupancy_grid):
                 neighbors.append(neighbor)
 
         return neighbors
@@ -98,9 +98,9 @@ def plan_se2_path(query: NavigationQuery) -> list[Pose2D] | None:
     :param query: Navigation query specifying start, goal, occupancy grid, and robot footprint
     :return: List of Pose2D waypoints from start to goal, or None if no path was found
     """
-    if query.robot_footprint.check_collision(query.start_pose, query.occupancy_grid):
+    if not query.robot_footprint.is_collision_free(query.start_pose, query.occupancy_grid):
         return None  # Start pose in collision
-    if query.robot_footprint.check_collision(query.goal_pose, query.occupancy_grid):
+    if not query.robot_footprint.is_collision_free(query.goal_pose, query.occupancy_grid):
         return None  # Goal pose in collision
 
     # Create the discrete SE(2) space used during A* search

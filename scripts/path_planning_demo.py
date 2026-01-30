@@ -29,10 +29,11 @@ from robotics_utils.motion_planning import (
 from robotics_utils.perception import OccupancyGrid2D
 from robotics_utils.spatial import Pose2D
 from robotics_utils.states import ObjectKinematicState
-from robotics_utils.visualization import display_in_window, visualize_path
+from robotics_utils.visualization import display_in_window
+from robotics_utils.visualization.navigation_visualization import NavigationVisualization
 
 # Grid parameters
-GRID_RESOLUTION_M = 0.05  # 5 cm per cell
+GRID_RESOLUTION_M = 0.1  # 5 cm per cell
 GRID_WIDTH_M = 12.0  # 12 meters wide (extra space for rotated rooms)
 GRID_HEIGHT_M = 12.0  # 12 meters tall (extra space for rotated rooms)
 GRID_WIDTH_CELLS = int(GRID_WIDTH_M / GRID_RESOLUTION_M)
@@ -44,7 +45,7 @@ WORLD_T_GRID_Y_M = -GRID_HEIGHT_M / 2
 # Room layout parameters (in meters, relative to room center)
 ROOM_WIDTH_M = 8.0  # Total width of both rooms
 ROOM_HEIGHT_M = 6.0  # Total height of the rooms
-WALL_THICKNESS_M = 0.1  # 10 cm thick walls
+WALL_THICKNESS_M = 0.2  # 20 cm thick walls
 WALL_HEIGHT_M = 2.5  # Height of walls
 
 # Dividing wall and doorway (relative to room center)
@@ -65,8 +66,7 @@ DOOR_HEIGHT_M = 2.0  # Height of the door
 RASTERIZE_MIN_HEIGHT_M = 0.0
 RASTERIZE_MAX_HEIGHT_M = 1.0  # Capture obstacles up to 1 m height
 
-# Visualization scale factor (pixels per grid cell)
-VIZ_SCALE = 3
+VISUALIZATION = False
 
 
 @dataclass
@@ -239,6 +239,7 @@ def sample_base_pose(
         abs(robot_footprint.min_x_m),
         robot_footprint.half_length_y_m,
     )  # Minimum radius (m) of the robot in any orientation
+    min_robot_radius_m += GRID_RESOLUTION_M  # Add one cell of extra spacing for rounding
 
     if left_room:  # Left room: x from -half_width to divider
         x_min = -half_width_m + half_wall_thickness_m + min_robot_radius_m
@@ -299,7 +300,7 @@ def main() -> None:
         room_env = create_environment(rotation_rad=rotation_rad)
         world_t_room = room_env.world_t_room
 
-        # Step 2: Create an empty occupancy grid and stamp the walls as occupied
+        # Step 2: Create an empty occupancy grid, stamp the walls as occupied, and visualize
         console.print("[bold]Step 2:[/] Rasterizing walls into occupancy grid...")
 
         world_t_grid = Pose2D(x=WORLD_T_GRID_X_M, y=WORLD_T_GRID_Y_M, yaw_rad=0.0)
@@ -318,6 +319,10 @@ def main() -> None:
         console.print(f"  Grid size: {grid.height_cells} rows by {grid.width_cells} columns.")
         console.print(f"  Grid resolution: {grid.resolution_m:.3f} m/cell.")
         console.print()
+
+        if VISUALIZATION:
+            just_walls_viz = NavigationVisualization(occ_grid, footprint)
+            display_in_window(just_walls_viz.image, "Initial Occupancy Grid")
 
         # Step 3: Sample start and goal poses (sample in room frame, collision check in world)
         console.print("[bold]Step 3:[/] Sampling start pose and goal pose...")
@@ -338,11 +343,17 @@ def main() -> None:
             world_t_room,
             left_room=not start_left,
         )
-        # TODO: Visualize the rejected poses if needed for debugging
 
         console.print(f"  Start pose: {start_pose}")
         console.print(f"  Goal pose: {goal_pose}")
         console.print()
+
+        if VISUALIZATION:
+            rejection_viz = NavigationVisualization(occ_grid, footprint)
+            rejection_viz.draw_query_endpoints(start=start_pose, goal=goal_pose)
+            for reject in start_rejects + goal_rejects:
+                rejection_viz.draw_base_pose(pose_w_b=reject, color=(255, 0, 0), thickness=1)
+            display_in_window(rejection_viz.image, "Initial and Goal Poses (red = rejected poses)")
 
         # Step 4: Plan path with the door open
         console.print("[bold]Step 4:[/] Planning a path when door is OPEN...")
@@ -363,8 +374,11 @@ def main() -> None:
         console.print()
         console.print("[bold]Step 5:[/] Visualizing planner result (press any key to continue)...")
 
-        viz_image = visualize_path(query=query, path=path, scale=VIZ_SCALE)
-        display_in_window(viz_image, title="Planned Path (Door Open)")
+        if VISUALIZATION:
+            door_open_viz = NavigationVisualization(occ_grid, footprint)
+            door_open_viz.draw_path(path)
+            door_open_viz.draw_query_endpoints(start_pose, goal_pose)
+            display_in_window(door_open_viz.image, "Planned Path (Door Open)")
 
         if path is None:
             if click.confirm("Sample new poses and try again?", default=True):
@@ -376,7 +390,7 @@ def main() -> None:
         # Step 6: Stamp the door object as occupied
         console.print("[bold]Step 6:[/] Adding door collision model to occupancy grid...")
 
-        occ_grid = occ_grid.stamp_as_occupied(room_env.door, rasterizer)
+        blocked_occ_grid = occ_grid.stamp_as_occupied(room_env.door, rasterizer)
 
         # Step 7: Compute a plan when the door is closed
         console.print()
@@ -384,7 +398,7 @@ def main() -> None:
         query_blocked = NavigationQuery(
             start_pose=start_pose,
             goal_pose=goal_pose,
-            occupancy_grid=occ_grid,
+            occupancy_grid=blocked_occ_grid,
             robot_footprint=footprint,
         )
         path_blocked = plan_se2_path(query_blocked)
@@ -396,20 +410,22 @@ def main() -> None:
         console.print()
 
         # Step 8: Visualize the planner result when the door is closed
-        console.print("[bold]Step 8:[/] Visualizing planner result (press any key to continue)...")
+        console.print("[bold]Step 8:[/] Visualizing planning result after door is closed...")
 
-        viz_blocked = visualize_path(query=query_blocked, path=path_blocked, scale=VIZ_SCALE)
-        display_in_window(viz_blocked, title="Planned Path (Door Closed)")
+        if VISUALIZATION:
+            blocked_viz = NavigationVisualization(blocked_occ_grid, footprint)
+            blocked_viz.draw_path(path_blocked)
+            blocked_viz.draw_query_endpoints(start_pose, goal_pose)
+            display_in_window(blocked_viz.image, title="Planned Path (Door Closed)")
 
         # Step 9: Remove the door using the rasterizer and verify a path can be found again
         console.print("[bold]Step 9:[/] Removing door from occupancy grid and replanning...")
 
-        occ_grid = occ_grid.stamp_as_free(obj=room_env.door, rasterizer=rasterizer)
-
+        unblocked_occ = blocked_occ_grid.stamp_as_free(obj=room_env.door, rasterizer=rasterizer)
         query_unblocked = NavigationQuery(
             start_pose=start_pose,
             goal_pose=goal_pose,
-            occupancy_grid=occ_grid,
+            occupancy_grid=unblocked_occ,
             robot_footprint=footprint,
         )
         path_unblocked = plan_se2_path(query_unblocked)
@@ -420,12 +436,16 @@ def main() -> None:
             console.print(
                 f"  [green]VERIFIED:[/] Path found again with {len(path_unblocked)} waypoints.",
             )
+        console.print()
 
         # Step 10: Visualize the planner result after the door has been removed
-        console.print("[bold]Step 10:[/] Visualizing planner result (press any key to continue)...")
+        console.print("[bold]Step 10:[/] Visualizing planning result after door is cleared...")
 
-        viz_unblocked = visualize_path(query=query_unblocked, path=path_unblocked, scale=VIZ_SCALE)
-        display_in_window(viz_unblocked, title="Planned Path (Door Removed)")
+        if VISUALIZATION:
+            unblocked_viz = NavigationVisualization(unblocked_occ, footprint)
+            unblocked_viz.draw_path(path_unblocked)
+            unblocked_viz.draw_query_endpoints(start_pose, goal_pose)
+            display_in_window(unblocked_viz.image, title="Planned Path (Door Removed)")
 
         console.print()
         if not click.confirm("Run another iteration with new sampled values?", default=None):
