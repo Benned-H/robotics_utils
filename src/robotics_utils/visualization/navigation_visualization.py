@@ -5,6 +5,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
+from robotics_utils.collision_models import Box
 from robotics_utils.geometry import Point2D
 from robotics_utils.motion_planning import RectangularFootprint
 from robotics_utils.perception import OccupancyGrid2D
@@ -17,6 +18,8 @@ FOOTPRINT_RGB: RGB = (102, 178, 255)
 
 START_RGB: RGB = (0, 255, 0)
 GOAL_RGB: RGB = (255, 0, 0)
+
+OBJECT_OUTLINE_RGB = (153, 50, 204)
 
 
 class NavigationVisualization:
@@ -98,6 +101,29 @@ class NavigationVisualization:
         front_y = pose_w_b.y + self.robot_footprint.max_x_m * 0.7 * np.sin(pose_w_b.yaw_rad)
         front_px = self._world_to_pixel(Point2D(front_x, front_y)).to_tuple()
         cv2.arrowedLine(self._rgb_data, center_px, front_px, color, thickness=thickness)
+
+    def draw_box(
+        self,
+        box: Box,
+        pose_w_b: Pose2D,
+        color: RGB = OBJECT_OUTLINE_RGB,
+        thickness: int = 2,
+    ) -> None:
+        """Draw a box primitive shape onto the visualization."""
+        corners_box = [
+            Point2D(x=box.x_m / 2, y=box.y_m / 2),
+            Point2D(x=box.x_m / 2, y=-box.y_m / 2),
+            Point2D(x=-box.x_m / 2, y=-box.y_m / 2),
+            Point2D(x=-box.x_m / 2, y=box.y_m / 2),
+        ]
+
+        corners_px: list[tuple[int, int]] = []
+        for corner_b in corners_box:
+            corner_w = pose_w_b @ corner_b
+            corners_px.append(self._world_to_pixel(corner_w).to_tuple())
+
+        pts = np.array(corners_px, dtype=np.int32).reshape((-1, 1, 2))
+        cv2.polylines(self._rgb_data, [pts], isClosed=True, color=color, thickness=thickness)
 
     def draw_path(self, path: list[Pose2D] | None) -> None:
         """Draw the given path of SE(2) waypoints onto the visualization."""

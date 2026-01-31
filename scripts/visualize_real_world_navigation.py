@@ -16,12 +16,14 @@ from pathlib import Path
 
 import click
 
+from robotics_utils.collision_models import Box, CollisionModel, CollisionModelRasterizer
 from robotics_utils.io import console
 from robotics_utils.io.pydantic_schemata import OccupancyGrid2DSchema
 from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.motion_planning import NavigationQuery, RectangularFootprint, plan_se2_path
 from robotics_utils.perception import OccupancyGrid2D
 from robotics_utils.spatial import Pose2D
+from robotics_utils.states import ObjectKinematicState
 from robotics_utils.visualization import display_in_window
 from robotics_utils.visualization.navigation_visualization import NavigationVisualization
 
@@ -51,6 +53,18 @@ def load_occupancy_grid(yaml_path: Path) -> OccupancyGrid2D:
     return OccupancyGrid2D.from_schema(schema)
 
 
+def create_closed_door() -> ObjectKinematicState:
+    """Construct and return the kinematic state of the door when it's closed."""
+    door_pose = Pose2D(x=4.85, y=-5.2, yaw_rad=1.5708)  # x was 4.789, y was -5.196
+    door_box = Box(x_m=0.15, y_m=0.91, z_m=2.27)  # Changed 0.05 x to 15 cm
+    door_collision_model = CollisionModel(primitives=[door_box])
+    return ObjectKinematicState(
+        name="door",
+        pose=door_pose.to_3d(),
+        collision_model=door_collision_model,
+    )
+
+
 @click.command()
 @click.argument("filepath", type=click.Path(exists=True, path_type=Path))
 def main(filepath: Path) -> None:
@@ -60,6 +74,9 @@ def main(filepath: Path) -> None:
     """
     console.print("[bold blue]Real-World Navigation Visualization[/bold blue]")
     console.print()
+
+    closed_door = create_closed_door()
+    rasterizer = CollisionModelRasterizer()
 
     # Load the occupancy grid
     console.print(f"[bold]Step 1:[/] Loading occupancy grid from {filepath}...")
@@ -71,6 +88,9 @@ def main(filepath: Path) -> None:
     console.print(f"  Grid origin: ({grid.origin.x:.3f}, {grid.origin.y:.3f}) m")
     console.print()
 
+    viz = NavigationVisualization(occ_grid, SPOT_FOOTPRINT)
+    display_in_window(viz.image, title="Loaded Occupancy Grid")
+
     # Display robot footprint info
     console.print("[bold]Step 2:[/] Using Spot robot footprint...")
     console.print(
@@ -80,6 +100,9 @@ def main(filepath: Path) -> None:
     console.print()
 
     # Display query poses
+    viz.draw_query_endpoints(start=START_POSE, goal=GOAL_POSE)
+    display_in_window(viz.image, title="Navigation Query Endpoints")
+
     console.print("[bold]Step 3:[/] Navigation query poses...")
     console.print(
         f"  Start: ({START_POSE.x:.3f}, {START_POSE.y:.3f}, {START_POSE.yaw_rad:.3f} rad)",
@@ -88,10 +111,22 @@ def main(filepath: Path) -> None:
     console.print(f"  Erase waypoint: ({ERASE_WAYPOINT.x:.3f}, {ERASE_WAYPOINT.y:.3f})")
     console.print()
 
+    # Stamp the door model as occupied
+    closed_occ_grid = occ_grid.stamp_as_occupied(closed_door, rasterizer)
+    closed_viz = NavigationVisualization(closed_occ_grid, SPOT_FOOTPRINT)
+    closed_viz.draw_box(closed_door.collision_model.primitives[0], closed_door.pose.to_2d())
+    display_in_window(closed_viz.image, "Occupancy Grid with Closed Door Stamped")
+
+    # Stamp the door model as clear
+    clear_occ_grid = occ_grid.stamp_as_free(closed_door, rasterizer)
+    cleared_viz = NavigationVisualization(clear_occ_grid, SPOT_FOOTPRINT)
+    cleared_viz.draw_box(closed_door.collision_model.primitives[0], closed_door.pose.to_2d())
+    display_in_window(cleared_viz.image, "Occupancy Grid with Closed Door Cleared")
+
     # Check if start and goal are collision-free
     console.print("[bold]Step 4:[/] Checking pose validity...")
-    start_valid = SPOT_FOOTPRINT.is_collision_free(START_POSE, occ_grid)
-    goal_valid = SPOT_FOOTPRINT.is_collision_free(GOAL_POSE, occ_grid)
+    start_valid = SPOT_FOOTPRINT.is_collision_free(START_POSE, clear_occ_grid)
+    goal_valid = SPOT_FOOTPRINT.is_collision_free(GOAL_POSE, clear_occ_grid)
     console.print(f"  Start pose collision-free: {start_valid}")
     console.print(f"  Goal pose collision-free: {goal_valid}")
     console.print()
@@ -101,7 +136,7 @@ def main(filepath: Path) -> None:
     query = NavigationQuery(
         start_pose=START_POSE,
         goal_pose=GOAL_POSE,
-        occupancy_grid=occ_grid,
+        occupancy_grid=clear_occ_grid,
         robot_footprint=SPOT_FOOTPRINT,
     )
     path = plan_se2_path(query)
@@ -114,10 +149,10 @@ def main(filepath: Path) -> None:
 
     # Visualize the result
     console.print("[bold]Step 6:[/] Visualizing navigation planning result...")
-    viz = NavigationVisualization(occ_grid, SPOT_FOOTPRINT)
-    viz.draw_path(path)
-    viz.draw_query_endpoints(START_POSE, GOAL_POSE)
-    display_in_window(viz.image, "Navigation Planning Result")
+    # viz = NavigationVisualization(clear_occ_grid, SPOT_FOOTPRINT)
+    cleared_viz.draw_path(path)
+    cleared_viz.draw_query_endpoints(START_POSE, GOAL_POSE)
+    display_in_window(cleared_viz.image, "Navigation Planning Result")
 
 
 if __name__ == "__main__":
