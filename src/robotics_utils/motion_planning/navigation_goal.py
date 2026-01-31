@@ -31,6 +31,11 @@ class NavigationGoal:
             gf = self.pose.ref_frame
             raise ValueError(f"Base pose frame '{rf}' differs from goal pose frame '{gf}'.")
 
+        if change_frames and base_pose.ref_frame != self.pose.ref_frame:
+            from robotics_utils.ros.transform_manager import TransformManager  # noqa: PLC0415
+
+            base_pose = TransformManager.convert_to_frame(base_pose, self.pose.ref_frame)
+
         distance_2d_m = euclidean_distance_2d_m(base_pose, self.pose, change_frames=change_frames)
         angle_error_rad = angle_difference_rad(base_pose.yaw_rad, self.pose.yaw_rad)
 

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, NamedTuple, overload
 import numpy as np
 
 from robotics_utils.geometry import Point2D
+from robotics_utils.io.pydantic_schemata import DiscreteGrid2DSchema
 from robotics_utils.spatial import DEFAULT_FRAME, Pose2D
 
 if TYPE_CHECKING:
@@ -72,6 +73,35 @@ class DiscreteGrid2D:
             resolution_m=resolution_m,
             width_cells=int(width_m / resolution_m),
             height_cells=int(height_m / resolution_m),
+        )
+
+    @classmethod
+    def from_schema(cls, schema: DiscreteGrid2DSchema) -> DiscreteGrid2D:
+        """Construct a DiscreteGrid2D instance from a validated schema.
+
+        :param schema: Validated schema containing the grid parameters
+        :return: Constructed DiscreteGrid2D instance
+        """
+        origin = Pose2D.from_schema(schema.origin)
+        return cls(
+            origin=origin,
+            resolution_m=schema.resolution_m,
+            width_cells=schema.width_cells,
+            height_cells=schema.height_cells,
+            frame_name=schema.frame_name,
+        )
+
+    def to_schema(self) -> DiscreteGrid2DSchema:
+        """Convert the discrete grid into a Pydantic schema.
+
+        :return: Schema representing this discrete grid
+        """
+        return DiscreteGrid2DSchema(
+            origin=self.origin.to_schema(),
+            resolution_m=self.resolution_m,
+            width_cells=self.width_cells,
+            height_cells=self.height_cells,
+            frame_name=self.frame_name,
         )
 
     def to_grid_frame(self, value_w: Multiply2D) -> Multiply2D:

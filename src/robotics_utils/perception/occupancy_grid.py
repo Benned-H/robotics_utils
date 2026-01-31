@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import cv2
 import numpy as np
 
 from robotics_utils.geometry import Point2D
+from robotics_utils.io.pydantic_schemata import OccupancyGrid2DSchema
 from robotics_utils.motion_planning.discretization import DiscreteGrid2D, GridCell
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from numpy.typing import NDArray
 
     from robotics_utils.collision_models import CollisionModelRasterizer
@@ -86,6 +90,69 @@ class OccupancyGrid2D:
         # Initialize to log( 0.5 / 0.5 ) = log(1) = 0 (equal probability of occupied and free)
         # Reference: Chapter 4.2 (pg. 94) of Probabilistic Robotics by Thrun, Burgard, and Fox
         self.log_odds = np.zeros((grid.height_cells, grid.width_cells), dtype=np.float32)
+
+    @classmethod
+    def from_schema(cls, schema: OccupancyGrid2DSchema) -> OccupancyGrid2D:
+        """Construct an OccupancyGrid2D from a validated schema and its associated image.
+
+        :param schema: Validated schema containing grid metadata and an image path
+        :return: Reconstructed OccupancyGrid2D instance
+        :raises FileNotFoundError: If the image file does not exist
+        :raises ValueError: If the image fails to load from file
+        """
+        if not schema.image_path.exists():
+            raise FileNotFoundError(f"Occupancy grid image not found: {schema.image_path}")
+
+        # Reconstruct the grid metadata and initialize the occupancy grid
+        grid = DiscreteGrid2D.from_schema(schema.grid)
+        occ_grid = cls(grid=grid, min_obstacle_depth_m=schema.min_obstacle_depth_m)
+
+        # Load the 16-bit grayscale image
+        image_16bit = cv2.imread(str(schema.image_path), cv2.IMREAD_UNCHANGED)
+        if image_16bit is None:
+            raise ValueError(f"Failed to load image: {schema.image_path}")
+
+        # Reconstruct the log-odds from the normalized 16-bit values
+        log_odds_range = schema.log_odds_max - schema.log_odds_min
+        if log_odds_range == 0:  # All values were the same; set log-odds to that constant value
+            occ_grid.log_odds = np.full(image_16bit.shape, schema.log_odds_min, dtype=np.float32)
+        else:  # Denormalize: pixel_value / 65535 * range + min
+            occ_grid.log_odds = (
+                image_16bit.astype(np.float32) / 65535.0 * log_odds_range + schema.log_odds_min
+            )
+
+        return occ_grid
+
+    def to_schema(self, image_path: Path) -> OccupancyGrid2DSchema:
+        """Convert the occupancy grid to a schema and save its log-odds as a 16-bit PNG.
+
+        The log_odds values are linearly mapped to the 16-bit range [0, 65535] for storage.
+        The normalization parameters are stored in the schema to allow reconstruction.
+
+        :param image_path: Path where the 16-bit grayscale PNG will be saved
+        :return: Schema containing grid metadata, normalization parameters, and image path
+        """
+        # Compute normalization parameters
+        log_odds_min = float(np.min(self.log_odds))
+        log_odds_max = float(np.max(self.log_odds))
+        log_odds_range = log_odds_max - log_odds_min
+
+        # Normalize log_odds to [0, 65535] range for 16-bit storage
+        if log_odds_range == 0:  # All values are the same; use mid-range value
+            image_16bit = np.full(self.log_odds.shape, 32767, dtype=np.uint16)
+        else:
+            normalized = (self.log_odds - log_odds_min) / log_odds_range
+            image_16bit = (normalized * 65535).astype(np.uint16)
+
+        cv2.imwrite(str(image_path), image_16bit)
+
+        return OccupancyGrid2DSchema(
+            grid=self.grid.to_schema(),
+            image_path=image_path,
+            log_odds_min=log_odds_min,
+            log_odds_max=log_odds_max,
+            min_obstacle_depth_m=self.min_obstacle_depth_m,
+        )
 
     def copy(self) -> OccupancyGrid2D:
         """Create a deep copy of this occupancy grid."""

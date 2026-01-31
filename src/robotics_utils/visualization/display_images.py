@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from functools import lru_cache
 from os import environ
 from pathlib import Path
 from sys import base_prefix
@@ -15,8 +16,12 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 
+@lru_cache(maxsize=None)
 def find_screen_resolution() -> tuple[int, int]:
     """Find the resolution (H, W) of the current screen.
+
+    Note: Results are cached to avoid repeated tkinter root creation/destruction,
+    which can corrupt the X11 display state and break subsequent OpenCV windows.
 
     Reference for fixing tkinter installation issues:
         https://github.com/astral-sh/uv/issues/7036#issuecomment-2440145724
@@ -34,6 +39,7 @@ def find_screen_resolution() -> tuple[int, int]:
     h_px = root.winfo_screenheight()
     w_px = root.winfo_screenwidth()
     root.destroy()
+
     return (h_px, w_px)
 
 

@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING, Any, Tuple, TypeVar
 import numpy as np
 
 from robotics_utils.geometry import Point2D, Point3D
-from robotics_utils.io.pydantic_schemata import Pose3DDictSchema, Pose3DSchema
+from robotics_utils.io.pydantic_schemata import (
+    Pose2DDictSchema,
+    Pose2DSchema,
+    Pose3DDictSchema,
+    Pose3DSchema,
+)
 from robotics_utils.math import normalize_angle
 from robotics_utils.spatial.frames import DEFAULT_FRAME
 from robotics_utils.spatial.rotations import EulerRPY, Quaternion
@@ -150,6 +155,30 @@ class Pose2D:
             [[cos_yaw, -sin_yaw, self.x], [sin_yaw, cos_yaw, self.y], [0, 0, 1]],
             dtype=np.float64,
         )
+
+    @classmethod
+    def from_schema(cls, schema: Pose2DSchema, default_frame: str = DEFAULT_FRAME) -> Pose2D:
+        """Construct a Pose2D instance from a schema of validated data.
+
+        :param schema: Validated data representing a Pose2D
+        :param default_frame: Default frame used for the pose, if not specified by the schema
+        :return: Constructed Pose2D instance
+        """
+        if isinstance(schema, tuple):
+            return cls.from_sequence(pose_seq=schema, ref_frame=default_frame)
+
+        return cls.from_sequence(pose_seq=schema.xy_yaw, ref_frame=schema.frame)
+
+    def to_schema(self, default_frame: str | None = None) -> Pose2DSchema:
+        """Convert the pose into a Pydantic schema format.
+
+        :param default_frame: Optional default frame assumed for the schema (default: None)
+        :return: Constructed Pose2DSchema instance
+        """
+        if default_frame is not None and default_frame == self.ref_frame:
+            return self.to_tuple()
+
+        return Pose2DDictSchema(xy_yaw=self.to_tuple(), frame=self.ref_frame)
 
     def approx_equal(self, other: Pose2D, rtol: float = 1e-05, atol: float = 1e-08) -> bool:
         """Evaluate whether another Pose2D is approximately equal to this one."""

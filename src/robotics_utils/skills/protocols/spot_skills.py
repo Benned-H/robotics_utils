@@ -142,6 +142,15 @@ class SpotSkillsProtocol(SkillsProtocol):
             CaptureImageObservationResponse,
         ]("spot/capture_image_observation", CaptureImageObservation)
 
+        self._hide_object_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
+            "spot/moveit/hide_object",
+            NameService,
+        )
+        self._unhide_object_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
+            "spot/moveit/unhide_object",
+            NameService,
+        )
+
         self._gripper = ROSAngularGripper(
             limits=GripperAngleLimits(
                 open_rad=SPOT_GRIPPER_OPEN_RAD,
@@ -281,23 +290,31 @@ class SpotSkillsProtocol(SkillsProtocol):
         :return: Boolean success indicator and an outcome message
         """
         console.print(f"Preparing to open the drawer of '{container_name}'...")
-        stow_outcome = self.stow_arm()
-        if not stow_outcome.success:
-            return stow_outcome
+        # stow_outcome = self.stow_arm()
+        # if not stow_outcome.success:
+        #     return stow_outcome
 
-        nav_outcome = self.navigate_to_waypoint("open_drawer")
-        if not nav_outcome.success:
-            return nav_outcome
+        # nav_outcome = self.navigate_to_waypoint("open_drawer")
+        # if not nav_outcome.success:
+        #     return nav_outcome
 
         open_outcome = self.open_gripper()  # Open Spot's gripper before it nears the dresser
         if not open_outcome.success:
             return open_outcome
 
-        pre_outcome = self._move_ee_to_pose(pregrasp_pose_ee, "pregrasp_drawer")
+        pre_outcome = self._move_ee_to_pose(
+            pregrasp_pose_ee,
+            # "pregrasp_drawer",
+            ignored_objects="black_dresser",
+        )
         if not pre_outcome.success:
             return pre_outcome
 
-        grasp_outcome = self._move_ee_to_pose(grasp_pose_ee, "grasp_drawer")
+        grasp_outcome = self._move_ee_to_pose(
+            grasp_pose_ee,
+            # "grasp_drawer",
+            ignored_objects="black_dresser",
+        )
         if not grasp_outcome.success:
             return grasp_outcome
 
@@ -306,7 +323,11 @@ class SpotSkillsProtocol(SkillsProtocol):
             return close_outcome
         time.sleep(3)  # Wait a few seconds for the gripper to settle
 
-        pull_outcome = self._move_ee_to_pose(pull_pose_ee, "pull_drawer")
+        pull_outcome = self._move_ee_to_pose(
+            pull_pose_ee,
+            # "pull_drawer",
+            ignored_objects="black_dresser",
+        )
         if not pull_outcome.success:
             return pull_outcome
 
@@ -320,7 +341,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         post_pull_position = replace(pull_pose_ee.position, x=post_pull_x)
         post_pull_pose = replace(pull_pose_ee, position=post_pull_position)
 
-        post_outcome = self._move_ee_to_pose(post_pull_pose, "postpull_drawer")
+        post_outcome = self._move_ee_to_pose(post_pull_pose)  # , "postpull_drawer")
         if not post_outcome.success:
             return post_outcome
 
@@ -370,14 +391,13 @@ class SpotSkillsProtocol(SkillsProtocol):
     def _move_ee_to_pose(
         self,
         ee_target: Pose3D = Pose3D.from_xyz_rpy(
-            x=6.52,
-            y=-4.365,
-            z=0.5,
-            pitch_rad=0.3,
-            yaw_rad=1.5708,
+            x=0.47,
+            z=0.56,
+            yaw_rad=3.1416,
+            ref_frame="black_dresser",
         ),
         target_name: str = "",
-        ignored_objects: str = "",
+        ignored_objects: str = "black_dresser",
         *,
         display_and_pause: bool = False,
     ) -> Outcome:
@@ -401,9 +421,20 @@ class SpotSkillsProtocol(SkillsProtocol):
         ignored_objects_set = set()
         if ignored_objects.strip():
             ignored_objects_set = set(ignored_objects.strip().split(","))
-        query = MotionPlanningQuery(ee_target, ignored_objects=ignored_objects_set)
+            for ignore_obj in ignored_objects_set:
+                response = self._hide_object_caller(NameServiceRequest(name=ignore_obj))
+                console.print(f"Response from hiding '{ignore_obj}': {response.message}")
+                if not response.success:
+                    return Outcome(success=False, message=f"Failed to hide object '{ignore_obj}'.")
+
+        query = MotionPlanningQuery(ee_target)
+        console.print(f"Motion planning query: {query}")
 
         plan_msg = self._arm.planner.compute_motion_plan(query)
+
+        for ignore_obj in ignored_objects_set:
+            self._unhide_object_caller(NameServiceRequest(name=ignore_obj))
+
         if plan_msg is None:
             return Outcome(success=False, message="No motion plan found.")
 
@@ -465,8 +496,8 @@ class SpotSkillsProtocol(SkillsProtocol):
         is_pull: bool = False,
         hinge_on_left: bool = True,
         body_pitch_rad: float = -0.1,
-        door_offset_m: float = 0.9,
-        ray_search_dist_m: float = 0.15,
+        door_offset_m: float = 1.25,
+        ray_search_dist_m: float = 0.25,
     ) -> Outcome:
         """Open a door using the Spot SDK.
 
@@ -759,7 +790,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         return Outcome(success=response.success, message=response.message)
 
     @skill_method
-    def estimate_pose(self, object_name: str, duration_s: float = 5.0) -> Outcome:
+    def estimate_pose(self, object_name: str = "black_dresser", duration_s: float = 5.0) -> Outcome:
         """Estimate the pose of the named object using AprilTag markers.
 
         :param object_name: Name of the object to pose estimate

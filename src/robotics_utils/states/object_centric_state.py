@@ -60,6 +60,9 @@ class ObjectCentricState:
         self._visual_states: dict[str, ObjectVisualState] = {}
         """A map from object names to their visual states (for those that have them)."""
 
+        self._hidden_object_poses: dict[str, Pose3D] = {}
+        """A map from the name of each hidden object to its pose when it was hidden."""
+
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> ObjectCentricState:
         """Construct an ObjectCentricState using data loaded from the given YAML file."""
@@ -98,6 +101,11 @@ class ObjectCentricState:
     def object_names(self) -> set[str]:
         """Provide read-only access to the known object names in the object-centric state."""
         return self._object_names
+
+    @property
+    def hidden_object_names(self) -> set[str]:
+        """Provide read-only access to the names of objects hidden from the state."""
+        return set(self._hidden_object_poses.keys())
 
     @property
     def object_poses(self) -> dict[str, Pose3D]:
@@ -198,6 +206,39 @@ class ObjectCentricState:
 
         self._pose_sources.pop(obj_name, None)
         return self.kinematic_tree.clear_pose(frame_name=obj_name)
+
+    def hide_object(self, obj_name: str) -> None:
+        """Hide an object by removing it from the state after saving its current pose.
+
+        :param obj_name: Object to be hidden
+        """
+        if obj_name not in self._object_names:
+            raise ValueError(f"Cannot hide an unknown object: '{obj_name}'.")
+
+        curr_obj_pose = self.clear_object_pose(obj_name=obj_name)
+        if curr_obj_pose is not None:
+            self._hidden_object_poses[obj_name] = curr_obj_pose
+
+    def unhide_object(self, obj_name: str, *, pose_source: PoseSource = PoseSource.KNOWN) -> None:
+        """Unhide an object by restoring its pose in the state.
+
+        :param obj_name: Object to be unhidden
+        :param pose_source: Level of accuracy of the object pose's original source
+        """
+        if obj_name not in self._object_names:
+            raise ValueError(f"Cannot unhide an unknown object: '{obj_name}'.")
+
+        obj_pose = self._hidden_object_poses.get(obj_name)
+
+        if obj_pose is None:
+            raise ValueError(f"Cannot unhide an object that hasn't been hidden: '{obj_name}'.")
+
+        if pose_source == PoseSource.KNOWN:
+            self.set_known_object_pose(obj_name, obj_pose)
+        elif pose_source == PoseSource.ESTIMATED:
+            self.set_estimated_object_pose(obj_name, obj_pose)
+        else:
+            raise NotImplementedError(f"Unknown pose source: {pose_source}")
 
     def set_robot_base_pose(self, robot_name: str, base_pose: Pose2D | Pose3D) -> None:
         """Set the base pose of the named robot.
