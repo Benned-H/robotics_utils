@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import cv2
@@ -9,11 +10,10 @@ import numpy as np
 
 from robotics_utils.geometry import Point2D
 from robotics_utils.io.pydantic_schemata import OccupancyGrid2DSchema
+from robotics_utils.io.yaml_utils import load_yaml_data
 from robotics_utils.motion_planning.discretization import DiscreteGrid2D, GridCell
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from numpy.typing import NDArray
 
     from robotics_utils.collision_models import CollisionModelRasterizer
@@ -153,6 +153,24 @@ class OccupancyGrid2D:
             log_odds_max=log_odds_max,
             min_obstacle_depth_m=self.min_obstacle_depth_m,
         )
+
+    @classmethod
+    def from_file(cls, yaml_path: Path) -> OccupancyGrid2D:
+        """Load an occupancy grid from a YAML file and its associated image.
+
+        :param yaml_path: Path to the YAML file containing grid metadata
+        :return: Constructed OccupancyGrid2D instance
+        """
+        yaml_data = load_yaml_data(yaml_path)
+
+        # Resolve the image path relative to the YAML file's directory
+        if "image_path" in yaml_data:
+            image_path = Path(yaml_data["image_path"])
+            if not image_path.is_absolute():
+                yaml_data["image_path"] = yaml_path.parent / image_path
+
+        schema = OccupancyGrid2DSchema.model_validate(yaml_data)
+        return OccupancyGrid2D.from_schema(schema)
 
     def copy(self) -> OccupancyGrid2D:
         """Create a deep copy of this occupancy grid."""

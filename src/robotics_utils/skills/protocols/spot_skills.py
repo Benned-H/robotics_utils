@@ -201,7 +201,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         return Outcome(success=response.success, message=response.message)
 
     @skill_method
-    def navigate_to_waypoint(self, waypoint: str) -> Outcome:
+    def navigate_to_waypoint(self, waypoint: str = "pick_from_drawer") -> Outcome:
         """Navigate to the named waypoint using global path planning.
 
         :param waypoint: Name of a navigation waypoint
@@ -710,6 +710,163 @@ class SpotSkillsProtocol(SkillsProtocol):
                 return stow_outcome
 
         return Outcome(success=True, message=f"Successfully picked object '{object_name}'.")
+
+    @skill_method
+    def pick_from_drawer(
+        self,
+        object_name: str = "eraser1",
+        drawer_name: str = "black_dresser",
+        ee_during_pose_est: Pose3D = Pose3D.from_xyz_rpy(
+            x=0.587,
+            y=-0.03,
+            z=1.125,
+            roll_rad=-0.093,
+            pitch_rad=1.059,
+            yaw_rad=-3,
+            ref_frame="black_dresser",
+        ),
+        pre_grasp_rad: float = -0.9,
+        pre_grasp_x_m: float = 0.15,
+        pose_o_g: Pose3D = Pose3D.from_xyz_rpy(
+            x=-0.02,
+            z=0.24,
+            pitch_rad=1.5708,
+            ref_frame="eraser1",
+        ),
+        lift_z_m: float = 0.25,
+        *,
+        pauses: bool = False,
+        yaw_symmetric: bool = True,
+        stow_after: bool = True,
+    ) -> Outcome:
+        """Pick an object from an open drawer using Spot's gripper.
+
+        :param object_name: Name of the object to be picked
+        :param drawer_name: Name of the drawer the object is picked from
+        :param ee_during_pose_est: End-effector pose used to re-pose-estimate the objects
+        :param pre_grasp_rad: Angle (radians) to open the gripper before grasping
+        :param pre_grasp_x_m: Offset (abs. m) of the pre-grasp pose "back" (-x) from the grasp pose
+        :param pose_o_g: Object-relative end-effector pose used to grasp the object
+        :param lift_z_m: Offset (m) of the post-grasp pose "up" (+z) w.r.t. the world frame
+        :param pauses: If True, the skill will pause until user input between each major motion
+        :param yaw_symmetric: Indicates that the object is rotationally symmetric about its z-axis
+        :param stow_after: If True, stow the arm after picking the object
+        :return: Boolean success indicator and an outcome message
+        """
+        console.print(f"Picking object '{object_name}' from drawer of '{drawer_name}'...")
+
+        # Navigate to the "pick_from_drawer" navigation waypoint
+        nav_outcome = self.navigate_to_waypoint(waypoint="pick_from_drawer")
+        if not nav_outcome.success:
+            return nav_outcome
+
+        # Move Spot's end-effector to approximate viewing location for the object
+        pre_estimation_outcome = self._move_ee_to_pose(ee_during_pose_est)
+        if not pre_estimation_outcome.success:
+            return pre_estimation_outcome
+
+        # Fully open the gripper and re-pose-estimate the object
+        open_outcome = self.open_gripper()
+        if not open_outcome.success:
+            return open_outcome
+
+        obj_estimate_outcome = self.estimate_pose(object_name, duration_s=5.0)
+        if not obj_estimate_outcome.success:
+            return obj_estimate_outcome
+
+        drawer_est_outcome = self.estimate_pose(drawer_name, duration_s=5.0)
+        if not drawer_est_outcome.success:
+            return drawer_est_outcome
+
+        # Identify which candidate grasp pose to use, if the object is symmetric
+        if object_name != pose_o_g.ref_frame:
+            console.print(f"[yellow]Warning: Grasp pose given in frame '{pose_o_g.ref_frame}'.[/]")
+            pose_o_g = TransformManager.convert_to_frame(pose_o_g, target_frame=object_name)
+        # self._pose_broadcaster.poses["pose_o_g"] = pose_o_g  # Grasp pose w.r.t. object frame
+
+        candidates = [pose_o_g]
+        if yaw_symmetric:
+            rotate_object = Pose3D.from_xyz_rpy(yaw_rad=3.14159, ref_frame=object_name)
+            alternative_pose_o_g = rotate_object @ pose_o_g
+            # self._pose_broadcaster.poses["alternative_pose_o_g"] = alternative_pose_o_g
+            candidates.append(alternative_pose_o_g)
+
+        # Select a grasp pose with IK solutions for its pre-grasp and post-grasp poses
+        valid_grasp = PickPoses.select_grasp_pose(candidates, self._arm, pre_grasp_x_m, lift_z_m)
+
+        if valid_grasp is None:
+            return Outcome(
+                success=False,
+                message=f"Cannot pick '{object_name}' because no grasp poses were valid.",
+            )
+
+        valid_poses = PickPoses.from_grasp_pose(valid_grasp, pre_grasp_x_m, lift_z_m)
+        self._pose_broadcaster.poses[f"pre_grasp_{object_name}"] = valid_poses.pregrasp_pose
+        self._pose_broadcaster.poses[f"grasp_{object_name}"] = valid_poses.grasp_pose
+        self._pose_broadcaster.poses[f"post_grasp_{object_name}"] = valid_poses.postgrasp_pose
+
+        # Open the gripper to prepare for picking
+        if not self._gripper.move_to_angle_rad(pre_grasp_rad):
+            return Outcome(
+                success=False,
+                message=f"Unable to pick '{object_name}' because the gripper didn't open.",
+            )
+
+        # Move the end-effector to the pre-grasp pose ("back" from the grasp pose)
+        if pauses:
+            Prompt.ask("Press [bold]Enter[/] to move to the pre-grasp pose")
+
+        pre_outcome = self._move_ee_to_pose(valid_poses.pregrasp_pose, display_and_pause=pauses)
+        if not pre_outcome.success:
+            return pre_outcome
+
+        # Move the end-effector to the grasp pose
+        if pauses:
+            Prompt.ask("Press [bold]Enter[/] to move to the grasp pose")
+
+        to_grasp_outcome = self._move_ee_to_pose(
+            valid_poses.grasp_pose,
+            # ignored_objects=drawer_name,
+            display_and_pause=pauses,
+        )
+        if not to_grasp_outcome.success:
+            return to_grasp_outcome
+
+        # Grasp the object by closing the gripper
+        if pauses:
+            Prompt.ask(f"Press [bold]Enter[/] to grasp [cyan]'{object_name}'[/]")
+
+        grasp_outcome = self._grasp_object(object_name)
+        if not grasp_outcome.success:
+            return grasp_outcome
+
+        # Move the end-effector to the post-grasp pose
+        if pauses:
+            Prompt.ask("Press [bold]Enter[/] to move to the post-grasp pose")
+
+        post_outcome = self._move_ee_to_pose(
+            valid_poses.postgrasp_pose,
+            ignored_objects=object_name,
+            # ignored_objects=f"{drawer_name},{object_name}",
+            display_and_pause=pauses,
+        )
+        if not post_outcome.success:
+            return post_outcome
+
+        # Stow Spot's arm, if requested
+        if stow_after:
+            if pauses:
+                Prompt.ask("Press [bold]Enter[/] to stow Spot's arm")
+
+            time.sleep(1.5)  # Allow arm to settle before stowing
+            stow_outcome = self.stow_arm()
+            if not stow_outcome.success:
+                return stow_outcome
+
+        return Outcome(
+            success=True,
+            message=f"Successfully picked object '{object_name}' from drawer of '{object_name}'.",
+        )
 
     @skill_method
     def place(

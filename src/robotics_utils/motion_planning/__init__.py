@@ -7,6 +7,8 @@ from .navigation_feasibility import NavigationFeasibilityChecker as NavigationFe
 from .navigation_goal import NavigationGoal as NavigationGoal
 from .navigation_query import NavigationQuery as NavigationQuery
 from .rectangular_footprint import RectangularFootprint as RectangularFootprint
+from .pure_pursuit import PurePursuitConfig as PurePursuitConfig
+from .pure_pursuit import PurePursuitFollower as PurePursuitFollower
 from .se2_planner import SE2AStarPlanner as SE2AStarPlanner
 from .se2_planner import plan_se2_path as plan_se2_path
 from .trajectories import CartesianPath as CartesianPath
