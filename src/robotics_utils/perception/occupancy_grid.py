@@ -259,7 +259,7 @@ class OccupancyGrid2D:
                 if self.grid.is_valid_cell(cell):
                     self.log_odds[cell.row, cell.col] += l_occupied
 
-    def get_occupied_mask(self, p_threshold: float = 0.5) -> NDArray[np.bool]:
+    def get_occupied_mask(self, p_threshold: float = 0.5) -> NDArray[np.bool_]:
         """Compute a Boolean mask of occupied cells (occupancy probability > threshold).
 
         :param p_threshold: Probability threshold for occupancy (0.0 to 1.0)
@@ -269,7 +269,7 @@ class OccupancyGrid2D:
         p_occupied = 1 - 1 / (1 + np.exp(self.log_odds))
         return p_occupied > p_threshold
 
-    def mask_as_free(self, mask: NDArray[np.bool]) -> OccupancyGrid2D:
+    def mask_as_free(self, mask: NDArray[np.bool_]) -> OccupancyGrid2D:
         """Create a copy of the occupancy grid in which the masked cells are set to free space.
 
         :param mask: Boolean mask specifying free grid cells
@@ -279,7 +279,7 @@ class OccupancyGrid2D:
         grid_copy.log_odds[mask] = FREE_SPACE_LOG_ODDS
         return grid_copy
 
-    def mask_as_occupied(self, mask: NDArray[np.bool]) -> OccupancyGrid2D:
+    def mask_as_occupied(self, mask: NDArray[np.bool_]) -> OccupancyGrid2D:
         """Create a copy of the occupancy grid in which the masked cells are set as occupied.
 
         :param mask: Boolean mask specifying occupied grid cells

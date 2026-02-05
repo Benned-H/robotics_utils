@@ -10,6 +10,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Generic, Hashable, TypeVar
 
+from robotics_utils.io import console
+
 StateT = TypeVar("StateT")
 
 
@@ -72,51 +74,105 @@ class AStarPlanner(ABC, Generic[StateT]):
         are considered equivalent by the A* planner.
         """
 
-    def plan(self, start: StateT, goal: StateT) -> list[StateT] | None:
-        """Run A* search from a start state to a goal state.
+    def __init__(self, start: StateT, goal: StateT) -> None:
+        """Initialize the A* planner with a start and a goal state.
 
-        :param start: Initial state
-        :param goal: Target state
-        :return: List of states from start to goal, or None if no plan is found
+        :param start: Initial state during search
+        :param goal: Goal state to target during search
         """
-        frontier: list[AStarNode[StateT]] = []  # Kept as a heap
-        reached: dict[Hashable, float] = {}  # Maps state keys -> best g-value seen
-        reached[self.state_key(start)] = 0.0
+        self.start = start
+        self.goal = goal
 
-        start_h = self.heuristic(start, goal)
-        start_node = AStarNode(f=start_h, g=0.0, state=start)
-        heapq.heappush(frontier, start_node)
+        self.frontier: list[AStarNode[StateT]] = []
+        """Heap of nodes to be expanded."""
 
-        while frontier:
-            current = heapq.heappop(frontier)
-            current_key = self.state_key(current.state)
+        self.reached: dict[Hashable, float] = {}
+        """A map from state keys to the best g-value seen for states with that key."""
 
-            # Skip stale entries (we found a better path since this was queued)
-            if current.g > reached[current_key]:
-                continue
+        # Initialize the search process using the start state
+        start_key = self.state_key(state=self.start)
+        self.reached[start_key] = 0.0
 
-            if self.is_goal(current.state, goal):
-                return self._reconstruct_path(current)
+        start_h = self.heuristic(self.start, self.goal)
+        start_node = AStarNode(f=start_h, g=0.0, state=self.start, parent=None)
+        heapq.heappush(self.frontier, start_node)
 
-            for neighbor_state in self.get_neighbors(current.state):
-                neighbor_key = self.state_key(neighbor_state)
-                g = current.g + self.cost(current.state, neighbor_state)
+        self._num_step_calls: int = 0
+        """Number of times the `step()` method has been called."""
 
-                # Eager filter: only add nodes with new or better paths
-                if neighbor_key not in reached or g < reached[neighbor_key]:
-                    reached[neighbor_key] = g
-                    h = self.heuristic(neighbor_state, goal)
-                    neighbor_node = AStarNode(f=g + h, g=g, state=neighbor_state, parent=current)
-                    heapq.heappush(frontier, neighbor_node)
+        self._nodes_expanded: int = 0
+        """Number of nodes whose successors have been enumerated and added to the frontier."""
 
-        return None  # Frontier empty -> No path found
+        self._solution_node: AStarNode[StateT] | None = None
 
-    def _reconstruct_path(self, node: AStarNode[StateT]) -> list[StateT]:
-        """Reconstruct the path from the starting state to the given node."""
+    @property
+    def steps_taken(self) -> int:
+        """Retrieve the number of search steps that the planner has taken."""
+        return self._num_step_calls
+
+    def update_frontier(self, state: StateT, parent_node: AStarNode[StateT]) -> None:
+        """Update the frontier with a node for the given parent-state pair, if worthwhile.
+
+        :param state: State encountered during A* search
+        :param parent_node: Parent node of the given state
+        """
+        state_key = self.state_key(state=state)
+        g = parent_node.g + self.cost(parent_node.state, state)
+
+        # Eager filter: only add nodes with new or better paths
+        if state_key not in self.reached or g < self.reached[state_key]:
+            self.reached[state_key] = g  # Mark this state as reached via this parent
+            h = self.heuristic(state=state, goal=self.goal)
+            new_node = AStarNode(f=g + h, g=g, state=state, parent=parent_node)
+            heapq.heappush(self.frontier, new_node)
+
+    def step(self) -> bool:
+        """Expand the node at the top of the frontier.
+
+        :return: True if search is complete, otherwise False
+        """
+        self._num_step_calls += 1
+
+        if not self.frontier:
+            return True
+
+        current_node = heapq.heappop(self.frontier)
+        current_key = self.state_key(current_node.state)
+
+        # Skip stale entries (we found a better path since this was queued)
+        if current_node.g > self.reached[current_key]:
+            return False
+
+        if self.is_goal(current_node.state, self.goal):
+            self._solution_node = current_node
+            return True
+
+        for neighbor_state in self.get_neighbors(current_node.state):
+            self.update_frontier(state=neighbor_state, parent_node=current_node)
+
+        self._nodes_expanded += 1
+
+        return False
+
+    def reconstruct_path(self) -> list[StateT] | None:
+        """Reconstruct the path represented by the stored solution node.
+
+        :return: List of states in the solution plan, or None if no solution was found
+        """
+        if self._solution_node is None:
+            return None
+
         path: list[StateT] = []
-        current: AStarNode[StateT] | None = node
+        current: AStarNode[StateT] | None = self._solution_node
         while current is not None:
             path.append(current.state)
             current = current.parent
         path.reverse()
         return path
+
+    def log_info(self) -> None:
+        """Log the current state of A* search to the console."""
+        console.print(f"Current frontier size: {len(self.frontier)}.")
+        console.print(f"Current number of reached nodes: {len(self.reached)}.")
+        console.print(f"Search steps taken: {self._num_step_calls}.")
+        console.print(f"Nodes expanded: {self._nodes_expanded}.")

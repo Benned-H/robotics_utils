@@ -12,10 +12,13 @@ from robotics_utils.motion_planning.discretization import (
     DiscreteSE2Space,
     GridCell,
 )
+from robotics_utils.motion_planning.footprint_cell_offsets import FootprintCellOffsets
 from robotics_utils.planning import AStarPlanner
 
 if TYPE_CHECKING:
     from robotics_utils.motion_planning.navigation_query import NavigationQuery
+    from robotics_utils.motion_planning.rectangular_footprint import RectangularFootprint
+    from robotics_utils.perception import OccupancyGrid2D
     from robotics_utils.spatial import Pose2D
 
 EIGHT_CONNECTED_NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
@@ -29,29 +32,41 @@ class SE2AStarPlanner(AStarPlanner[DiscreteSE2]):
 
     def __init__(
         self,
-        query: NavigationQuery,
+        start: DiscreteSE2,
+        goal: DiscreteSE2,
+        robot_footprint: RectangularFootprint,
+        occ_grid: OccupancyGrid2D,
         se2_space: DiscreteSE2Space,
         heading_change_cost: float = 0.5,
     ) -> None:
         """Initialize the SE(2) A* planner with its discrete search space.
 
-        :param query: Navigation query specifying start, goal, occupancy grid, and robot footprint
+        :param start: Initial state during search
+        :param goal: Goal state targeted during search
+        :param robot_footprint: Rectangular model of the robot base footprint
+        :param occ_grid: Occupancy grid of the robot's environment
         :param se2_space: Discrete space over SE(2) defining the search grid and headings
         :param heading_change_cost: Additional cost per discrete heading change (defaults to 0.5)
         """
-        self.query = query
+        self.occupancy_mask = occ_grid.get_occupied_mask()
         self.se2_space = se2_space
         self.heading_change_cost = heading_change_cost
+
+        self._footprint_cells = FootprintCellOffsets(
+            se2_space=self.se2_space,
+            footprint=robot_footprint,
+        )
+
+        super().__init__(start=start, goal=goal)
 
     def get_neighbors(self, state: DiscreteSE2) -> list[DiscreteSE2]:
         """Return collision-free neighboring states reachable from the given state."""
         neighbors: list[DiscreteSE2] = []
-        grid = self.se2_space.grid
 
         for dr, dc in EIGHT_CONNECTED_NEIGHBORS:
             new_cell = GridCell(state.cell.row + dr, state.cell.col + dc)
 
-            if not grid.is_valid_cell(new_cell):
+            if not self.se2_space.grid.is_valid_cell(new_cell):
                 continue
 
             # Compute heading index pointing to the neighbor cell
@@ -59,9 +74,7 @@ class SE2AStarPlanner(AStarPlanner[DiscreteSE2]):
             heading_idx = self.se2_space.headings.nearest_index(angle_rad)
 
             neighbor = DiscreteSE2(cell=new_cell, heading_idx=heading_idx)
-            pose = self.se2_space.convert_discrete_to_pose(neighbor)
-
-            if self.query.robot_footprint.is_collision_free(pose, self.query.occupancy_grid):
+            if self._footprint_cells.is_collision_free(neighbor, self.occupancy_mask):
                 neighbors.append(neighbor)
 
         return neighbors
@@ -115,8 +128,25 @@ def plan_se2_path(query: NavigationQuery) -> list[Pose2D] | None:
     if not se2_space.grid.is_valid_cell(goal.cell):
         return None  # Goal cell out of bounds
 
-    planner = SE2AStarPlanner(query=query, se2_space=se2_space)
-    discrete_plan = planner.plan(start, goal)
+    planner = SE2AStarPlanner(
+        start=start,
+        goal=goal,
+        robot_footprint=query.robot_footprint,
+        occ_grid=query.occupancy_grid,
+        se2_space=se2_space,
+    )
+
+    # Plan using A* search
+    done = False
+    log_every_n_steps = 1000
+
+    while not done:
+        done = planner.step()
+
+        if not (planner.steps_taken % log_every_n_steps):
+            planner.log_info()
+
+    discrete_plan = planner.reconstruct_path()
 
     if discrete_plan is None:
         return None

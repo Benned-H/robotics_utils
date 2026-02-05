@@ -9,17 +9,18 @@ import numpy as np
 import rospy
 from geometry_msgs.msg import Point, Pose, PoseStamped, Transform, TransformStamped, Vector3
 from geometry_msgs.msg import Quaternion as QuaternionMsg
-from nav_msgs.msg import MapMetaData, OccupancyGrid
+from nav_msgs.msg import MapMetaData, OccupancyGrid, Path
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import JointState, PointCloud2, PointField
 from shape_msgs.msg import Mesh, MeshTriangle, SolidPrimitive
-from std_msgs.msg import Header
+from std_msgs.msg import ColorRGBA, Header
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from visualization_msgs.msg import Marker
 
 from robotics_utils.collision_models import Box, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.geometry import Point3D
 from robotics_utils.motion_planning import Trajectory, TrajectoryPoint
-from robotics_utils.spatial import DEFAULT_FRAME, Pose3D, Quaternion
+from robotics_utils.spatial import DEFAULT_FRAME, Pose2D, Pose3D, Quaternion
 
 if TYPE_CHECKING:
     import trimesh
@@ -248,14 +249,15 @@ def pointcloud_to_msg(cloud: PointCloud, frame_id: str = DEFAULT_FRAME) -> Point
     return point_cloud2.create_cloud(header, fields, points_with_rgb)
 
 
-def occupancy_grid_to_msg(grid: OccupancyGrid2D) -> OccupancyGrid:
+def occupancy_grid_to_msg(grid: OccupancyGrid2D, z_height_m: float = 0.0) -> OccupancyGrid:
     """Convert an OccupancyGrid2D into a nav_msgs/OccupancyGrid message.
 
     The log-odds values are converted into occupancy probabilities in the range [0, 100].
     Cells with log-odds of exactly 0.0 (never updated) are marked as unknown (-1).
 
     :param grid: OccupancyGrid2D with log-odds occupancy values
-    :return: nav_msgs/OccupancyGrid message
+    :param z_height_m: Height (meters w.r.t. z-axis) of the grid in its reference frame
+    :return: Constructed nav_msgs/OccupancyGrid message
     """
     msg = OccupancyGrid()
 
@@ -269,7 +271,7 @@ def occupancy_grid_to_msg(grid: OccupancyGrid2D) -> OccupancyGrid:
     msg.info.resolution = grid.grid.resolution_m
     msg.info.width = grid.grid.width_cells
     msg.info.height = grid.grid.height_cells
-    msg.info.origin = pose_to_msg(grid.grid.origin.to_3d())
+    msg.info.origin = pose_to_msg(grid.grid.origin.to_3d(z=z_height_m))
 
     # Reference: Equation (4.14) on pg. 95 of ProbRob
     # Use numerically stable sigmoid: 1 / (1 + exp(-x)) instead of 1 - 1 / (1 + exp(x))
@@ -283,5 +285,72 @@ def occupancy_grid_to_msg(grid: OccupancyGrid2D) -> OccupancyGrid:
 
     # Data is row-major, starting with (0, 0) - flatten the array
     msg.data = occupancy_values.flatten().tolist()
+
+    return msg
+
+
+def path_to_msg(poses: list[Pose2D], z_height_m: float = 0.0) -> Path:
+    """Convert a list of Pose2D waypoints into a nav_msgs/Path message.
+
+    :param poses: List of Pose2D waypoints defining a path
+    :param z_height_m: Height (meters w.r.t. z-axis) to use for all poses
+    :return: Constructed nav_msgs/Path message
+    """
+    msg = Path()
+
+    if not poses:
+        return msg
+
+    # Use the reference frame from the first pose
+    msg.header.stamp = rospy.Time.now()
+    msg.header.frame_id = poses[0].ref_frame
+
+    for pose_2d in poses:
+        pose_stamped = pose_to_stamped_msg(pose_2d.to_3d(z=z_height_m))
+        pose_stamped.header.stamp = msg.header.stamp
+        msg.poses.append(pose_stamped)
+
+    return msg
+
+
+def poses_to_marker_msg(
+    poses: list[Pose3D],
+    namespace: str = "trajectory",
+    marker_id: int = 0,
+    rgba: tuple[float, float, float, float] = (1.0, 0.5, 0.0, 1.0),
+    line_width_m: float = 0.01,
+) -> Marker:
+    """Convert a list of Pose3D waypoints into a visualization_msgs/Marker message (LINE_STRIP).
+
+    :param poses: List of Pose3D waypoints defining the trajectory
+    :param namespace: Marker namespace for RViz organization (default: "trajectory")
+    :param marker_id: Unique marker ID within the namespace
+    :param rgba: RGBA color tuple with values in [0.0, 1.0] (default: orange)
+    :param line_width_m: Width of the line strip (meters)
+    :return: visualization_msgs/Marker of type LINE_STRIP
+    """
+    first_ref_frame = poses[0].ref_frame
+    if not all((p.ref_frame == first_ref_frame) for p in poses):
+        raise RuntimeError("Cannot visualize a list of poses with differing frames.")
+
+    msg = Marker()
+    msg.header.stamp = rospy.Time.now()
+    msg.header.frame_id = first_ref_frame
+
+    msg.ns = namespace
+    msg.id = marker_id
+
+    msg.type = Marker.LINE_STRIP
+    msg.action = Marker.ADD
+
+    # LINE_STRIP uses marker.pose as the reference; set it to the identity pose
+    msg.pose.orientation.w = 1.0
+
+    # Scale: only x is used for LINE_STRIP (line width)
+    # Reference: https://wiki.ros.org/rviz/DisplayTypes/Marker#Line_Strip_.28LINE_STRIP.3D4.29
+    msg.scale.x = line_width_m
+    msg.color = ColorRGBA(r=rgba[0], g=rgba[1], b=rgba[2], a=rgba[3])
+
+    msg.points = [point_to_msg(pose.position) for pose in poses]
 
     return msg
