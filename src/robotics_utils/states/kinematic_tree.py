@@ -104,3 +104,17 @@ class KinematicTree:
         :return: Collision model for the frame, or None if the frame has no attached geometry
         """
         return self._collision_models.get(frame_name)
+
+    def clear_collision_model(self, frame_name: str) -> CollisionModel | None:
+        """Clear the collision model attached to the named frame.
+
+        :param frame_name: Name of the reference frame cleared of its collision model
+        :return: Previous collision model attached to the frame, if one existed, else None
+        """
+        if not self.valid_frame(frame_name):
+            console.print(
+                f"[yellow]Invalid frame '{frame_name}' had its collision model cleared.[/]",
+            )
+            return None
+
+        return self._collision_models.pop(frame_name, None)

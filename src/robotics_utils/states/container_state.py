@@ -26,8 +26,8 @@ class ContainerState:
         self,
         name: str,
         status: ContainerStatus,
-        open_model: CollisionModel,
-        closed_model: CollisionModel,
+        open_model: CollisionModel | None,
+        closed_model: CollisionModel | None,
     ) -> None:
         """Initialize the state of the container."""
         self.name = name
@@ -54,8 +54,17 @@ class ContainerState:
         :return: Constructed ContainerState instance
         """
         status = schema.status
-        open_model = CollisionModel.from_schema(schema=schema.open_model, yaml_path=yaml_path)
-        closed_model = CollisionModel.from_schema(schema=schema.closed_model, yaml_path=yaml_path)
+        open_model = (
+            CollisionModel.from_schema(schema=schema.open_model, yaml_path=yaml_path)
+            if schema.open_model
+            else None
+        )
+
+        closed_model = (
+            CollisionModel.from_schema(schema=schema.closed_model, yaml_path=yaml_path)
+            if schema.closed_model
+            else None
+        )
 
         container = ContainerState(name, status, open_model=open_model, closed_model=closed_model)
         for obj_name, obj_schema in schema.contains.items():
@@ -76,7 +85,7 @@ class ContainerState:
         return self.status == "closed"
 
     @property
-    def current_collision_model(self) -> CollisionModel:
+    def current_collision_model(self) -> CollisionModel | None:
         """Retrieve the current collision model of the container."""
         return self.open_model if self.is_open else self.closed_model
 
@@ -107,7 +116,10 @@ class ContainerState:
 
     def update_state(self, state: ObjectCentricState) -> None:
         """Update an object-centric environment state according to this container state."""
-        state.kinematic_tree.set_collision_model(self.name, self.current_collision_model)
+        if self.current_collision_model is None:
+            state.kinematic_tree.clear_collision_model(self.name)
+        else:
+            state.kinematic_tree.set_collision_model(self.name, self.current_collision_model)
 
         known_object_names = state.object_names
         for obj_name in self._contained_object_names:

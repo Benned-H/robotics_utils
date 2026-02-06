@@ -270,8 +270,10 @@ class ContainerSchema(BaseModel):
     """Schema for a container object (e.g., cabinet)."""
 
     status: Literal["open", "closed"]
-    open_model: CollisionModelSchema
-    closed_model: CollisionModelSchema
+
+    # Allow empty collision models when they're explicitly stated to be None
+    open_model: Union[CollisionModelSchema, None]
+    closed_model: Union[CollisionModelSchema, None]
     contains: Dict[str, ContainedObjectSchema] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="forbid")

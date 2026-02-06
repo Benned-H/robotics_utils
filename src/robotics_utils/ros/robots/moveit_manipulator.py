@@ -16,6 +16,7 @@ from robotics_utils.robots import Manipulator
 from robotics_utils.ros import TransformManager, get_ros_param
 from robotics_utils.ros.msg_conversion import trajectory_from_msg, trajectory_to_msg
 from robotics_utils.skills import Outcome
+from robotics_utils.spatial import DEFAULT_FRAME
 from robotics_utils.states import GraspAttachment, ObjectCentricState
 
 if TYPE_CHECKING:
@@ -240,14 +241,17 @@ class MoveItManipulator(Manipulator[Trajectory]):
             output=pose_ee_o,
         )
 
-    def release(self, object_name: str, placed_frame: str) -> Outcome[Pose3D]:
+    def release(self, object_name: str, placed_frame: str | None = None) -> Outcome[Pose3D]:
         """Release the named object using the manipulator's gripper.
 
         :param object_name: Name of the held object to be released
-        :param placed_frame: Parent frame of the object after it has been released
+        :param placed_frame: Parent frame of the object after release (default: DEFAULT_FRAME)
 
         :return: Boolean success, outcome message, and resulting relative pose of the object
         """
+        if placed_frame is None:
+            placed_frame = DEFAULT_FRAME
+
         if not self.gripper.open():
             return Outcome(False, f"Failed to open gripper when releasing '{object_name}'.")
 

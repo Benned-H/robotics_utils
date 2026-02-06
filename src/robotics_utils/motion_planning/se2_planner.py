@@ -21,7 +21,13 @@ if TYPE_CHECKING:
     from robotics_utils.perception import OccupancyGrid2D
     from robotics_utils.spatial import Pose2D
 
-EIGHT_CONNECTED_NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+NEIGHBOR_STEP_SIZE = 2
+"""Number of grid cells to move per step in the A* search space."""
+
+EIGHT_CONNECTED_NEIGHBORS = [
+    (dr * NEIGHBOR_STEP_SIZE, dc * NEIGHBOR_STEP_SIZE)
+    for (dr, dc) in [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+]
 
 
 class SE2AStarPlanner(AStarPlanner[DiscreteSE2]):
@@ -77,6 +83,18 @@ class SE2AStarPlanner(AStarPlanner[DiscreteSE2]):
             if self._footprint_cells.is_collision_free(neighbor, self.occupancy_mask):
                 neighbors.append(neighbor)
 
+        # Add the goal state as a direct neighbor when within one step (Chebyshev distance)
+        #   This ensures that the goal can be reached regardless of the step-grid alignment
+        abs_dr_goal = abs(self.goal.cell.row - state.cell.row)
+        abs_dc_goal = abs(self.goal.cell.col - state.cell.col)
+        chebyshev_to_goal = max(abs_dr_goal, abs_dc_goal)
+
+        goal_within_reach = 0 < chebyshev_to_goal <= NEIGHBOR_STEP_SIZE
+        goal_is_safe = self._footprint_cells.is_collision_free(self.goal, self.occupancy_mask)
+
+        if goal_within_reach and goal_is_safe:
+            neighbors.append(self.goal)
+
         return neighbors
 
     def cost(self, pre_state: DiscreteSE2, post_state: DiscreteSE2) -> float:
@@ -105,10 +123,11 @@ class SE2AStarPlanner(AStarPlanner[DiscreteSE2]):
         return (state.cell.row, state.cell.col, state.heading_idx)
 
 
-def plan_se2_path(query: NavigationQuery) -> list[Pose2D] | None:
+def plan_se2_path(query: NavigationQuery, *, verbose: bool = True) -> list[Pose2D] | None:
     """Plan a collision-free path to solve the given navigation query.
 
     :param query: Navigation query specifying start, goal, occupancy grid, and robot footprint
+    :param verbose: If True, log planning progress to the console
     :return: List of Pose2D waypoints from start to goal, or None if no path was found
     """
     if not query.robot_footprint.is_collision_free(query.start_pose, query.occupancy_grid):
@@ -143,7 +162,7 @@ def plan_se2_path(query: NavigationQuery) -> list[Pose2D] | None:
     while not done:
         done = planner.step()
 
-        if not (planner.steps_taken % log_every_n_steps):
+        if verbose and not (planner.steps_taken % log_every_n_steps):
             planner.log_info()
 
     discrete_plan = planner.reconstruct_path()

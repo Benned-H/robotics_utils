@@ -84,13 +84,13 @@ class Manipulator(ABC, Generic[TrajectoryT]):
         ...
 
     @abstractmethod
-    def release(self, object_name: str, placed_frame: str) -> Outcome[Pose3D]:
+    def release(self, object_name: str, placed_frame: str | None = None) -> Outcome[Pose3D]:
         """Release the named object using the manipulator's gripper.
 
         This method should open the robot's gripper and update the kinematic state appropriately.
 
         :param object_name: Name of the held object to be released
-        :param placed_frame: Parent frame of the object after it has been released
+        :param placed_frame: Parent frame of the object after release (default: DEFAULT_FRAME)
 
         :return: Boolean success, outcome message, and resulting relative pose of the object
         """

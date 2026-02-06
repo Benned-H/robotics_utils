@@ -83,7 +83,7 @@ class CollisionModelRasterizer:
         :param grid: Structure of the occupancy grid for the rasterization
         :return: Boolean mask where True indicates the mesh's footprint
         """
-        mask = np.zeros((grid.height_cells, grid.width_cells), dtype=np.bool)
+        mask = np.zeros((grid.height_cells, grid.width_cells), dtype=np.bool_)
 
         # Transform mesh vertices into the world frame
         transform_w_o = obj_pose.to_homogeneous_matrix()

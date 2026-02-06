@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from robotics_utils.geometry import Point2D
-from robotics_utils.motion_planning.discretization import GridCell
 from robotics_utils.spatial import Pose2D
 
 if TYPE_CHECKING:
@@ -81,17 +80,17 @@ class FootprintCellOffsets:
         :param occupied_mask: Boolean mask where True indicates occupied cells
         :return: True if the state is collision-free, else False
         """
-        offsets = self._offsets_by_heading[state.heading_idx]
+        offsets = np.array(self._offsets_by_heading[state.heading_idx])  # Shape (N, 2)
+        rows = state.cell.row + offsets[:, 0]  # Shape (N,) of cell row indices
+        cols = state.cell.col + offsets[:, 1]  # Shape (N,) of cell column indices
 
-        for dr, dc in offsets:
-            check_row = state.cell.row + dr
-            check_col = state.cell.col + dc
+        valid_cells = (
+            (rows >= 0)
+            & (rows < occupied_mask.shape[0])
+            & (cols >= 0)
+            & (cols < occupied_mask.shape[1])
+        )
+        if not np.all(valid_cells):  # Treat out-of-bounds cells as a collision
+            return False
 
-            # Treat out-of-bounds cells as a collision
-            if not self.se2_space.grid.is_valid_cell(GridCell(check_row, check_col)):
-                return False
-
-            if occupied_mask[check_row, check_col]:
-                return False
-
-        return True
+        return not np.any(occupied_mask[rows, cols])

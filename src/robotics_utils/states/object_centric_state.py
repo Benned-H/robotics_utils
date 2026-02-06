@@ -137,6 +137,14 @@ class ObjectCentricState:
 
         return obj_states
 
+    def get_object_kinematic_state(self, obj_name: str) -> ObjectKinematicState | None:
+        """Retrieve the kinematic state of the named object (returns None if unavailable)."""
+        obj_pose = self.get_object_pose(obj_name)
+        collision_model = self.kinematic_tree.get_collision_model(frame_name=obj_name)
+        if obj_pose is None or collision_model is None:
+            return None
+        return ObjectKinematicState(name=obj_name, pose=obj_pose, collision_model=collision_model)
+
     def add_object(self, obj_name: str) -> None:
         """Add the given object name to the set of known object names."""
         self._object_names.add(obj_name)
