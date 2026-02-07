@@ -63,6 +63,9 @@ class ObjectCentricState:
         self._hidden_object_poses: dict[str, Pose3D] = {}
         """A map from the name of each hidden object to its pose when it was hidden."""
 
+        self._hidden_alongside: dict[str, set[str]] = {}
+        """A map from a hidden object's name to the names of all frames hidden alongside it."""
+
     @classmethod
     def from_yaml(cls, yaml_path: Path) -> ObjectCentricState:
         """Construct an ObjectCentricState using data loaded from the given YAML file."""
@@ -202,18 +205,21 @@ class ObjectCentricState:
         pose_map = self.kinematic_tree.get_poses(frame_names={obj_name})
         return pose_map.get(obj_name)
 
-    def clear_object_pose(self, obj_name: str) -> Pose3D | None:
-        """Clear the pose of the named object while keeping it registered in the state.
+    def clear_object_pose(self, obj_name: str) -> dict[str, Pose3D | None]:
+        """Clear the pose of an object while keeping it registered in the state.
 
         :param obj_name: Name of the object whose pose is cleared
-        :return: Object's pose before it was cleared, or None if the pose was unknown
+        :return: Map from cleared frames' names to their poses, if known (else None)
         :raises ValueError: If the object name is unrecognized
         """
         if obj_name not in self._object_names:
             raise ValueError(f"Cannot clear the pose of an unknown object: '{obj_name}'.")
 
-        self._pose_sources.pop(obj_name, None)
-        return self.kinematic_tree.clear_pose(frame_name=obj_name)
+        cleared_poses = self.kinematic_tree.clear_pose(frame_name=obj_name)
+        for cleared_frame_name in cleared_poses:
+            self._pose_sources.pop(cleared_frame_name, None)
+
+        return cleared_poses
 
     def hide_object(self, obj_name: str) -> None:
         """Hide an object by removing it from the state after saving its current pose.
@@ -223,30 +229,34 @@ class ObjectCentricState:
         if obj_name not in self._object_names:
             raise ValueError(f"Cannot hide an unknown object: '{obj_name}'.")
 
-        curr_obj_pose = self.clear_object_pose(obj_name=obj_name)
-        if curr_obj_pose is not None:
-            self._hidden_object_poses[obj_name] = curr_obj_pose
+        cleared_poses = self.clear_object_pose(obj_name=obj_name)
+
+        frames_with_poses = {f for f, p in cleared_poses.items() if p is not None}
+        for frame_name in frames_with_poses:
+            self._hidden_object_poses[frame_name] = cleared_poses[frame_name]
+
+        self._hidden_alongside[obj_name] = frames_with_poses
 
     def unhide_object(self, obj_name: str, *, pose_source: PoseSource = PoseSource.KNOWN) -> None:
-        """Unhide an object by restoring its pose in the state.
+        """Unhide an object by restoring its pose (and poses of descendant frames) in the state.
 
-        :param obj_name: Object to be unhidden
+        :param obj_name: Name of the object to be unhidden
         :param pose_source: Level of accuracy of the object pose's original source
         """
         if obj_name not in self._object_names:
             raise ValueError(f"Cannot unhide an unknown object: '{obj_name}'.")
 
-        obj_pose = self._hidden_object_poses.get(obj_name)
-
-        if obj_pose is None:
+        hidden_frames = self._hidden_alongside.pop(obj_name, None)
+        if hidden_frames is None:
             raise ValueError(f"Cannot unhide an object that hasn't been hidden: '{obj_name}'.")
 
-        if pose_source == PoseSource.KNOWN:
-            self.set_known_object_pose(obj_name, obj_pose)
-        elif pose_source == PoseSource.ESTIMATED:
-            self.set_estimated_object_pose(obj_name, obj_pose)
-        else:
-            raise NotImplementedError(f"Unknown pose source: {pose_source}")
+        for frame_name in hidden_frames:
+            frame_pose = self._hidden_object_poses.pop(frame_name, None)
+            if frame_pose is None:
+                raise ValueError(f"Hidden frame '{frame_name}' is missing its saved pose.")
+
+            self.kinematic_tree.set_pose(frame_name, frame_pose)
+            self._pose_sources[frame_name] = pose_source
 
     def set_robot_base_pose(self, robot_name: str, base_pose: Pose2D | Pose3D) -> None:
         """Set the base pose of the named robot.

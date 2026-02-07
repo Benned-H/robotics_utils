@@ -5,11 +5,15 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import rospy
+from moveit_msgs.msg import RobotTrajectory
 from rich.prompt import Prompt
 from spot_skills.srv import (
     CaptureImageObservation,
     CaptureImageObservationRequest,
     CaptureImageObservationResponse,
+    ComputeMotionPlan,
+    ComputeMotionPlanRequest,
+    ComputeMotionPlanResponse,
     NameService,
     NameServiceRequest,
     NameServiceResponse,
@@ -29,10 +33,7 @@ from spot_skills.srv import (
 
 from robotics_utils.geometry import Point3D
 from robotics_utils.io import console
-from robotics_utils.kinematics import Waypoints
-from robotics_utils.motion_planning import MotionPlanningQuery
 from robotics_utils.motion_planning.ros import PickPoses, PlanningSceneManager
-from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import (
     PoseBroadcastThread,
     ServiceCaller,
@@ -40,8 +41,12 @@ from robotics_utils.ros import (
     TransformRecorder,
     trigger_service,
 )
-from robotics_utils.ros.msg_conversion import point_to_vector3_msg, pose_from_msg
-from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
+from robotics_utils.ros.msg_conversion import (
+    point_to_vector3_msg,
+    pose_from_msg,
+    pose_to_stamped_msg,
+)
+from robotics_utils.ros.robots import MoveItManipulator
 from robotics_utils.skills import Outcome, SkillsProtocol, skill_method
 from robotics_utils.spatial import DEFAULT_FRAME, Pose3D
 
@@ -50,43 +55,11 @@ SPOT_GRIPPER_CLOSED_RAD = 0.0
 SPOT_GRIPPER_HALF_OPEN_RAD = (SPOT_GRIPPER_OPEN_RAD + SPOT_GRIPPER_CLOSED_RAD) / 2.0
 
 
-@dataclass(frozen=True)
-class SpotSkillsConfig:
-    """Configuration parameters for the Spot skills protocol."""
-
-    env_yaml: Path
-    """Path to a YAML file representing the environment."""
-
-    markers_yaml: Path
-    """Path to a YAML file specifying a fiducial marker system."""
-
-    robot_name: str = "Spot"
-
-    planning_frame: str = "map"
-    """Reference frame used for MoveIt motion planning."""
-
-    pose_estimate_window_size: int = 15
-    """Number of poses used in the rolling average estimate for each frame."""
-
-    take_control: bool = False
-    """Whether or not to immediately take control of Spot."""
-
-    def __post_init__(self) -> None:
-        """Verify that the constructed configuration is valid."""
-        if not self.env_yaml.exists():
-            raise FileNotFoundError(f"YAML file does not exist: {self.env_yaml}")
-
-        if not self.markers_yaml.exists():
-            raise FileNotFoundError(f"YAML file does not exist: {self.markers_yaml}")
-
-
 class SpotSkillsProtocol(SkillsProtocol):
     """Define a Python interface for executing Spot skills."""
 
-    def __init__(self, config: SpotSkillsConfig) -> None:
+    def __init__(self, manipulator: MoveItManipulator) -> None:
         """Initialize the Spot skills executor."""
-        self._waypoints = Waypoints.from_yaml(config.env_yaml)
-
         self._nav_to_waypoint_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
             "/spot/navigation/to_waypoint",
             NameService,
@@ -151,25 +124,27 @@ class SpotSkillsProtocol(SkillsProtocol):
             NameService,
         )
 
-        self._gripper = ROSAngularGripper(
-            limits=GripperAngleLimits(
-                open_rad=SPOT_GRIPPER_OPEN_RAD,
-                closed_rad=SPOT_GRIPPER_CLOSED_RAD,
-            ),
-            grasping_group="gripper",
-            action_name="gripper_controller/gripper_action",
-        )
+        self._motion_plan_caller = ServiceCaller[
+            ComputeMotionPlanRequest,
+            ComputeMotionPlanResponse,
+        ]("spot/compute_motion_plan", ComputeMotionPlan)
 
-        self.planning_frame = config.planning_frame
-        self._arm = MoveItManipulator(
-            name="arm",
-            robot_name=config.robot_name,
-            base_frame="body",
-            planning_frame=self.planning_frame,
-            gripper=self._gripper,
-        )
+        self._arm = manipulator
+        self._gripper = manipulator.gripper
 
         self._pose_broadcaster = PoseBroadcastThread()
+
+        self._EE_POSES_FOR_POSE_ESTIMATION: dict[str, Pose3D] = {
+            "black_dresser": Pose3D.from_xyz_rpy(
+                x=0.666,
+                y=-0.075,
+                z=1.251,
+                roll_rad=-0.125,
+                pitch_rad=1.139,
+                yaw_rad=-2.952,
+                ref_frame="black_dresser",
+            ),
+        }
 
     @property
     def planning_scene(self) -> PlanningSceneManager:
@@ -268,7 +243,7 @@ class SpotSkillsProtocol(SkillsProtocol):
             ref_frame="black_dresser",
         ),
         grasp_pose_ee: Pose3D = Pose3D.from_xyz_rpy(
-            x=0.47,
+            x=0.45,
             z=0.56,
             yaw_rad=3.1416,
             ref_frame="black_dresser",
@@ -301,6 +276,16 @@ class SpotSkillsProtocol(SkillsProtocol):
         open_outcome = self.open_gripper()  # Open Spot's gripper before it nears the dresser
         if not open_outcome.success:
             return open_outcome
+
+        # Move Spot's end-effector to approximate viewing location for the drawer
+        ee_during_pose_est = self._EE_POSES_FOR_POSE_ESTIMATION[container_name]
+        pre_estimation_outcome = self._move_ee_to_pose(ee_during_pose_est)
+        if not pre_estimation_outcome.success:
+            return pre_estimation_outcome
+
+        estimate_outcome = self.estimate_pose(container_name, duration_s=5.0)
+        if not estimate_outcome.success:
+            return estimate_outcome
 
         pre_outcome = self._move_ee_to_pose(
             pregrasp_pose_ee,
@@ -416,27 +401,31 @@ class SpotSkillsProtocol(SkillsProtocol):
         default_pose_outcome = trigger_service("spot/default_body_pose")
         if not default_pose_outcome.success:
             return default_pose_outcome
-        time.sleep(5)  # Wait 5 seconds for transforms to account for the base pose
 
-        ignored_objects_set = set()
+        # Parse ignored objects into a list
+        ignored_objects_list = []
         if ignored_objects.strip():
-            ignored_objects_set = set(ignored_objects.strip().split(","))
-            for ignore_obj in ignored_objects_set:
-                response = self._hide_object_caller(NameServiceRequest(name=ignore_obj))
-                console.print(f"Response from hiding '{ignore_obj}': {response.message}")
-                if not response.success:
-                    return Outcome(success=False, message=f"Failed to hide object '{ignore_obj}'.")
+            ignored_objects_list = [s.strip() for s in ignored_objects.strip().split(",")]
 
-        query = MotionPlanningQuery(ee_target)
-        console.print(f"Motion planning query: {query}")
+        # Use the centralized motion planning service (SpotROS1Wrapper owns the planning scene)
+        request = ComputeMotionPlanRequest()
+        request.target_pose = pose_to_stamped_msg(ee_target)
+        request.ignored_objects = ignored_objects_list
+        request.ignore_all_collisions = False
 
-        plan_msg = self._arm.planner.compute_motion_plan(query)
+        console.print(f"Calling compute_motion_plan service for target: {ee_target}")
 
-        for ignore_obj in ignored_objects_set:
-            self._unhide_object_caller(NameServiceRequest(name=ignore_obj))
+        response = self._motion_plan_caller(request)
 
-        if plan_msg is None:
-            return Outcome(success=False, message="No motion plan found.")
+        if response is None:
+            return Outcome(success=False, message="Motion planning service returned None.")
+
+        if not response.success:
+            return Outcome(success=False, message=response.message)
+
+        # Wrap the JointTrajectory in a RobotTrajectory for execution
+        plan_msg = RobotTrajectory()
+        plan_msg.joint_trajectory = response.trajectory
 
         if display_and_pause:
             self._arm.planner.visualize_plan(plan_msg)
@@ -716,20 +705,11 @@ class SpotSkillsProtocol(SkillsProtocol):
         self,
         object_name: str = "eraser1",
         drawer_name: str = "black_dresser",
-        ee_during_pose_est: Pose3D = Pose3D.from_xyz_rpy(
-            x=0.587,
-            y=-0.03,
-            z=1.125,
-            roll_rad=-0.093,
-            pitch_rad=1.059,
-            yaw_rad=-3,
-            ref_frame="black_dresser",
-        ),
         pre_grasp_rad: float = -0.9,
         pre_grasp_x_m: float = 0.15,
         pose_o_g: Pose3D = Pose3D.from_xyz_rpy(
             x=-0.02,
-            z=0.24,
+            z=0.255,
             pitch_rad=1.5708,
             ref_frame="eraser1",
         ),
@@ -743,7 +723,6 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         :param object_name: Name of the object to be picked
         :param drawer_name: Name of the drawer the object is picked from
-        :param ee_during_pose_est: End-effector pose used to re-pose-estimate the objects
         :param pre_grasp_rad: Angle (radians) to open the gripper before grasping
         :param pre_grasp_x_m: Offset (abs. m) of the pre-grasp pose "back" (-x) from the grasp pose
         :param pose_o_g: Object-relative end-effector pose used to grasp the object
@@ -761,6 +740,7 @@ class SpotSkillsProtocol(SkillsProtocol):
             return nav_outcome
 
         # Move Spot's end-effector to approximate viewing location for the object
+        ee_during_pose_est = self._EE_POSES_FOR_POSE_ESTIMATION[drawer_name]
         pre_estimation_outcome = self._move_ee_to_pose(ee_during_pose_est)
         if not pre_estimation_outcome.success:
             return pre_estimation_outcome

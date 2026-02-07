@@ -53,6 +53,8 @@ class PurePursuitFollower:
         self.config = config or PurePursuitConfig()
         self._path_xy = np.array([p.position.to_array() for p in path])  # Shape (N, 2)
         self._ref_frame = path[0].ref_frame
+        self._furthest_target_idx = 0
+        """Index of the furthest path waypoint yet targeted during path following."""
 
     def get_target_pose(self, robot_pose: Pose2D) -> tuple[Pose2D, bool]:
         """Get the target pose for the robot to navigate toward.
@@ -67,18 +69,20 @@ class PurePursuitFollower:
 
         # If we're sufficiently close to the goal, return it
         if dist_to_goal_m < self.config.goal_tolerance_m:
+            self._furthest_target_idx = len(self.path) - 1
             return (self.path[-1], True)
 
         # Find the waypoint nearest to the robot
         distances_from_robot_m = np.linalg.norm(self._path_xy - robot_xy, axis=1)
         closest_idx = np.argmin(distances_from_robot_m)
+        target_idx = max(closest_idx, self._furthest_target_idx)  # Monotonically increase target
 
         dist_left_m = self.config.lookahead_distance_m
         if dist_to_goal_m < dist_left_m:
             dist_left_m = self.config.min_lookahead_m
 
         # Iterate along the remainder of the path until we've covered the remaining distance
-        for curr_idx in range(closest_idx, self._path_xy.shape[0] - 1):
+        for curr_idx in range(target_idx, self._path_xy.shape[0] - 1):
             curr_xy = self._path_xy[curr_idx]
             next_xy = self._path_xy[curr_idx + 1]
 
@@ -94,6 +98,8 @@ class PurePursuitFollower:
             diff_xy = next_xy - curr_xy
             target_yaw_rad = np.arctan2(diff_xy[1], diff_xy[0])
 
+            self._furthest_target_idx = curr_idx
             return (Pose2D(target_xy[0], target_xy[1], target_yaw_rad, self._ref_frame), False)
 
+        self._furthest_target_idx = len(self.path) - 1
         return (self.path[-1], True)

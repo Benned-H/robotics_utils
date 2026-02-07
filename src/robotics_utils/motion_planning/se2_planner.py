@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from robotics_utils.io import console
 from robotics_utils.motion_planning.discretization import (
     DiscreteAngles,
     DiscreteSE2,
@@ -43,7 +44,7 @@ class SE2AStarPlanner(AStarPlanner[DiscreteSE2]):
         robot_footprint: RectangularFootprint,
         occ_grid: OccupancyGrid2D,
         se2_space: DiscreteSE2Space,
-        heading_change_cost: float = 0.5,
+        heading_change_cost: float = 0.125,
     ) -> None:
         """Initialize the SE(2) A* planner with its discrete search space.
 
@@ -131,8 +132,12 @@ def plan_se2_path(query: NavigationQuery, *, verbose: bool = True) -> list[Pose2
     :return: List of Pose2D waypoints from start to goal, or None if no path was found
     """
     if not query.robot_footprint.is_collision_free(query.start_pose, query.occupancy_grid):
+        if verbose:
+            console.print(f"Start pose of navigation query is in collision: {query.start_pose}")
         return None  # Start pose in collision
     if not query.robot_footprint.is_collision_free(query.goal_pose, query.occupancy_grid):
+        if verbose:
+            console.print(f"Goal pose of navigation query is in collision: {query.goal_pose}")
         return None  # Goal pose in collision
 
     # Create the discrete SE(2) space used during A* search
@@ -143,8 +148,12 @@ def plan_se2_path(query: NavigationQuery, *, verbose: bool = True) -> list[Pose2
     goal = se2_space.discretize(query.goal_pose)
 
     if not se2_space.grid.is_valid_cell(start.cell):
+        if verbose:
+            console.print(f"Discretized start cell is out-of-bounds: {start.cell}")
         return None  # Start cell out of bounds
     if not se2_space.grid.is_valid_cell(goal.cell):
+        if verbose:
+            console.print(f"Discretized goal is out-of-bounds: {goal.cell}")
         return None  # Goal cell out of bounds
 
     planner = SE2AStarPlanner(

@@ -67,24 +67,26 @@ class KinematicTree:
         self._frames[frame_name] = pose
         self._children[pose.ref_frame].add(frame_name)  # Add the frame to its new parent's children
 
-    def clear_pose(self, frame_name: str) -> Pose3D | None:
-        """Clear the pose of the named frame and return its pose, if known.
+    def clear_pose(self, frame_name: str) -> dict[str, Pose3D | None]:
+        """Clear the pose of the named frame and its descendants and return their poses, if known.
 
         :param frame_name: Name of the reference frame to be cleared
-        :return: Previous pose of the frame, if known, else None
-        :raises ValueError: If the frame to be cleared has child frames
+        :return: Map from names of cleared frames to their previous pose, if known (else None)
         """
-        if self._children[frame_name]:
-            raise ValueError(
-                f"Cannot clear the pose of frame '{frame_name}' "
-                f"because it has child frames: {self._children[frame_name]}.",
-            )
+        cleared_poses: dict[str, Pose3D | None] = {}
+
+        # Clear any children frames first
+        while self._children[frame_name]:
+            child_frame = self._children[frame_name].pop()
+            child_cleared_poses = self.clear_pose(child_frame)
+            cleared_poses.update(child_cleared_poses)
 
         parent_frame = self.get_parent_frame(frame_name)
         if parent_frame is not None:
             self._children[parent_frame].discard(frame_name)
 
-        return self._frames.pop(frame_name, None)
+        cleared_poses[frame_name] = self._frames.pop(frame_name, None)
+        return cleared_poses
 
     def set_collision_model(self, frame_name: str, collision_model: CollisionModel) -> None:
         """Set the collision geometry attached to the named frame.

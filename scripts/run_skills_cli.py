@@ -1,22 +1,35 @@
 """Run skills through a command-line interface."""
 
-from pathlib import Path
+from spot_skills_py.spot.spot_conversion import SPOT_GRIPPER_CLOSED_RAD, SPOT_GRIPPER_OPEN_RAD
 
 from robotics_utils.io.skills_cli import build_cli
+from robotics_utils.robots import GripperAngleLimits
 from robotics_utils.ros import TransformManager
-from robotics_utils.skills.protocols.spot_skills import SpotSkillsConfig, SpotSkillsProtocol
+from robotics_utils.ros.robots import MoveItManipulator, ROSAngularGripper
+from robotics_utils.skills.protocols.spot_skills import SpotSkillsProtocol
 
 
 def main() -> None:
     """Enter a CLI loop where a user selects skills to execute."""
     TransformManager.init_node("skills_cli")
 
-    spot_skills_catkin_pkg = Path("/docker/spot_skills/src/spot_skills")
-    env_yaml = spot_skills_catkin_pkg / "config/env.yaml"
-    markers_yaml = spot_skills_catkin_pkg / "config/markers.yaml"
+    gripper = ROSAngularGripper(
+        limits=GripperAngleLimits(
+            open_rad=SPOT_GRIPPER_OPEN_RAD,
+            closed_rad=SPOT_GRIPPER_CLOSED_RAD,
+        ),
+        grasping_group="gripper",
+        action_name="gripper_controller/gripper_action",
+    )
+    manipulator = MoveItManipulator(
+        name="arm",
+        robot_name="Spot",
+        base_frame="body",
+        planning_frame="map",
+        gripper=gripper,
+    )
 
-    config = SpotSkillsConfig(env_yaml, markers_yaml)
-    skills_protocol = SpotSkillsProtocol(config)
+    skills_protocol = SpotSkillsProtocol(manipulator)
 
     cli = build_cli(skills_protocol)
     cli()
