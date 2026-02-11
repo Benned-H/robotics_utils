@@ -22,10 +22,18 @@ class EASL:
     """Implements the Efficiently Adaptive State Lattice (EASL) planner."""
 
     def __init__(self, *, adaptive: bool) -> None:
-        """Initialize the state lattice."""
+        """Initialize the state lattice's open and closed lists.
+
+        :param adaptive: If True, the state lattice performs discrete node adaptation
+        """
         self._adaptive = adaptive
 
-        # TODO
+        self.open_list: list[Node] = []  # TODO: Type?
+        self.closed_list: list[Node] = []  # TODO: Type?
+
+        # Initialize empty collections of current and previous discrete node adaptations
+        self._current_adaptations: dict[Node, Offset] = {}
+        self._prior_adaptations: dict[Node, Offset] = {}
 
     @property
     def is_adaptive(self) -> bool:
@@ -39,36 +47,29 @@ class EASL:
 
         :param n_start: Start node of the search
         :param n_goal: Target node to be reached via search
-        :param cost_map: Discrete 2D grid representing environment costs
-        :return: Path to the goal, if found, otherwise None.
+        :param cost_map: Discrete 2D grid representing environment cost
+        :return: Path to the goal, if found, otherwise None
         """
-        open_list = {n_start}
-        closed_list = set()
+        self.open_list.append(n_start)  # TODO: Priority queue instead of list
+        self.closed_list = []
 
-        while open_list:
-            n_curr = open_list.pop()
-            closed_list.add(n_curr)
+        while self.open_list:
+            n_curr = self.open_list.pop()
+            self.closed_list.append(n_curr)
             if n_curr == n_goal:
-                return backtrack(n_curr)
-            open_list = self.expand_node(n_curr, n_goal, open_list, closed_list, cost_map)
+                return backtrack(n_curr)  # TODO: Implement
+            self.expand_node(n_curr, n_goal, cost_map)
 
-        return open_list
+        return None
 
-    def expand_node(
-        self,
-        n_curr: Node,
-        n_goal: Node,
-        open_list: list[Node],
-        closed_list: list[Node],
-        cost_map: CostMap,
-    ) -> list[Node]:
-        """Expand the given node and update the open list accordingly.
+    def expand_node(self, n_curr: Node, n_goal: Node, cost_map: CostMap) -> None:
+        """Expand the given node and update the planner's open list accordingly.
 
         Reference: Algorithm 2 (pg. 5767) of Hedegaard et al., IROS 2021.
 
-        TODO: Document parameters
-
-        :return: Updated open list
+        :param n_curr: Current node to be expanded
+        :param n_goal: Goal node targeted by the search
+        :param cost_map: Discrete 2D grid representing environment cost
         """
         for e in self.control_set(n_curr):
             n_new = Node(
@@ -77,7 +78,7 @@ class EASL:
                 e.n_final.heading_rad,
                 e.n_final.v_x_mps,
             )
-            if n_new in closed_list:
+            if n_new in self.closed_list:
                 continue
             if n_new == n_goal:
                 n_new.offset = n_goal.offset
@@ -88,13 +89,11 @@ class EASL:
             n_new.g = n_curr.g + cost(e_new, cost_map)
             n_new.f = n_new.g + w_h * heuristic(n_new, n_goal)
 
-            n_open = open_list.get(n_new.indices)  # TODO: How should this lookup actually work?
+            n_open = self.open_list.get(n_new.indices)  # TODO: How should this lookup work?
             if n_open is not None and n_new.f < n_open.f:
-                open_list.replace(n_open, n_new)
+                self.open_list.replace(n_open, n_new)
             else:
-                open_list.push(n_new)
-
-        return open_list
+                self.open_list.append(n_new)
 
     def adapt(self, node: Node, cost_map: CostMap) -> Offset:
         """Identify the best local discrete adaptation of the given node.
@@ -105,11 +104,11 @@ class EASL:
         :param cost_map: Current 2D cost map of the environment
         :return: Best local discrete adaptation for the node
         """
-        existing_offset = self.get_offset(node)  # TODO: Implement method
+        existing_offset = self._current_adaptations.get(node)
         if existing_offset is not None:
             return existing_offset
 
-        prior_offset = self.get_prior_offset(node)  # TODO: Implement method
+        prior_offset = self._prior_adaptations.get(node)
         if prior_offset is not None:
             node.offset = prior_offset
 
@@ -123,5 +122,6 @@ class EASL:
                 best_offset = perturb_offset
             node.offset -= perturb_offset
         node.offset += best_offset
-        self.set_offset(node, node.offset)  # TODO: Implement method
+
+        self._current_adaptations[node] = node.offset
         return node.offset
