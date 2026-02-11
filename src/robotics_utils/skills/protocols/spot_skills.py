@@ -484,6 +484,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         *,
         is_pull: bool = False,
         hinge_on_left: bool = True,
+        navigate_first: bool = True,
         body_pitch_rad: float = -0.1,
         door_offset_m: float = 1.25,
         ray_search_dist_m: float = 0.25,
@@ -492,6 +493,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         :param is_pull: Whether the door opens by pulling toward Spot
         :param hinge_on_left: Whether the door's hinge is on the left, from Spot's perspective
+        :param navigate_first: If True, the skill will first navigate to the `open_door` waypoint
         :param body_pitch_rad: Pitch (radians) of Spot's body when taking the door handle image
         :param door_offset_m: Distance (m) Spot stands from the door when searching for the handle
         :param ray_search_dist_m: Distance (m) searched along the ray to the door handle
@@ -500,12 +502,13 @@ class SpotSkillsProtocol(SkillsProtocol):
         console.print("Commanding Spot to open the door...")
 
         # Begin by navigating to the "open_door" waypoint
-        nav_outcome = self.navigate_to_waypoint("open_door")
-        if not nav_outcome.success:
-            return Outcome(
-                success=False,
-                message=f"Failed to navigate to 'open_door' waypoint: {nav_outcome}",
-            )
+        if navigate_first:
+            nav_outcome = self.navigate_to_waypoint("open_door")
+            if not nav_outcome.success:
+                return Outcome(
+                    success=False,
+                    message=f"Failed to navigate to 'open_door' waypoint: {nav_outcome}",
+                )
 
         request = OpenDoorRequest(
             body_pitch_rad,
