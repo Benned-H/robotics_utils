@@ -10,6 +10,7 @@ Reference:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Generic, Protocol, TypeVar
 
 StateT = TypeVar("StateT")
@@ -28,10 +29,7 @@ TaskPlan = list[AbstractActionT]
 """A task plan is a sequence of planned abstract actions."""
 
 KinematicState = bool  # TODO: Implement class
-ErrFreeMode = bool  # TODO: Should be enum
-PartialTrajMode = bool  # TODO: Should be enum
 Trajectory = bool  # TODO: Implement real type
-Mode = bool  # TODO: Implement real type (enum or bool?)
 MPErrors = list[str]  # TODO: Implement real type
 
 
@@ -51,22 +49,35 @@ class MotionPlanner(Protocol):
         ...
 
 
+class RefinementMode(Enum):
+    """Enumeration of modes during refinement of abstract actions."""
+
+    ERROR_FREE = 0
+    PARTIAL_TRAJ = 1
+
+
 @dataclass
-class RefinementNode:
+class RefinementNode(Generic[StateT]):
     """A node representing the state of refinement during task and motion planning."""
 
     task_plan: TaskPlan
     """Task plan of abstract actions to be refined into concrete actions."""
 
-    step: int = 1
-    """TODO: Exactly what does this integer represent?"""
+    abstract_refine_from: AbstractState
+    """Abstract state beyond which high-level actions still need to be refined."""
+
+    refine_from: StateT
+    """Low-level state beyond which high-level actions still need to be refined."""
+
+    refine_idx: int = 0  # TODO: Replace `step`, which was initialized to 1 instead
+    """Index (in the task plan) of the next abstract action to be refined."""
 
     partial_traj: Trajectory | None = None
-    """TODO: Exactly what does the partial trajectory mean?"""
+    """Low-level actions corresponding to successfully refined high-level actions."""
 
 
 @dataclass
-class PartialRefinement(Generic[StateT]):
+class RefinementResult(Generic[StateT]):  # TODO: Combine these two classes soon
     """The outcome of an attempt at partial refinement of a task-level plan."""
 
     partial_traj: Trajectory
@@ -85,14 +96,18 @@ class PartialRefinement(Generic[StateT]):
 class TAMP:
     """Implement the task and motion planning (TAMP) algorithm of Srivastava et al. (ICRA 2014)."""
 
-    def __init__(self, task_planner: TaskPlanner, motion_planner: MotionPlanner) -> None:
+    def __init__(self, tp: TaskPlanner, mp: MotionPlanner, max_traj_count: int = 5000) -> None:
         """Initialize the task and motion planner.
 
-        :param task_planner: Used for high-level task planning
-        :param motion_planner: Used for low-level motion planning
+        :param tp: Task planner for high-level symbolic planning
+        :param mp: Motion planner for low-level motion planning
+        :param max_traj_count: Maximum number of refinement attempts before reset (default: 5000)
         """
-        self.task_planner = task_planner
-        self.motion_planner = motion_planner
+        self.task_planner = tp
+        self.motion_planner = mp
+
+        self.max_traj_count = max_traj_count
+        """Maximum number of refinements attempted before planning is reset."""
 
     def resource_limit_reached(self) -> bool:
         """Check whether the resource limit for planning has been reached."""
@@ -101,22 +116,17 @@ class TAMP:
     def tamp(self, initial_ll_state: StateT, initial_hl_state: AbstractState) -> None:
         """Implement Algorithm 1 of Srivastava et al. (ICRA 2014)."""
         task_plan = self.task_planner.plan(initial_hl_state)
-        step = 1
-        partial_traj = None
-        s1 = initial_ll_state
+        node1 = RefinementNode(task_plan, initial_hl_state, initial_ll_state)
 
         while not self.resource_limit_reached():
-            refine_result = self.try_refine(s1, task_plan, step, partial_traj, ErrFreeMode)
+            refine_result = self.try_refine(node1, RefinementMode.ERROR_FREE)
             if refine_result is not None:
                 return refine_result
 
             while True:
-                partial_traj, s2, fail_step, fail_cause = try_refine(
-                    s1,
-                    task_plan,
-                    step,
-                    partial_traj,
-                    PartialTrajMode,
+                partial_traj, s2, fail_step, fail_cause = self.try_refine(
+                    node1,
+                    RefinementMode.PARTIAL_TRAJ,
                 )
                 hl_state = hl_state.update(fail_cause, fail_step)
                 new_plan = self.task_planner.plan(hl_state)
@@ -125,18 +135,16 @@ class TAMP:
                     s1 = s2
                     step = fail_step
 
-                if new_plan is not None or traj_count >= max_traj_count:
+                if new_plan is not None or traj_count >= self.max_traj_count:
                     break
 
-            if traj_count >= max_traj_count:
+            if traj_count >= self.max_traj_count:
                 # TODO: Clear all learned facts from the initial state
                 hl_state = initial_hl_state
 
                 # TODO: Reset pose generators with new random seed
 
-                step = 1
-                partial_traj = None
-                s1 = initial_ll_state
+                node1 = RefinementNode(task_plan, initial_hl_state, initial_ll_state)
 
     def try_refine(
         self,
@@ -144,8 +152,8 @@ class TAMP:
         task_plan: TaskPlan,
         step: int,
         traj_prefix: Trajectory,
-        mode: Mode,
-    ) -> None:
+        mode: RefinementMode,
+    ) -> RefinementResult:
         """Implement Algorithm 2 of Srivastava et al. (ICRA 2014)."""
         # TODO: Local variables, pose generators persist across calls
         if first_invocation or is_new(task_plan):
@@ -170,5 +178,5 @@ class TAMP:
                 traj = traj + plan.computed_path
                 index += 1
                 s1 = s2
-            elif mode == PartialTrajMode:
+            elif mode == RefinementMode.PARTIAL_TRAJ:
                 return (s1, traj, index + 1, plan.mp_errors)
