@@ -23,6 +23,7 @@ Fact = object  # TODO: Implement actual class
 AbstractState = set[Fact]
 """An abstract state is the set of grounded predicates (i.e., facts) that hold in a state."""
 
+# TODO: Needs `apply_effects` and `revert_effects`
 AbstractAction = object  # TODO: Implement actual class
 """An abstract action is a grounded symbolic action (i.e., grounded operator)."""
 
@@ -61,7 +62,7 @@ Trajectory = list[RobotAction[StateT]]
 """A trajectory is a sequence of low-level actions to be executed on a robot."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class MotionPlanningResult:
     """The result of a motion planning query."""
 
@@ -87,7 +88,7 @@ class RefineMode(Enum):
     PARTIAL_TRAJ = 1
 
 
-@dataclass
+@dataclass(frozen=True)
 class RefinementNode(Generic[StateT]):
     """A node representing the state of refinement during task and motion planning."""
 
@@ -109,6 +110,50 @@ class RefinementNode(Generic[StateT]):
     def copy(self) -> RefinementNode[StateT]:
         """Create and return a deep copy of the refinement node."""
         return deepcopy(self)
+
+    def backtrack_last(self, prev_state: StateT) -> RefinementNode[StateT]:
+        """Backtrack one step and return the resulting refinement node.
+
+        :param prev_state: TODO - What is this supposed to mean? How do we select it?
+        :return: Refinement state after reversing the last refined action
+        """
+        last_refined_idx = self.refine_idx - 1  # Index of the last action we've refined
+        prev_action = self.task_plan[last_refined_idx]
+
+        reverted_abstract_state = prev_action.revert_effects(self.curr_abstract_state)
+        reverted_partial_traj = self.partial_traj[:-1]  # TODO: Assumes 1:1 actions/trajectories
+
+        return RefinementNode(
+            task_plan=self.task_plan,
+            curr_abstract_state=reverted_abstract_state,
+            curr_state=prev_state,
+            refine_idx=last_refined_idx,
+            partial_traj=reverted_partial_traj,
+        )
+
+    def refine_next(self, refined_traj: Trajectory) -> RefinementNode[StateT]:
+        """Advance the refinement node by one action using the given trajectory.
+
+        :param refined_traj: Trajectory resulting from refining the current abstract action
+        :return: Refinement state after the trajectory is appended and state is advanced
+        """
+        refined_action = self.task_plan[self.refine_idx]  # Abstract action that is now refined
+        next_abstract_state = refined_action.apply_effects(self.curr_abstract_state)
+        next_state = self.curr_state
+        for traj_action in refined_traj:
+            next_state = traj_action.apply(next_state)
+
+        # TODO: This can easily be smarter: Include the abstract action index in any
+        #   refined actions, use those tuples when reverting multi-trajectory abstract actions
+        updated_traj = self.partial_traj + refined_traj
+
+        return RefinementNode(
+            task_plan=self.task_plan,
+            curr_abstract_state=next_abstract_state,
+            curr_state=next_state,
+            refine_idx=self.refine_idx + 1,
+            partial_traj=updated_traj,
+        )
 
 
 class TAMP(Generic[StateT]):
@@ -146,27 +191,26 @@ class TAMP(Generic[StateT]):
 
         # TODO: Initialize pose generators once
 
-        node1 = RefinementNode(task_plan, initial_abstract, initial_state)
+        curr_node = RefinementNode(task_plan, initial_abstract, initial_state)
 
         while not self.resource_limit_reached():
-            error_free_result = self.try_refine(node1, RefineMode.ERROR_FREE)
+            error_free_result = self.try_refine(curr_node, RefineMode.ERROR_FREE)
             if error_free_result is not None:
                 return error_free_result.partial_traj
 
             refine_attempts = 0
             while True:
-                partial_result = self.try_refine(node1, RefineMode.PARTIAL_TRAJ)
+                refined_node = self.try_refine(curr_node, RefineMode.PARTIAL_TRAJ)
                 # TODO: Assumes that the failure causes were added into the abstract state already
                 refine_attempts += 1
 
-                assert partial_result is not None
+                assert refined_node is not None
 
-                plan_suffix = self.task_planner.plan(partial_result.curr_abstract_state)
+                plan_suffix = self.task_planner.plan(refined_node.curr_abstract_state)
 
                 if plan_suffix is not None:
-                    updated_task_plan = node1.task_plan[: partial_result.refine_idx] + plan_suffix
-
-                    node1 = replace(partial_result, task_plan=updated_task_plan)
+                    new_task_plan = curr_node.task_plan[: refined_node.refine_idx] + plan_suffix
+                    curr_node = replace(refined_node, task_plan=new_task_plan)
 
                     # TODO: Re-initialize pose generators (was in try_refine)
 
@@ -176,7 +220,7 @@ class TAMP(Generic[StateT]):
             if refine_attempts >= self.max_refine_attempts:
                 # TODO: Reset pose generators with new random seed
 
-                node1 = RefinementNode(task_plan, initial_abstract, initial_state)
+                curr_node = RefinementNode(task_plan, initial_abstract, initial_state)
 
         return None
 
@@ -200,18 +244,15 @@ class TAMP(Generic[StateT]):
             if target_state is None:
                 next_action.pose_generator.reset()
 
-                # Backtrack the refinement node one step in the task plan
-                node.curr_state = action.pose_generator.next()
-                node.refine_idx -= 1
-                node.partial_traj.delete_suffix_for(action)
+                # Backtrack one step of refinement in the task plan
+                prev_state = action.pose_generator.next()
+                node = node.backtrack_last(prev_state)
                 continue
 
             plan_result = self.motion_planner.plan(node.curr_state, target_state)
             if plan_result.trajectory is not None:
                 # Append the successful motion plan to the partial refinement
-                node.partial_traj += plan_result.trajectory
-                node.refine_idx += 1
-                node.curr_state = target_state
+                node = node.refine_next(refined_traj=plan_result.trajectory)
 
                 if node.refine_idx == len(node.task_plan):
                     return node  # If we've refined the final abstract action, return the result
