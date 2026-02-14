@@ -9,28 +9,25 @@ Reference:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Generic, Protocol, TypeVar
 
 StateT = TypeVar("StateT")
 """Type variable representing a low-level environment state."""
 
-FactT = TypeVar("FactT")
-"""Type variable representing a grounded predicate that holds in a low-level state."""
+Fact = object  # TODO: Implement actual class
+"""A fact is a grounded predicate that holds in a low-level state."""
 
-AbstractState = set[FactT]
+AbstractState = set[Fact]
 """An abstract state is the set of grounded predicates (i.e., facts) that hold in a state."""
 
-AbstractActionT = TypeVar("AbstractActionT")
-"""Type variable representing grounded symbolic actions (i.e., grounded operators)."""
+AbstractAction = object  # TODO: Implement actual class
+"""An abstract action is a grounded symbolic action (i.e., grounded operator)."""
 
-TaskPlan = list[AbstractActionT]
+TaskPlan = list[AbstractAction]
 """A task plan is a sequence of planned abstract actions."""
-
-KinematicState = bool  # TODO: Implement class
-Trajectory = bool  # TODO: Implement real type
-MPErrors = list[str]  # TODO: Implement real type
 
 
 class TaskPlanner(Protocol):
@@ -41,15 +38,49 @@ class TaskPlanner(Protocol):
         ...
 
 
+class RobotAction(Protocol, Generic[StateT]):
+    """A general interface for any low-level action to be executed on a robot."""
+
+    def apply(self, curr_state: StateT) -> StateT:
+        """Directly apply the effects of the robot action onto the low-level state.
+
+        :param curr_state: Current low-level state (not to be modified)
+        :return: Updated low-level state in which the action's effects have occurred
+        """
+        ...
+
+    def execute(self, curr_state: StateT) -> None:
+        """Execute the full action on the robot.
+
+        :param curr_state: Current low-level state of the environment
+        """
+        ...
+
+
+Trajectory = list[RobotAction[StateT]]
+"""A trajectory is a sequence of low-level actions to be executed on a robot."""
+
+
+@dataclass
+class MotionPlanningResult:
+    """The result of a motion planning query."""
+
+    trajectory: Trajectory | None = None
+    """Solution trajectory found by the motion planner (or None if no solution was found)."""
+
+    failure_causes: set[Fact] | None = None
+    """Facts specifying the causes for motion planning failure (or None if planning succeeded)."""
+
+
 class MotionPlanner(Protocol):
     """Define a general interface for motion planners."""
 
-    def plan(self, start: StateT, goal: StateT) -> Trajectory:
+    def plan(self, start: StateT, goal: StateT) -> MotionPlanningResult:
         """Plan motions from the start state to the goal state."""
         ...
 
 
-class RefinementMode(Enum):
+class RefineMode(Enum):
     """Enumeration of modes during refinement of abstract actions."""
 
     ERROR_FREE = 0
@@ -63,123 +94,132 @@ class RefinementNode(Generic[StateT]):
     task_plan: TaskPlan
     """Task plan of abstract actions to be refined into concrete actions."""
 
-    abstract_refine_from: AbstractState
-    """Abstract state beyond which high-level actions still need to be refined."""
+    curr_abstract_state: AbstractState
+    """Current abstract state beyond which high-level actions still need to be refined."""
 
-    refine_from: StateT
-    """Low-level state beyond which high-level actions still need to be refined."""
+    curr_state: StateT
+    """Current low-level state beyond which high-level actions still need to be refined."""
 
-    refine_idx: int = 0  # TODO: Replace `step`, which was initialized to 1 instead
+    refine_idx: int = 0
     """Index (in the task plan) of the next abstract action to be refined."""
 
-    partial_traj: Trajectory | None = None
+    partial_traj: Trajectory = field(default_factory=list)
     """Low-level actions corresponding to successfully refined high-level actions."""
 
-
-@dataclass
-class RefinementResult(Generic[StateT, FactT]):  # TODO: Combine these two classes soon
-    """The outcome of an attempt at partial refinement of a task-level plan."""
-
-    partial_traj: Trajectory
-    """Low-level actions corresponding to successfully refined high-level actions."""
-
-    refine_from: StateT
-    """Low-level state beyond which high-level actions still need to be refined."""
-
-    refine_idx: int
-    """Index (in the task plan) of the next abstract action to be refined."""
-
-    failure_causes: set[FactT] | None = None
-    """Set of motion planning errors (stated as facts) that prevented refinement."""
+    def copy(self) -> RefinementNode[StateT]:
+        """Create and return a deep copy of the refinement node."""
+        return deepcopy(self)
 
 
-class TAMP:
+class TAMP(Generic[StateT]):
     """Implement the task and motion planning (TAMP) algorithm of Srivastava et al. (ICRA 2014)."""
 
-    def __init__(self, tp: TaskPlanner, mp: MotionPlanner, max_traj_count: int = 5000) -> None:
+    def __init__(self, tp: TaskPlanner, mp: MotionPlanner, max_attempts: int = 5000) -> None:
         """Initialize the task and motion planner.
 
         :param tp: Task planner for high-level symbolic planning
         :param mp: Motion planner for low-level motion planning
-        :param max_traj_count: Maximum number of refinement attempts before reset (default: 5000)
+        :param max_attempts: Maximum number of refinement attempts before reset (default: 5000)
         """
         self.task_planner = tp
         self.motion_planner = mp
 
-        self.max_traj_count = max_traj_count
+        self.max_refine_attempts = max_attempts
         """Maximum number of refinements attempted before planning is reset."""
 
     def resource_limit_reached(self) -> bool:
         """Check whether the resource limit for planning has been reached."""
         return False  # TODO: Implement actual logic
 
-    def tamp(self, initial_ll_state: StateT, initial_hl_state: AbstractState) -> Trajectory:
-        """Implement Algorithm 1 of Srivastava et al. (ICRA 2014)."""
-        task_plan = self.task_planner.plan(initial_hl_state)
-        node1 = RefinementNode(task_plan, initial_hl_state, initial_ll_state)
+    def tamp(self, initial_state: StateT, initial_abstract: AbstractState) -> Trajectory | None:
+        """Run task and motion planning from the given initial state.
+
+        This method implements Algorithm 1 (pg. 643) of Srivastava et al. (ICRA 2014).
+
+        :param initial_state: Initial low-level environment state in the problem
+        :param initial_abstract: Abstract state corresponding to the initial low-level state
+        :return: Low-level motion plan solving the problem, or None if no plan is found
+        """
+        task_plan = self.task_planner.plan(initial_abstract)
+        if task_plan is None:
+            return None
+
+        # TODO: Initialize pose generators once
+
+        node1 = RefinementNode(task_plan, initial_abstract, initial_state)
 
         while not self.resource_limit_reached():
-            error_free_result = self.try_refine(node1, RefinementMode.ERROR_FREE)
+            error_free_result = self.try_refine(node1, RefineMode.ERROR_FREE)
             if error_free_result is not None:
                 return error_free_result.partial_traj
 
-            traj_count = 0  # TODO: Rename to refine_attempts
+            refine_attempts = 0
             while True:
-                # partial_traj, s2, fail_step, fail_cause
-
-                partial_result = self.try_refine(node1, RefinementMode.PARTIAL_TRAJ)
+                partial_result = self.try_refine(node1, RefineMode.PARTIAL_TRAJ)
                 # TODO: Assumes that the failure causes were added into the abstract state already
-                traj_count += 1
+                refine_attempts += 1
 
-                new_hl_state = partial_result.hl_state
-                new_plan_suffix = self.task_planner.plan(new_hl_state)
+                assert partial_result is not None
 
-                if new_plan_suffix is not None:
-                    node1 = RefinementNode(
-                        task_plan=node1.task_plan[: partial_result.refine_idx] + new_plan_suffix,
-                        abstract_refine_from=partial_result.abstract_refine_from,
-                        refine_from=partial_result.refine_from,
-                        refine_idx=partial_result.refine_idx,
-                    )  # TODO: If all of this is the same, shouldn't we just combine the classes?
+                plan_suffix = self.task_planner.plan(partial_result.curr_abstract_state)
 
-                if new_plan_suffix is not None or traj_count >= self.max_traj_count:
+                if plan_suffix is not None:
+                    updated_task_plan = node1.task_plan[: partial_result.refine_idx] + plan_suffix
+
+                    node1 = replace(partial_result, task_plan=updated_task_plan)
+
+                    # TODO: Re-initialize pose generators (was in try_refine)
+
+                if plan_suffix is not None or refine_attempts >= self.max_refine_attempts:
                     break
 
-            if traj_count >= self.max_traj_count:
+            if refine_attempts >= self.max_refine_attempts:
                 # TODO: Reset pose generators with new random seed
 
-                node1 = RefinementNode(task_plan, initial_hl_state, initial_ll_state)
+                node1 = RefinementNode(task_plan, initial_abstract, initial_state)
 
-    def try_refine(self, node: RefinementNode, mode: RefinementMode) -> RefinementResult | None:
-        """Implement Algorithm 2 of Srivastava et al. (ICRA 2014)."""
+        return None
+
+    def try_refine(self, curr_node: RefinementNode, mode: RefineMode) -> RefinementNode | None:
+        """Attempt to refine the remaining abstract actions in the given node.
+
+        This method implements Algorithm 2 (pg. 643) of Srivastava et al. (ICRA 2014).
+
+        :param curr_node: Captures the current state of partial refinement during TAMP
+        :param mode: Mode defining refinement behavior (i.e., error-free or partial trajectory)
+        :return: Result of successful error-free or failed partial refinement, or None if
+            error-free mode failed
+        """
         # TODO: Local variables, pose generators persist across calls
-        if first_invocation or is_new(task_plan):
-            refine_node = copy(node)
-            # TODO: Initialize pose generators
+        node = curr_node.copy()
 
-        while node.refine_idx <= refine_node.refine_idx < len(task_plan):
-            action = task_plan[refine_node.refine_idx]
-            next_action = task_plan[refine_node.refine_idx + 1]
-            s2 = action.pose_generator.next()
-            if s2 is None:
+        while curr_node.refine_idx <= node.refine_idx < len(node.task_plan):
+            action = node.task_plan[node.refine_idx]
+            next_action = node.task_plan[node.refine_idx + 1]
+            target_state = next_action.pose_generator.next()
+            if target_state is None:
                 next_action.pose_generator.reset()
 
                 # Backtrack the refinement node one step in the task plan
-                refine_node.refine_from = action.pose_generator.next()
-                refine_node.refine_idx -= 1
-                refine_node.partial_traj.delete_suffix_for(action)
+                node.curr_state = action.pose_generator.next()
+                node.refine_idx -= 1
+                node.partial_traj.delete_suffix_for(action)
                 continue
-            plan_result = self.motion_planner.plan(refine_node.s1, s2)
-            if plan is not None:
-                if refine_node.refine_idx == len(node.task_plan):
-                    return plan_result.trajectory
-                refine_node.partial_traj += plan_result.computed_path
-                refine_node.refine_idx += 1
-                refine_node.refine_from = s2
-            elif mode == RefinementMode.PARTIAL_TRAJ:
-                return RefinementResult(
-                    partial_traj=refine_node.partial_traj,
-                    refine_from=refine_node.refine_from,
-                    refine_idx=refine_node.refine_idx,
-                    failure_causes=plan_result.mp_errors,
-                )
+
+            plan_result = self.motion_planner.plan(node.curr_state, target_state)
+            if plan_result.trajectory is not None:
+                # Append the successful motion plan to the partial refinement
+                node.partial_traj += plan_result.trajectory
+                node.refine_idx += 1
+                node.curr_state = target_state
+
+                if node.refine_idx == len(node.task_plan):
+                    return node  # If we've refined the final abstract action, return the result
+
+            elif mode == RefineMode.PARTIAL_TRAJ:
+                assert plan_result.failure_causes is not None
+                node.curr_abstract_state.update(plan_result.failure_causes)
+
+                return node
+
+        return None
