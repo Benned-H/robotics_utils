@@ -36,7 +36,7 @@ MPErrors = list[str]  # TODO: Implement real type
 class TaskPlanner(Protocol):
     """Define a general interface for task planners."""
 
-    def plan(self, abstract_state: AbstractState) -> TaskPlan:
+    def plan(self, abstract_state: AbstractState) -> TaskPlan | None:
         """Plan from the given abstract state to the stored problem's goal state."""
         ...
 
@@ -77,7 +77,7 @@ class RefinementNode(Generic[StateT]):
 
 
 @dataclass
-class RefinementResult(Generic[StateT]):  # TODO: Combine these two classes soon
+class RefinementResult(Generic[StateT, FactT]):  # TODO: Combine these two classes soon
     """The outcome of an attempt at partial refinement of a task-level plan."""
 
     partial_traj: Trajectory
@@ -89,8 +89,8 @@ class RefinementResult(Generic[StateT]):  # TODO: Combine these two classes soon
     refine_idx: int
     """Index (in the task plan) of the next abstract action to be refined."""
 
-    errors: MPErrors | None = None
-    """List of motion planning errors that prevented refinement."""
+    failure_causes: set[FactT] | None = None
+    """Set of motion planning errors (stated as facts) that prevented refinement."""
 
 
 class TAMP:
@@ -113,70 +113,73 @@ class TAMP:
         """Check whether the resource limit for planning has been reached."""
         return False  # TODO: Implement actual logic
 
-    def tamp(self, initial_ll_state: StateT, initial_hl_state: AbstractState) -> None:
+    def tamp(self, initial_ll_state: StateT, initial_hl_state: AbstractState) -> Trajectory:
         """Implement Algorithm 1 of Srivastava et al. (ICRA 2014)."""
         task_plan = self.task_planner.plan(initial_hl_state)
         node1 = RefinementNode(task_plan, initial_hl_state, initial_ll_state)
 
         while not self.resource_limit_reached():
-            refine_result = self.try_refine(node1, RefinementMode.ERROR_FREE)
-            if refine_result is not None:
-                return refine_result
+            error_free_result = self.try_refine(node1, RefinementMode.ERROR_FREE)
+            if error_free_result is not None:
+                return error_free_result.partial_traj
 
+            traj_count = 0  # TODO: Rename to refine_attempts
             while True:
-                partial_traj, s2, fail_step, fail_cause = self.try_refine(
-                    node1,
-                    RefinementMode.PARTIAL_TRAJ,
-                )
-                hl_state = hl_state.update(fail_cause, fail_step)
-                new_plan = self.task_planner.plan(hl_state)
-                if new_plan is not None:
-                    task_plan = task_plan[:fail_step] + new_plan
-                    s1 = s2
-                    step = fail_step
+                # partial_traj, s2, fail_step, fail_cause
 
-                if new_plan is not None or traj_count >= self.max_traj_count:
+                partial_result = self.try_refine(node1, RefinementMode.PARTIAL_TRAJ)
+                # TODO: Assumes that the failure causes were added into the abstract state already
+                traj_count += 1
+
+                new_hl_state = partial_result.hl_state
+                new_plan_suffix = self.task_planner.plan(new_hl_state)
+
+                if new_plan_suffix is not None:
+                    node1 = RefinementNode(
+                        task_plan=node1.task_plan[: partial_result.refine_idx] + new_plan_suffix,
+                        abstract_refine_from=partial_result.abstract_refine_from,
+                        refine_from=partial_result.refine_from,
+                        refine_idx=partial_result.refine_idx,
+                    )  # TODO: If all of this is the same, shouldn't we just combine the classes?
+
+                if new_plan_suffix is not None or traj_count >= self.max_traj_count:
                     break
 
             if traj_count >= self.max_traj_count:
-                # TODO: Clear all learned facts from the initial state
-                hl_state = initial_hl_state
-
                 # TODO: Reset pose generators with new random seed
 
                 node1 = RefinementNode(task_plan, initial_hl_state, initial_ll_state)
 
-    def try_refine(
-        self,
-        initial_state: StateT,
-        task_plan: TaskPlan,
-        step: int,
-        traj_prefix: Trajectory,
-        mode: RefinementMode,
-    ) -> RefinementResult:
+    def try_refine(self, node: RefinementNode, mode: RefinementMode) -> RefinementResult | None:
         """Implement Algorithm 2 of Srivastava et al. (ICRA 2014)."""
         # TODO: Local variables, pose generators persist across calls
         if first_invocation or is_new(task_plan):
-            index = step - 1
-            traj = traj_prefix
+            refine_node = copy(node)
             # TODO: Initialize pose generators
-            s1 = initial_state
-        while step - 1 <= index <= len(task_plan):
-            action = task_plan[index]
-            next_action = task_plan[index + 1]
+
+        while node.refine_idx <= refine_node.refine_idx < len(task_plan):
+            action = task_plan[refine_node.refine_idx]
+            next_action = task_plan[refine_node.refine_idx + 1]
             s2 = action.pose_generator.next()
             if s2 is None:
                 next_action.pose_generator.reset()
-                s1 = action.pose_generator.next()
-                index -= 1
-                traj = traj.delete_suffix_for(action)
+
+                # Backtrack the refinement node one step in the task plan
+                refine_node.refine_from = action.pose_generator.next()
+                refine_node.refine_idx -= 1
+                refine_node.partial_traj.delete_suffix_for(action)
                 continue
-            plan = motion_planner.plan(s1, s2)
+            plan_result = self.motion_planner.plan(refine_node.s1, s2)
             if plan is not None:
-                if index == len(task_plan) + 1:
-                    return traj
-                traj = traj + plan.computed_path
-                index += 1
-                s1 = s2
+                if refine_node.refine_idx == len(node.task_plan):
+                    return plan_result.trajectory
+                refine_node.partial_traj += plan_result.computed_path
+                refine_node.refine_idx += 1
+                refine_node.refine_from = s2
             elif mode == RefinementMode.PARTIAL_TRAJ:
-                return (s1, traj, index + 1, plan.mp_errors)
+                return RefinementResult(
+                    partial_traj=refine_node.partial_traj,
+                    refine_from=refine_node.refine_from,
+                    refine_idx=refine_node.refine_idx,
+                    failure_causes=plan_result.mp_errors,
+                )
