@@ -241,7 +241,7 @@ class TAMP(Generic[StateT]):
             action = node.task_plan[node.refine_idx]
             next_action = node.task_plan[node.refine_idx + 1]
             target_state = next_action.pose_generator.next()
-            if target_state is None:
+            if target_state is None:  # If generator runs out of possible poses, backtrack
                 next_action.pose_generator.reset()
 
                 # Backtrack one step of refinement in the task plan

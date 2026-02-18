@@ -5,6 +5,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar
 
+import numpy as np
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -34,12 +36,15 @@ class Generator(ABC, Generic[InputT, OutputT]):
         :yield: Sequence of generated output values
         """
 
-    def __init__(self, inputs: InputT) -> None:
+    def __init__(self, inputs: InputT, rng: np.random.Generator | int | None = None) -> None:
         """Initialize the generator's internal state using the given inputs.
 
         :param inputs: Values on which the generator is conditioned
+        :param rng: Optional random number generator or RNG seed (default: None)
         """
         self.inputs = inputs
+        self._rng = np.random.default_rng(rng)
+
         self._generator_state: Iterator[OutputT] = self._generate(self.inputs)
         self._call_count = 0
         """Number of times next() has been called on the generator."""
