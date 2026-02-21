@@ -1,7 +1,7 @@
 """Define a protocol for skills on the Boston Dynamics Spot mobile manipulator."""
 
 import time
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 
 import rospy
@@ -49,6 +49,7 @@ from robotics_utils.ros.msg_conversion import (
 from robotics_utils.ros.robots import MoveItManipulator
 from robotics_utils.skills import Outcome, SkillsProtocol, skill_method
 from robotics_utils.spatial import DEFAULT_FRAME, Pose3D
+from robotics_utils.states import GraspAttachment
 
 SPOT_GRIPPER_OPEN_RAD = -1.5707
 SPOT_GRIPPER_CLOSED_RAD = 0.0
@@ -930,7 +931,11 @@ class SpotSkillsProtocol(SkillsProtocol):
         return Outcome(success=response.success, message=response.message)
 
     @skill_method
-    def estimate_pose(self, object_name: str = "black_dresser", duration_s: float = 5.0) -> Outcome:
+    def estimate_pose(
+        self,
+        object_name: str = "filing_cabinet",
+        duration_s: float = 5.0,
+    ) -> Outcome:
         """Estimate the pose of the named object using AprilTag markers.
 
         :param object_name: Name of the object to pose estimate

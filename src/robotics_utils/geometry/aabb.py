@@ -48,6 +48,16 @@ class AxisAlignedBoundingBox:
         all_xyzs = itertools.product((min_x, max_x), (min_y, max_y), (min_z, max_z))
         return (Point3D.from_sequence(xyz) for xyz in all_xyzs)
 
+    @property
+    def size_x_m(self) -> float:
+        """Compute the size (meters) of the axis-aligned bounding box along the x-axis."""
+        return self.max_xyz.x - self.min_xyz.x
+
+    @property
+    def size_y_m(self) -> float:
+        """Compute the size (meters) of the axis-aligned bounding box along the y-axis."""
+        return self.max_xyz.y - self.min_xyz.y
+
     def contains(self, entity: Point3D | AxisAlignedBoundingBox) -> bool:
         """Evaluate whether the bounding box contains the given entity."""
         if isinstance(entity, Point3D):

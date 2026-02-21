@@ -3,6 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import Generic, Iterator, TypeVar
 
+import numpy as np
+
 InputT = TypeVar("InputT")
 """Represents an object or tuple of objects input into a generator."""
 
@@ -37,6 +39,8 @@ class Generator(ABC, Generic[InputT, OutputT]):
         self._generator_state: Iterator[OutputT] = self._generate(self.inputs)
         self._call_count = 0
         """Number of times `next()` has been called on the generator."""
+
+        self.rng = np.random.default_rng()  # TODO: Allow seeding and resetting
 
     def __iter__(self) -> Iterator[OutputT]:
         """Return the generator itself, providing an Iterator over its output values."""
