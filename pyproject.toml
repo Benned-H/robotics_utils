@@ -19,6 +19,7 @@ dependencies = [
     "distinctipy",
     "scipy",
     "scikit-image",
+    "unified-planning[fast-downward]",
 ]
 
 # Optional dependencies support optional user features

@@ -297,6 +297,47 @@ wheels = [
 ]
 
 [[package]]
+name = "configspace"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.9'",
+]
+dependencies = [
+    { name = "more-itertools", version = "10.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "numpy", version = "1.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "pyparsing", version = "3.1.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "scipy", version = "1.10.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "typing-extensions", version = "4.13.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ef/a8/f39da6b134b854ec2ce5f09cfefcf146ec2672b8e9698fb789c7c4484678/configspace-1.2.0.tar.gz", hash = "sha256:d23fa9006a768266af539946d61c3cc5b59662286185333baf57fc0313850ab1", size = 130807, upload-time = "2024-07-30T16:05:53.509Z" }
+
+[[package]]
+name = "configspace"
+version = "1.2.2"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version == '3.10.*'",
+    "python_full_version == '3.9.*'",
+]
+dependencies = [
+    { name = "more-itertools", version = "10.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+    { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "pyparsing", version = "3.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+    { name = "scipy", version = "1.13.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "scipy", version = "1.16.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "typing-extensions", version = "4.14.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ae/51/7a63132fdc3a71eea66d9f81b451a61a38631af0a73bdcda1ec784cea32e/configspace-1.2.2.tar.gz", hash = "sha256:b5cc981c145ef9632104d230acf963c2f68fe5a375983946e941c2eec5dd08e4", size = 134158, upload-time = "2025-12-19T12:52:39.628Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/56/67/01bf8795064d2132d7244341908f75bb2ea87dc114364cd8c5b20c606a8f/configspace-1.2.2-py3-none-any.whl", hash = "sha256:9dd5090fab08fbfc0fa8a66affb53e991e9df65ae20959fcee8e544bb3c0a09d", size = 117584, upload-time = "2025-12-19T12:52:37.545Z" },
+]
+
+[[package]]
 name = "contourpy"
 version = "1.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1904,6 +1945,33 @@ wheels = [
 ]
 
 [[package]]
+name = "more-itertools"
+version = "10.5.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.9'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/51/78/65922308c4248e0eb08ebcbe67c95d48615cc6f27854b6f2e57143e9178f/more-itertools-10.5.0.tar.gz", hash = "sha256:5482bfef7849c25dc3c6dd53a6173ae4795da2a41a80faea6700d9f5846c5da6", size = 121020, upload-time = "2024-09-05T15:28:22.081Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/48/7e/3a64597054a70f7c86eb0a7d4fc315b8c1ab932f64883a297bdffeb5f967/more_itertools-10.5.0-py3-none-any.whl", hash = "sha256:037b0d3203ce90cca8ab1defbbdac29d5f993fc20131f3664dc8d6acfa872aef", size = 60952, upload-time = "2024-09-05T15:28:20.141Z" },
+]
+
+[[package]]
+name = "more-itertools"
+version = "10.8.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version == '3.10.*'",
+    "python_full_version == '3.9.*'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ea/5d/38b681d3fce7a266dd9ab73c66959406d565b3e85f21d5e66e1181d93721/more_itertools-10.8.0.tar.gz", hash = "sha256:f638ddf8a1a0d134181275fb5d58b086ead7c6a72429ad725c67503f13ba30bd", size = 137431, upload-time = "2025-09-02T15:23:11.018Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a4/8e/469e5a4a2f5855992e425f3cb33804cc07bf18d48f2db061aec61ce50270/more_itertools-10.8.0-py3-none-any.whl", hash = "sha256:52d4362373dcf7c52546bc4af9a86ee7c4579df9a8dc268be0a2f949d376cc9b", size = 69667, upload-time = "2025-09-02T15:23:09.635Z" },
+]
+
+[[package]]
 name = "mpmath"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3374,6 +3442,8 @@ dependencies = [
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "scipy", version = "1.16.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "trimesh" },
+    { name = "unified-planning", version = "1.1.0", source = { registry = "https://pypi.org/simple" }, extra = ["fast-downward"], marker = "python_full_version < '3.9'" },
+    { name = "unified-planning", version = "1.3.0", source = { registry = "https://pypi.org/simple" }, extra = ["fast-downward"], marker = "python_full_version >= '3.9'" },
 ]
 
 [package.optional-dependencies]
@@ -3483,6 +3553,7 @@ requires-dist = [
     { name = "transformers", marker = "python_full_version >= '3.10' and extra == 'sam3'", specifier = ">=5.0.0rc1" },
     { name = "transformers", marker = "extra == 'vision'", specifier = ">=4.21.3" },
     { name = "trimesh" },
+    { name = "unified-planning", extras = ["fast-downward"] },
 ]
 provides-extras = ["vision", "realsense", "gemini", "sam3", "all"]
 
@@ -4833,6 +4904,89 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/95/32/1a225d6164441be760d75c2c42e2780dc0873fe382da3e98a2e1e48361e5/tzdata-2025.2.tar.gz", hash = "sha256:b60a638fcc0daffadf82fe0f57e53d06bdec2f36c4df66280ae79bce6bd6f2b9", size = 196380, upload-time = "2025-03-23T13:54:43.652Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5c/23/c7abc0ca0a1526a0774eca151daeb8de62ec457e77262b66b359c3c7679e/tzdata-2025.2-py2.py3-none-any.whl", hash = "sha256:1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8", size = 347839, upload-time = "2025-03-23T13:54:41.845Z" },
+]
+
+[[package]]
+name = "unified-planning"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.9'",
+]
+dependencies = [
+    { name = "configspace", version = "1.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "networkx", version = "3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "pyparsing", version = "3.1.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3f/78/1af4f383c7ee698a2d72518e8a0e23aee39170742cc59a3802077761352e/unified_planning-1.1.0.tar.gz", hash = "sha256:43b8b695e2c8f6aa78b7789995b2d9fb728db23852d239612a9062deb65167aa", size = 484174, upload-time = "2024-02-09T09:53:55.412Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/4e/13e159bf4122da7ada45494d298fc00f5e1db40ac878ae61f910ea8b0e52/unified_planning-1.1.0-py3-none-any.whl", hash = "sha256:936bad8676fd5cddd6f0afb148c3084eec72aa78cbff584cc5d000c1f890f790", size = 706649, upload-time = "2024-02-09T09:53:51.632Z" },
+]
+
+[package.optional-dependencies]
+fast-downward = [
+    { name = "up-fast-downward", version = "0.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+]
+
+[[package]]
+name = "unified-planning"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version == '3.10.*'",
+    "python_full_version == '3.9.*'",
+]
+dependencies = [
+    { name = "configspace", version = "1.2.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+    { name = "networkx", version = "3.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "networkx", version = "3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pyparsing", version = "3.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ac/46/b47cea09306a213e98160f7b6c3fb85d08c954066e413ced6758482a4419/unified_planning-1.3.0.tar.gz", hash = "sha256:9f1914377172626e512bd4c1545aebddbfd4752bf37b36f9cd41ff059a7e6a52", size = 513819, upload-time = "2025-12-17T10:55:57.391Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b2/9d/e1fe9f8f478fcdf45ddecdb9587f6a6befe4d434159f51d2759afe4accbe/unified_planning-1.3.0-py3-none-any.whl", hash = "sha256:3ad9c790d238a12ce1dfd25f564e728d98350a0b4b79d3beb60978f95487fa46", size = 743538, upload-time = "2025-12-17T10:55:55.591Z" },
+]
+
+[package.optional-dependencies]
+fast-downward = [
+    { name = "up-fast-downward", version = "0.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+]
+
+[[package]]
+name = "up-fast-downward"
+version = "0.4.1"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.9'",
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/98/64/6450cbef9e1b73ec7c3c304feff46a0b2907af7c367997d7582bc02122c9/up_fast_downward-0.4.1-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:0edc490834d9b2a5fede5a14b62c4addd4fa503189d9c9334ccaa3eea988836f", size = 1585323, upload-time = "2023-12-05T09:59:57.671Z" },
+    { url = "https://files.pythonhosted.org/packages/14/e2/4545b6016033eb96dac49500651432dd8e04d36ccad02989f30b13f0a6e4/up_fast_downward-0.4.1-py3-none-macosx_11_0_arm64.whl", hash = "sha256:670c29dbd631732546af2469576037edfbc7299043ab187fa518ae33ff9fed80", size = 1580733, upload-time = "2023-12-05T09:59:59.902Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/8d/8ac75cb1bb2f0f59474ed6d89268a473463e4405ad835a7d6876abe75b94/up_fast_downward-0.4.1-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f7b72fb8043608d1454ff31b7ada80cb3a84e8db78e04afa1665d326c5586276", size = 49355104, upload-time = "2023-12-05T10:00:02.463Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/7e/44e18ef78079e00b2e2e60dbb9bf3c0b4720e49bed59b3e682f93f6b8b90/up_fast_downward-0.4.1-py3-none-win_amd64.whl", hash = "sha256:0efea97ab8a7f44881a65c0c4abe292228d59d1cf8b62a5080a8d23f03a8c08c", size = 1056312, upload-time = "2023-12-05T10:00:06.123Z" },
+]
+
+[[package]]
+name = "up-fast-downward"
+version = "0.5.2"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version == '3.10.*'",
+    "python_full_version == '3.9.*'",
+]
+dependencies = [
+    { name = "setuptools", version = "80.9.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f4/3f/06bd477e74544e1bf39a631fbf013f7498260e516281d092eaa532b63260/up_fast_downward-0.5.2-py3-none-macosx_11_0_arm64.whl", hash = "sha256:09050451394a19dbc71ae599f6d99f9f3abdb9fe49a1d27e949935b87b685e69", size = 1584359, upload-time = "2025-08-05T16:36:54.029Z" },
+    { url = "https://files.pythonhosted.org/packages/19/28/dd19a6993b88017de23a807ffd9500db1459e13a13285842ff50d3d701f0/up_fast_downward-0.5.2-py3-none-macosx_11_0_x86_64.whl", hash = "sha256:99e669221ac77ca6b23a18e18ebc3f86c2509dfd483b6e35cc36b610775c3810", size = 1690464, upload-time = "2025-08-05T16:36:56.44Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/cf/47ef90a5b310a195b19971f3eb03d3aa8a5dd7c949924d1f6cd526a0fe7c/up_fast_downward-0.5.2-py3-none-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0655ea3bbeef8e98cba0ec6e96dd8f51329180b3a2c9e3d3a4e065b5266c1efb", size = 50935499, upload-time = "2025-08-05T16:36:58.694Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/7d/aae7c61bb92257d6c2a8a82e98ca3bf5bd3ad6f0a93f4024a00529a598b3/up_fast_downward-0.5.2-py3-none-win_amd64.whl", hash = "sha256:12ef5427277dc2c8718c9746d891a2d87b5e6abd042184c5dd2244b64db935f4", size = 1129281, upload-time = "2025-08-05T16:37:01.942Z" },
 ]
 
 [[package]]
