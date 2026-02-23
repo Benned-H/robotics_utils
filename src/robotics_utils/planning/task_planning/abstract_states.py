@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable
 
 if TYPE_CHECKING:
-    from robotics_utils.abstractions.symbols.ground_atom import GroundAtom
-    from robotics_utils.abstractions.symbols.objects import ObjectSymbols
-    from robotics_utils.abstractions.symbols.predicate import Predicate
+    from robotics_utils.planning.task_planning.ground_atom import GroundAtom
+    from robotics_utils.planning.task_planning.object_symbols import ObjectSymbols
+    from robotics_utils.planning.task_planning.predicate import Predicate
 
 
 @dataclass(frozen=True)
@@ -18,12 +18,12 @@ class AbstractState:
     facts: frozenset[GroundAtom]
 
     def __contains__(self, ground_atom: GroundAtom) -> bool:
-        """Evaluate whether the given ground atom is in the abstract state."""
+        """Evaluate whether the abstract state contains the given ground atom."""
         return ground_atom in self.facts
 
     def __str__(self) -> str:
         """Create a human-readable string representation of the abstract state."""
-        sorted_facts = "\n\t".join(sorted(str(fact) for fact in self.facts))
+        sorted_facts = "\n\t".join(sorted(str(f) for f in self.facts))
         return f"AbstractState(\n\t{sorted_facts}\n)"
 
 

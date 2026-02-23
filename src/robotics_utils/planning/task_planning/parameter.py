@@ -1,25 +1,24 @@
-"""Define a class to represent discrete, typed parameters."""
+"""Define a class to represent a typed parameter."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Dict
 
-from robotics_utils.abstractions.symbols.objects import ObjectSymbol
+from robotics_utils.planning.task_planning.object_symbols import ObjectSymbol
 
 
 @dataclass(frozen=True)
-class DiscreteParameter:
-    """A discrete parameter specifying a type constraint.
+class Parameter:
+    """A parameter specifying a type constraint.
 
     Equivalent to a typed variable in PDDL.
     """
 
     name: str
     """Name of the lifted parameter."""
-
     type_: str
     """Object type expected by the parameter."""
-
     semantics: str | None = None
     """Optional natural language description of the parameter's meaning."""
 
@@ -29,10 +28,10 @@ class DiscreteParameter:
         return f"{self.name} (type {self.type_}){semantics}"
 
     @property
-    def lifted_name(self) -> str:
+    def pddl_variable_name(self) -> str:
         """Retrieve the parameter's name as a PDDL variable name."""
         return self.name if self.name.startswith("?") else f"?{self.name}"
 
 
-Bindings = dict[str, ObjectSymbol]
+Bindings = Dict[str, ObjectSymbol]
 """A mapping from parameter names to symbols representing bound concrete objects."""

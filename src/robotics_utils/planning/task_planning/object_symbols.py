@@ -21,16 +21,17 @@ class ObjectSymbols:
     def __init__(self, objects: Iterable[ObjectSymbol]) -> None:
         """Initialize the collection of object symbols."""
         self._objects: dict[str, ObjectSymbol] = {obj.name: obj for obj in objects}
+        """A map from each object name to its object symbol."""
 
         self._objects_of_type: dict[str, set[ObjectSymbol]] = defaultdict(set)
-        """Map from each type name to the set of objects of that type."""
+        """A map from each type name to the set of objects of that type."""
 
-        for obj in self._objects.values():
+        for obj in objects:
             self._objects_of_type[obj.type_].add(obj)
 
     @property
     def object_names(self) -> KeysView[str]:
-        """Retrieve the names of all objects in this collection."""
+        """Retrieve the names of all objects in the collection."""
         return self._objects.keys()
 
     @property
@@ -47,8 +48,10 @@ class ObjectSymbols:
         return self._objects.get(obj_name)
 
     def get_objects_of_type(self, obj_type: str) -> set[ObjectSymbol]:
-        """Retrieve all stored object symbols with the given type.
+        """Retrieve all stored objects with the given type.
 
+        :param obj_type: Type of objects returned
+        :return: Set of objects of the requested type
         :raises KeyError: If an unknown object type is given
         """
         if obj_type not in self._objects_of_type:
