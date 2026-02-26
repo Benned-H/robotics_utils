@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from robotics_utils.robots.angular_gripper import AngularGripper
     from robotics_utils.skills import Outcome
     from robotics_utils.spatial import Pose3D
+    from robotics_utils.states import GraspAttachment
 
 TrajectoryT = TypeVar("TrajectoryT")
 """Type of the motion plans computed and/or executed by a manipulator."""
@@ -74,7 +75,7 @@ class Manipulator(ABC, Generic[TrajectoryT]):
         ...
 
     @abstractmethod
-    def grasp(self, object_name: str) -> Outcome[Pose3D]:
+    def grasp(self, object_name: str) -> Outcome[GraspAttachment]:
         """Grasp the named object using the manipulator's gripper.
 
         This method should close the robot's gripper and update the kinematic state appropriately.

@@ -20,6 +20,9 @@ from spot_skills.srv import (
     OpenDoor,
     OpenDoorRequest,
     OpenDoorResponse,
+    PlaceObject,
+    PlaceObjectRequest,
+    PlaceObjectResponse,
     PlaybackTrajectory,
     PlaybackTrajectoryRequest,
     PlaybackTrajectoryResponse,
@@ -99,10 +102,10 @@ class SpotSkillsProtocol(SkillsProtocol):
             "spot/grasp_object",
             NameService,
         )
-        self._release_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
-            "spot/release_object",
-            NameService,
-        )
+        # self._release_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
+        #     "spot/release_object",
+        #     NameService,
+        # )
         self._reset_state_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
             "spot/reset_state",
             NameService,
@@ -129,6 +132,11 @@ class SpotSkillsProtocol(SkillsProtocol):
             ComputeMotionPlanRequest,
             ComputeMotionPlanResponse,
         ]("spot/compute_motion_plan", ComputeMotionPlan)
+
+        self._place_caller = ServiceCaller[PlaceObjectRequest, PlaceObjectResponse](
+            "spot/place_object",
+            PlaceObject,
+        )
 
         self._arm = manipulator
         self._gripper = manipulator.gripper
@@ -571,19 +579,19 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         return Outcome(success=response.success, message=response.message)
 
-    @skill_method
-    def _release_object(self, object_name: str) -> Outcome:
-        """Release the named object by opening Spot's gripper.
+    # @skill_method
+    # def _release_object(self, object_name: str) -> Outcome:
+    #     """Release the named object by opening Spot's gripper.
 
-        :param object_name: Name of the object to be released
-        :return: Boolean success indicator and an outcome message
-        """
-        console.print(f"Releasing object '{object_name}'...")
-        response = self._release_caller(NameServiceRequest(name=object_name))
-        if response is None:
-            return Outcome(success=False, message="Release object service returned None.")
+    #     :param object_name: Name of the object to be released
+    #     :return: Boolean success indicator and an outcome message
+    #     """
+    #     console.print(f"Releasing object '{object_name}'...")
+    #     response = self._release_caller(NameServiceRequest(name=object_name))
+    #     if response is None:
+    #         return Outcome(success=False, message="Release object service returned None.")
 
-        return Outcome(success=response.success, message=response.message)
+    #     return Outcome(success=response.success, message=response.message)
 
     @skill_method
     def pick(
@@ -852,9 +860,6 @@ class SpotSkillsProtocol(SkillsProtocol):
         self,
         object_name: str,
         surface_name: str,
-        pre_place_lift_m: float,
-        place_pose_s_o: Pose3D,
-        post_place_x_m: float,
         *,
         stow_after: bool,
     ) -> Outcome:
@@ -862,45 +867,23 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         :param object_name: Name of the held object to be placed
         :param surface_name: Name of the surface onto which the object is placed
-        :param pre_place_lift_m: Offset (+z meters) from the placement pose to the pre-place pose
-        :param place_pose_s_o: Placement pose of the object w.r.t. the surface frame
-        :param post_place_x_m: Offset (abs. m) of the post-place pose "back" (-x) from place pose
         :param stow_after: If True, stow Spot's arm after placing the object
         :return: Boolean success indicator and outcome message
         """
         console.print(f"Placing object '{object_name}' on surface '{surface_name}'...")
 
-        grasped_pose_o_ee = TransformManager.lookup_transform(self._arm.ee_link_name, object_name)
-        if grasped_pose_o_ee is None:
-            return Outcome(False, f"Unable to place '{object_name}' due to pose lookup failure.")
-        place_pose_s_ee = place_pose_s_o @ grasped_pose_o_ee  # end-effector w.r.t. surface
+        # Call the ROS service to place the specified object
+        request = PlaceObjectRequest(object_name=object_name, surface_name=surface_name)
+        response = self._place_caller(request)
 
-        place_pose_w_ee = TransformManager.convert_to_frame(place_pose_s_ee, DEFAULT_FRAME)
-        preplace_z = place_pose_w_ee.position.z + pre_place_lift_m
-        preplace_position = replace(place_pose_w_ee.position, z=preplace_z)
-        preplace_pose_w_ee = replace(place_pose_w_ee, position=preplace_position)
+        if response is None:
+            return Outcome(success=False, message="PlaceObject service response was None.")
 
-        postplace_wrt_place = Pose3D.from_xyz_rpy(x=-abs(post_place_x_m))
-        postplace_pose_s_ee = place_pose_s_ee @ postplace_wrt_place
-
-        preplace_outcome = self._move_ee_to_pose(preplace_pose_w_ee, f"preplace_{object_name}")
-        if not preplace_outcome.success:
-            return preplace_outcome
-
-        move_to_place_outcome = self._move_ee_to_pose(place_pose_s_ee, f"place_{object_name}")
-        if not move_to_place_outcome.success:
-            return move_to_place_outcome
-
-        release_outcome = self._release_object(object_name)
-        if not release_outcome.success:
-            return release_outcome
-
-        postplace_outcome = self._move_ee_to_pose(postplace_pose_s_ee, f"postplace_{object_name}")
-        if not postplace_outcome.success:
-            return postplace_outcome
+        if not response.success:
+            return Outcome(success=response.success, message=response.message)
 
         if stow_after:
-            stow_outcome = self.stow_arm()
+            stow_outcome = self.stow_arm(close_gripper=True)
             if not stow_outcome.success:
                 return stow_outcome
 

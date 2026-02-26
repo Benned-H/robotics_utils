@@ -196,7 +196,7 @@ class MoveItManipulator(Manipulator[Trajectory]):
 
         return dict(zip(self.joint_names, list(ik_solution)))
 
-    def grasp(self, object_name: str) -> Outcome[Pose3D]:
+    def grasp(self, object_name: str) -> Outcome[GraspAttachment]:
         """Grasp the named object by closing the manipulator's gripper.
 
         :return: Boolean success, outcome message, and end-effector relative pose of the object
@@ -224,21 +224,22 @@ class MoveItManipulator(Manipulator[Trajectory]):
         if not self.gripper.close():
             return Outcome(False, f"Failed to close gripper when grasping '{object_name}'.")
 
+        grasp_params = GraspAttachment(
+            obj_name=object_name,
+            robot_name=self.robot_name,
+            ee_link_name=self.ee_link_name,
+            pose_ee_o=pose_ee_o,
+            touching_link_names=self.gripper.link_names,
+        )
+
         # If the environment state is available, update it with the attachment
         if self._env_state is not None:
-            grasp_params = GraspAttachment(
-                obj_name=object_name,
-                robot_name=self.robot_name,
-                ee_link_name=self.ee_link_name,
-                pose_ee_o=pose_ee_o,
-                touching_link_names=self.gripper.link_names,
-            )
             self._env_state.attach_grasp(grasp_params)
 
         return Outcome(
             success=True,
             message=f"Successfully grasped '{object_name}'.",
-            output=pose_ee_o,
+            output=grasp_params,
         )
 
     def release(self, object_name: str, placed_frame: str | None = None) -> Outcome[Pose3D]:

@@ -1,4 +1,6 @@
-"""Define classes to generate enumerable sequences of samples."""
+"""Define an interface for classes that generate enumerable sequences of samples."""
+
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Generic, Iterator, TypeVar
@@ -30,17 +32,19 @@ class Generator(ABC, Generic[InputT, OutputT]):
         :yield: Sequence of generated output values
         """
 
-    def __init__(self, inputs: InputT) -> None:
+    def __init__(self, inputs: InputT, rng_seed: int | None = None) -> None:
         """Initialize the generator's internal state using the given inputs.
 
         :param inputs: Values on which the generator is conditioned
+        :param rng_seed: Optional random number generator seed (default: None)
         """
         self.inputs = inputs
+        self._rng_seed = rng_seed
+        self._rng = np.random.default_rng(self._rng_seed)
+
         self._generator_state: Iterator[OutputT] = self._generate(self.inputs)
         self._call_count = 0
         """Number of times `next()` has been called on the generator."""
-
-        self.rng = np.random.default_rng()  # TODO: Allow seeding and resetting
 
     def __iter__(self) -> Iterator[OutputT]:
         """Return the generator itself, providing an Iterator over its output values."""
@@ -65,3 +69,17 @@ class Generator(ABC, Generic[InputT, OutputT]):
     def count(self) -> int:
         """Retrieve the current number of times the generator has been called."""
         return self._call_count
+
+    def reset(self) -> None:
+        """Reset the generator to its initial state."""
+        self._rng = np.random.default_rng(self._rng_seed)
+        self._generator_state = self._generate(self.inputs)
+        self._call_count = 0
+
+    def reseed(self, rng_seed: int) -> None:
+        """Reinitialize the generator with the given RNG seed.
+
+        :param rng_seed: Random number generator seed
+        """
+        self._rng_seed = rng_seed
+        self.reset()
