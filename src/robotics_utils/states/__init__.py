@@ -8,3 +8,5 @@ from .object_states import ObjectKinematicState as ObjectKinematicState
 from .placement_surface import PlacementSurface as PlacementSurface
 from .visual_states import Viewpoint as Viewpoint
 from .visual_states import ViewpointTemplates as ViewpointTemplates
+from .world_state_store import LoadCheckpointOutcome as LoadCheckpointOutcome
+from .world_state_store import WorldStateStore as WorldStateStore

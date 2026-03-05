@@ -111,9 +111,23 @@ class ObjectCentricState:
         return set(self._hidden_object_poses.keys())
 
     @property
+    def known_object_poses(self) -> dict[str, Pose3D]:
+        """Retrieve known (authoritative) object poses currently tracked in the state."""
+        known_poses: dict[str, Pose3D] = {}
+        for obj_name, obj_pose in self.object_poses.items():
+            if self._pose_sources.get(obj_name) == PoseSource.KNOWN:
+                known_poses[obj_name] = obj_pose
+        return known_poses
+
+    @property
     def object_poses(self) -> dict[str, Pose3D]:
         """Retrieve a dictionary mapping object names to their poses (if available)."""
         return self.kinematic_tree.get_poses(frame_names=self._object_names)
+
+    @property
+    def grasp_attachments(self) -> tuple[GraspAttachment, ...]:
+        """Retrieve the current active grasp attachments in the state."""
+        return tuple(self._grasps.values())
 
     @property
     def robot_base_poses(self) -> dict[str, Pose3D]:
@@ -161,6 +175,10 @@ class ObjectCentricState:
         if robot_name not in self.robot_names:
             raise ValueError(f"Cannot add end-effector for unknown robot: '{robot_name}'.")
         self._end_effectors[robot_name].add(ee_link_name)
+
+    def has_end_effector(self, *, robot_name: str, ee_link_name: str) -> bool:
+        """Check whether the named robot has the specified end-effector link registered."""
+        return ee_link_name in self._end_effectors.get(robot_name, set())
 
     def set_known_object_pose(self, obj_name: str, pose: Pose3D) -> None:
         """Set the pose of the named object from a "known" source of truth.
@@ -315,10 +333,30 @@ class ObjectCentricState:
                 f"Grasp with end-effector '{g.ee_link_name}' used pose in frame '{parent_frame}'.",
             )
 
+        # Ensure a grasped object is attached to at most one end-effector.
+        for key, grasp in tuple(self._grasps.items()):
+            if grasp.obj_name == g.obj_name and key != (g.robot_name, g.ee_link_name):
+                del self._grasps[key]
+
         self._grasps[(g.robot_name, g.ee_link_name)] = g
 
         # Assume that the source of the grasp pose is authoritative
         self.set_known_object_pose(obj_name=g.obj_name, pose=g.pose_ee_o)
+
+    def get_grasp_for_object(self, obj_name: str) -> GraspAttachment | None:
+        """Retrieve the grasp attachment for the named object, if it is currently grasped."""
+        for grasp in self._grasps.values():
+            if grasp.obj_name == obj_name:
+                return grasp
+        return None
+
+    def detach_grasp_for_object(self, obj_name: str) -> GraspAttachment | None:
+        """Detach the named object from whichever end-effector currently grasps it."""
+        for key, grasp in tuple(self._grasps.items()):
+            if grasp.obj_name == obj_name:
+                del self._grasps[key]
+                return grasp
+        return None
 
     def add_container(self, container_state: ContainerState) -> None:
         """Update the object-centric state based on the given container state."""
