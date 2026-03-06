@@ -172,7 +172,7 @@ class AStarPlanner(ABC, Generic[StateT]):
 
     def log_info(self) -> None:
         """Log the current state of A* search to the console."""
-        console.print(f"Current frontier size: {len(self.frontier)}.")
-        console.print(f"Current number of reached nodes: {len(self.reached)}.")
-        console.print(f"Search steps taken: {self._num_step_calls}.")
-        console.print(f"Nodes expanded: {self._nodes_expanded}.")
+        # console.print(f"Current frontier size: {len(self.frontier)}.")
+        # console.print(f"Current number of reached nodes: {len(self.reached)}.")
+        # console.print(f"Search steps taken: {self._num_step_calls}.")
+        # console.print(f"Nodes expanded: {self._nodes_expanded}.")

@@ -59,6 +59,13 @@ class BoxPrimitiveSchema(BaseModel):
     x: float = Field(gt=0, description="X dimension size (meters)")
     y: float = Field(gt=0, description="Y dimension size (meters)")
     z: float = Field(gt=0, description="Z dimension size (meters)")
+    pose: XYZ_RPY = Field(
+        default=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        description=(
+            "Relative pose [x, y, z, roll, pitch, yaw] of the primitive (whose "
+            "origin is centered on its bottom face) w.r.t. its parent object."
+        ),
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -68,6 +75,13 @@ class SpherePrimitiveSchema(BaseModel):
 
     type: Literal["sphere"]
     radius: float = Field(gt=0, description="Radius (meters)")
+    pose: XYZ_RPY = Field(
+        default=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        description=(
+            "Relative pose [x, y, z, roll, pitch, yaw] of the primitive (whose "
+            "origin is centered at its bottom point) w.r.t. its parent object."
+        ),
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -78,6 +92,13 @@ class CylinderPrimitiveSchema(BaseModel):
     type: Literal["cylinder"]
     height: float = Field(gt=0, description="Height (meters)")
     radius: float = Field(gt=0, description="Radius (meters)")
+    pose: XYZ_RPY = Field(
+        default=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        description=(
+            "Relative pose [x, y, z, roll, pitch, yaw] of the primitive (whose "
+            "origin is centered on its bottom face) w.r.t. its parent object."
+        ),
+    )
 
     model_config = ConfigDict(extra="forbid")
 

@@ -12,7 +12,10 @@ objects:
     collision_model:
       primitives:
         - { type: cylinder, height: 0.15, radius: 0.03 } # Tall, thin cylinder
-        - { type: cylinder, height: 0.09, radius: 0.05 } # Short, wide cylinder
+        - type: cylinder
+          height: 0.09
+          radius: 0.05
+          pose: [0, 0, 0.15, 0, 0, 0] # Short, wide top, +z in its frame
 
   table1:
     pose: [3, 0, 0, 0, 0, 0]

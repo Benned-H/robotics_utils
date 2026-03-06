@@ -11,6 +11,7 @@ import rospy
 from moveit_commander import PlanningSceneInterface
 from moveit_msgs.msg import CollisionObject as CollisionObjectMsg
 
+from robotics_utils.collision_models.primitive_shapes import get_shape_center_pose_wrt_primitive
 from robotics_utils.ros.msg_conversion import (
     pose_from_msg,
     pose_to_msg,
@@ -389,10 +390,17 @@ class PlanningSceneManager:
             primitive_shape_to_msg(ps) for ps in object_state.collision_model.primitives
         ]
         shape_local_poses = []
-        for ps in object_state.collision_model.primitives:
-            z_size_m = ps.aabb.max_xyz.z - ps.aabb.min_xyz.z
-            local_pose = Pose3D.from_xyz_rpy(z=z_size_m / 2.0, ref_frame=object_state.name)
-            shape_local_poses.append(local_pose)
+        for primitive, pose_o_p in zip(
+            object_state.collision_model.primitives,
+            object_state.collision_model.primitive_poses,
+        ):
+            transform_o_p = pose_o_p.to_homogeneous_matrix()
+            transform_p_s = get_shape_center_pose_wrt_primitive(primitive).to_homogeneous_matrix()
+            pose_o_s = Pose3D.from_homogeneous_matrix(
+                transform_o_p @ transform_p_s,
+                ref_frame=object_state.name,
+            )
+            shape_local_poses.append(pose_o_s)
 
         # Compose each primitive shape's local pose with the object's pose in the target frame
         msg.primitive_poses = [pose_to_msg(pose_t_o @ pose_o_s) for pose_o_s in shape_local_poses]

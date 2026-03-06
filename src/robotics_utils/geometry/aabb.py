@@ -28,16 +28,15 @@ class AxisAlignedBoundingBox:
         :param aabb_iter: Iterable collection of AABBs
         :return: Resulting axis-aligned bounding box containing all given AABBs
         """
-        combined_min = np.array([0.0, 0.0, 0.0])  # Initialize an empty combined bounding box
-        combined_max = np.array([0.0, 0.0, 0.0])
+        if not aabb_iter:
+            return AxisAlignedBoundingBox(min_xyz=Point3D.identity(), max_xyz=Point3D.identity())
 
-        for aabb in aabb_iter:
-            combined_min = np.minimum(combined_min, aabb.min_xyz.to_array())
-            combined_max = np.maximum(combined_max, aabb.max_xyz.to_array())
+        min_bounds = np.min([aabb.min_xyz.to_array() for aabb in aabb_iter], axis=0)
+        max_bounds = np.max([aabb.max_xyz.to_array() for aabb in aabb_iter], axis=0)
 
         return AxisAlignedBoundingBox(
-            min_xyz=Point3D.from_array(combined_min),
-            max_xyz=Point3D.from_array(combined_max),
+            min_xyz=Point3D.from_array(min_bounds),
+            max_xyz=Point3D.from_array(max_bounds),
         )
 
     @property

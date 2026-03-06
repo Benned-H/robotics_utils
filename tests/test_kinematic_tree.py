@@ -52,9 +52,16 @@ def test_kinematic_tree_from_yaml(environment_yaml: Path) -> None:
     bottle_model = tree.get_collision_model("bottle1")
     assert bottle_model is not None
     assert len(bottle_model.primitives) == 2
+    assert len(bottle_model.primitive_poses) == 2
     assert not bottle_model.meshes
     for primitive in bottle_model.primitives:
         assert isinstance(primitive, Cylinder)
+    assert bottle_model.primitive_poses[0].approx_equal(Pose3D.identity())
+    assert bottle_model.primitive_poses[1].approx_equal(Pose3D.from_xyz_rpy(z=0.15))
+
+    bottle_aabb = bottle_model.aabb
+    assert bottle_aabb.min_xyz.z == pytest.approx(0.0)
+    assert bottle_aabb.max_xyz.z == pytest.approx(0.24)
 
     # Because the root frame has no attached geometry, its collision model should be None
     assert tree.get_collision_model(tree.root_frame) is None

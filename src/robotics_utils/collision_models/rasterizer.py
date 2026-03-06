@@ -9,14 +9,14 @@ import trimesh
 from scipy.spatial import ConvexHull, QhullError
 from skimage.draw import polygon
 
-from robotics_utils.collision_models.primitive_shapes import Box, Cylinder, PrimitiveShape, Sphere
+from robotics_utils.collision_models.primitive_shapes import PrimitiveShape, primitive_to_mesh
 from robotics_utils.geometry import Point2D
+from robotics_utils.spatial import Pose3D
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
     from robotics_utils.motion_planning import DiscreteGrid2D
-    from robotics_utils.spatial import Pose3D
     from robotics_utils.states import ObjectKinematicState
 
 
@@ -41,7 +41,7 @@ class CollisionModelRasterizer:
         self,
         obj: ObjectKinematicState,
         grid: DiscreteGrid2D,
-    ) -> NDArray[np.bool]:
+    ) -> NDArray[np.bool_]:
         """Rasterize an object's collision model into a mask for an occupancy grid.
 
         :param obj: Kinematic state of the object to be rasterized
@@ -60,8 +60,16 @@ class CollisionModelRasterizer:
             mesh_mask = self.rasterize_mesh(mesh, obj.pose, grid)
             mask |= mesh_mask
 
-        for primitive in obj.collision_model.primitives:
-            primitive_mask = self.rasterize_primitive(primitive, obj.pose, grid)
+        for primitive, pose_o_p in zip(
+            obj.collision_model.primitives,
+            obj.collision_model.primitive_poses,
+        ):
+            transform_w_p = obj.pose.to_homogeneous_matrix() @ pose_o_p.to_homogeneous_matrix()
+            pose_w_p = Pose3D.from_homogeneous_matrix(
+                transform_w_p,
+                ref_frame=obj.pose.ref_frame,
+            )
+            primitive_mask = self.rasterize_primitive(primitive, pose_w_p, grid)
             mask |= primitive_mask
 
         return mask
@@ -71,7 +79,7 @@ class CollisionModelRasterizer:
         mesh: trimesh.Trimesh,
         obj_pose: Pose3D,
         grid: DiscreteGrid2D,
-    ) -> NDArray[np.bool]:
+    ) -> NDArray[np.bool_]:
         """Rasterize a collision mesh into a mask for an occupancy grid.
 
         Computes the convex hull of all mesh vertices whose z-extent overlaps
@@ -139,50 +147,15 @@ class CollisionModelRasterizer:
     def rasterize_primitive(
         self,
         primitive: PrimitiveShape,
-        obj_pose: Pose3D,
+        primitive_pose: Pose3D,
         grid: DiscreteGrid2D,
-    ) -> NDArray[np.bool]:
+    ) -> NDArray[np.bool_]:
         """Rasterize a primitive collision geometry into a mask for an occupancy grid.
 
         :param primitive: Primitive shape to be rasterized
-        :param obj_pose: Object pose in the world frame
+        :param primitive_pose: Primitive pose in the world frame
         :param grid: Structure of the occupancy grid for the rasterization
         :return: Boolean mask where True indicates the primitive's footprint
         """
-        mesh = self._primitive_to_mesh(primitive)
-        return self.rasterize_mesh(mesh, obj_pose, grid)
-
-    def _primitive_to_mesh(self, primitive: PrimitiveShape) -> trimesh.Trimesh:
-        """Convert a primitive shape to an equivalent trimesh mesh.
-
-        :param primitive: Primitive shape to convert
-        :return: Trimesh mesh representation of the primitive
-        :raises ValueError: If primitive type is not supported
-        """
-        if isinstance(primitive, Box):
-            mesh = trimesh.primitives.Box(
-                extents=[primitive.x_m, primitive.y_m, primitive.z_m],
-            ).to_mesh()
-
-            # Translate so bottom sits at z=0 (trimesh centers boxes at origin)
-            mesh.apply_translation([0, 0, primitive.z_m / 2])
-            return mesh
-
-        if isinstance(primitive, Sphere):
-            mesh = trimesh.primitives.Sphere(radius=primitive.radius_m).to_mesh()
-
-            # Translate so bottom sits at z=0 (trimesh centers spheres at origin)
-            mesh.apply_translation([0, 0, primitive.radius_m])
-            return mesh
-
-        if isinstance(primitive, Cylinder):
-            mesh = trimesh.primitives.Cylinder(
-                radius=primitive.radius_m,
-                height=primitive.height_m,
-            ).to_mesh()
-
-            # Translate so bottom sits at z=0 (trimesh centers cylinders at origin)
-            mesh.apply_translation([0, 0, primitive.height_m / 2])
-            return mesh
-
-        raise ValueError(f"Unexpected primitive shape type: {primitive} (type {type(primitive)})")
+        mesh = primitive_to_mesh(primitive)
+        return self.rasterize_mesh(mesh, primitive_pose, grid)

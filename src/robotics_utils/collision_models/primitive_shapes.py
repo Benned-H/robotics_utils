@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 import numpy as np
+import trimesh
 
 from robotics_utils.geometry import AxisAlignedBoundingBox, Point3D
 from robotics_utils.io.pydantic_schemata import (
@@ -13,6 +14,7 @@ from robotics_utils.io.pydantic_schemata import (
     PrimitiveShapeSchema,
     SpherePrimitiveSchema,
 )
+from robotics_utils.spatial import Pose3D
 
 
 class PrimitiveShape(ABC):
@@ -36,6 +38,13 @@ class PrimitiveShape(ABC):
             return Sphere(radius_m=schema.radius)
 
         return Cylinder(height_m=schema.height, radius_m=schema.radius)
+
+    @classmethod
+    def from_schema_with_pose(cls, schema: PrimitiveShapeSchema) -> tuple[PrimitiveShape, Pose3D]:
+        """Construct a primitive shape and its object-relative local pose from schema data."""
+        primitive = cls.from_schema(schema=schema)
+        primitive_pose = Pose3D.from_sequence(schema.pose)
+        return primitive, primitive_pose
 
 
 @dataclass(frozen=True)
@@ -98,3 +107,45 @@ class Cylinder(PrimitiveShape):
     def to_dimensions(self) -> list[float]:
         """Convert the cylinder into a list of its dimensions."""
         return [self.height_m, self.radius_m]
+
+
+def get_shape_center_pose_wrt_primitive(primitive: PrimitiveShape) -> Pose3D:
+    """Get the pose of the shape geometry's center relative the primitive's local frame.
+
+    i.e., where is the primitive's center w.r.t. its frame, which is on the shape's bottom?
+    """
+    if isinstance(primitive, Box):
+        return Pose3D.from_xyz_rpy(z=primitive.z_m / 2.0)
+    if isinstance(primitive, Sphere):
+        return Pose3D.from_xyz_rpy(z=primitive.radius_m)
+    if isinstance(primitive, Cylinder):
+        return Pose3D.from_xyz_rpy(z=primitive.height_m / 2.0)
+    raise ValueError(f"Unexpected primitive shape type: {primitive} (type {type(primitive)}).")
+
+
+def primitive_to_mesh(primitive: PrimitiveShape) -> trimesh.Trimesh:
+    """Convert a primitive shape into a mesh in a local frame with bottom at z = 0.
+
+    :raises ValueError: If primitive type is not recognized
+    """
+    if isinstance(primitive, Box):
+        mesh = trimesh.primitives.Box(
+            extents=[primitive.x_m, primitive.y_m, primitive.z_m],
+        ).to_mesh()
+        mesh.apply_translation([0, 0, primitive.z_m / 2.0])
+        return mesh
+
+    if isinstance(primitive, Sphere):
+        mesh = trimesh.primitives.Sphere(radius=primitive.radius_m).to_mesh()
+        mesh.apply_translation([0, 0, primitive.radius_m])
+        return mesh
+
+    if isinstance(primitive, Cylinder):
+        mesh = trimesh.primitives.Cylinder(
+            radius=primitive.radius_m,
+            height=primitive.height_m,
+        ).to_mesh()
+        mesh.apply_translation([0, 0, primitive.height_m / 2.0])
+        return mesh
+
+    raise ValueError(f"Unexpected primitive shape type: {primitive} (type {type(primitive)}).")
