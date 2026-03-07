@@ -102,10 +102,10 @@ class SpotSkillsProtocol(SkillsProtocol):
             "spot/grasp_object",
             NameService,
         )
-        # self._release_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
-        #     "spot/release_object",
-        #     NameService,
-        # )
+        self._release_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
+            "spot/release_object",
+            NameService,
+        )
         self._reset_state_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
             "spot/reset_state",
             NameService,
