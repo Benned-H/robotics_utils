@@ -17,7 +17,7 @@ from robotics_utils.ros import TransformManager, get_ros_param
 from robotics_utils.ros.msg_conversion import trajectory_from_msg, trajectory_to_msg
 from robotics_utils.skills import Outcome
 from robotics_utils.spatial import DEFAULT_FRAME
-from robotics_utils.states import GraspAttachment, ObjectCentricState
+from robotics_utils.states import GraspAttachment
 
 if TYPE_CHECKING:
     from moveit_msgs.msg import RobotTrajectory
@@ -55,8 +55,12 @@ class MoveItManipulator(Manipulator[Trajectory]):
         self.move_group = MoveGroupCommander(self.name, wait_for_servers=30)
         self.move_group.set_pose_reference_frame(planning_frame)
 
-        self.planner = MoveItMotionPlanner(self.move_group, planning_frame=planning_frame)
         self.planning_scene = PlanningSceneManager(planning_frame=planning_frame)
+        self.planner = MoveItMotionPlanner(
+            self.move_group,
+            planning_frame=planning_frame,
+            planning_scene=self.planning_scene,
+        )
 
         self._ee_link: str = self.move_group.get_end_effector_link()
 
@@ -65,7 +69,6 @@ class MoveItManipulator(Manipulator[Trajectory]):
         rospy.loginfo(f"[Manipulator {self.name}] Found robot description from ROS parameters.")
 
         self._ik_solver = IK(self.base_frame, self._ee_link, urdf_string=robot_urdf)
-        self._env_state: ObjectCentricState | None = None
 
     @property
     def ee_link_name(self) -> str:
@@ -232,10 +235,6 @@ class MoveItManipulator(Manipulator[Trajectory]):
             touching_link_names=self.gripper.link_names,
         )
 
-        # If the environment state is available, update it with the attachment
-        if self._env_state is not None:
-            self._env_state.attach_grasp(grasp_params)
-
         return Outcome(
             success=True,
             message=f"Successfully grasped '{object_name}'.",
@@ -270,4 +269,5 @@ class MoveItManipulator(Manipulator[Trajectory]):
             if success
             else f"Failed to release '{object_name}' because the planning scene was not updated."
         )
+
         return Outcome(success=success, message=message, output=new_obj_pose)

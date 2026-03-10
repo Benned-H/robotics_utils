@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from robotics_utils.collision_models import CollisionModel
 from robotics_utils.io.pydantic_schemata import ObjectCentricStateSchema
@@ -393,3 +393,38 @@ class ObjectCentricState:
             estimate = pose_estimates.get(obj_name)
             if estimate is not None:
                 self.set_estimated_object_pose(obj_name, estimate)
+
+    def dynamic_to_dict(self) -> dict[str, Any]:
+        """Store the runtime-dynamic aspects of the object-centric state in a dictionary."""
+        output = {}
+
+        output["robot_base_poses"] = self.robot_base_poses
+        output["object_poses"] = self.object_poses
+        output["pose_sources"] = self._pose_sources
+        output["grasps"] = self._grasps
+
+        return output
+
+    def update_per_dictionary(self, data: dict[str, Any]) -> None:
+        """Update the object-centric state based on the given dictionary of data.
+
+        Robot or object poses that are already approximately equal are not updated.
+        """
+        robot_base_poses: dict[str, Pose3D] = data["robot_base_poses"]
+        for robot_name, new_base_pose in robot_base_poses.items():
+            curr_base_pose = self.get_robot_base_pose(robot_name)
+            if curr_base_pose is None or not curr_base_pose.approx_equal(new_base_pose):
+                self.set_robot_base_pose(robot_name, new_base_pose)
+
+        object_poses: dict[str, Pose3D] = data["object_poses"]
+        pose_sources: dict[str, PoseSource] = data["pose_sources"]
+        for obj_name, new_obj_pose in object_poses.items():
+            curr_obj_pose = self.get_object_pose(obj_name)
+            if curr_obj_pose is None or not curr_obj_pose.approx_equal(new_obj_pose):
+                pose_source = pose_sources.get(obj_name, PoseSource.KNOWN)
+                if pose_source == PoseSource.KNOWN:
+                    self.set_known_object_pose(obj_name, new_obj_pose)
+                else:
+                    self.set_estimated_object_pose(obj_name, new_obj_pose)
+
+        self._grasps = data["grasps"]

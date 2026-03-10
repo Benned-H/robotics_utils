@@ -5,11 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 from robotics_utils.collision_models.meshes import compute_aabb, load_mesh_from_schema
 from robotics_utils.collision_models.primitive_shapes import PrimitiveShape, primitive_to_mesh
-from robotics_utils.geometry import AxisAlignedBoundingBox, Point3D
+from robotics_utils.geometry import AxisAlignedBoundingBox
 from robotics_utils.spatial import Pose3D
 
 if TYPE_CHECKING:

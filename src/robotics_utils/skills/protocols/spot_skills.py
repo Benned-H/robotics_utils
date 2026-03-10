@@ -52,7 +52,6 @@ from robotics_utils.ros.msg_conversion import (
 from robotics_utils.ros.robots import MoveItManipulator
 from robotics_utils.skills import Outcome, SkillsProtocol, skill_method
 from robotics_utils.spatial import DEFAULT_FRAME, Pose3D
-from robotics_utils.states import GraspAttachment
 
 SPOT_GRIPPER_OPEN_RAD = -1.5707
 SPOT_GRIPPER_CLOSED_RAD = 0.0

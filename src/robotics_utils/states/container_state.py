@@ -126,6 +126,10 @@ class ContainerState:
             if obj_name not in known_object_names:
                 state.add_object(obj_name)
 
+            # Do not override poses of currently grasped objects.
+            if state.get_grasp_for_object(obj_name) is not None:
+                continue
+
             object_pose = self.get_contained_object_pose(obj_name)
             state.set_known_object_pose(obj_name=obj_name, pose=object_pose)
 

@@ -210,7 +210,9 @@ class PlanningSceneManager:
 
     def detach_all_objects(self) -> bool:
         """Detach all attached objects in the planning scene (used to reset the scene)."""
-        attached_map = self._attached_objects.copy()
+        attached_map = {
+            key: set(attached_objects) for key, attached_objects in self._attached_objects.items()
+        }
         all_detached = True  # Have all objects succeeded so far?
         for (robot_name, ee_link_name), attached_objects in attached_map.items():
             for obj_name in attached_objects:
@@ -381,10 +383,11 @@ class PlanningSceneManager:
         if object_type is not None:
             msg.type.key = object_type  # Ignore 'db' field of message
 
-        obj_pose_msg = pose_to_msg(pose_t_o)
+        # Mesh and primitive poses are defined relative to msg.pose
+        msg.pose = pose_to_msg(pose_t_o)
 
         msg.meshes = [trimesh_to_msg(mesh) for mesh in object_state.collision_model.meshes]
-        msg.mesh_poses = [obj_pose_msg for _ in msg.meshes]
+        msg.mesh_poses = [pose_to_msg(Pose3D.identity(object_state.name)) for _ in msg.meshes]
 
         msg.primitives = [
             primitive_shape_to_msg(ps) for ps in object_state.collision_model.primitives
@@ -402,9 +405,7 @@ class PlanningSceneManager:
             )
             shape_local_poses.append(pose_o_s)
 
-        # Compose each primitive shape's local pose with the object's pose in the target frame
-        msg.primitive_poses = [pose_to_msg(pose_t_o @ pose_o_s) for pose_o_s in shape_local_poses]
-
-        # Deliberately DO NOT set msg.pose when adding an object
+        # Primitive poses are object-relative; msg.pose converts from object to planning frame
+        msg.primitive_poses = [pose_to_msg(pose_o_s) for pose_o_s in shape_local_poses]
 
         return msg

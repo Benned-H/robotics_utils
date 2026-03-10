@@ -29,10 +29,15 @@ Reference: https://tinyurl.com/moveit-noetic-plan
 class MoveItMotionPlanner:
     """An interface for computing motion plans using MoveIt."""
 
-    def __init__(self, move_group: MoveGroupCommander, planning_frame: str) -> None:
+    def __init__(
+        self,
+        move_group: MoveGroupCommander,
+        planning_frame: str,
+        planning_scene: PlanningSceneManager | None = None,
+    ) -> None:
         """Initialize the MoveIt motion planner with an interface to the relevant move group."""
         self._move_group = move_group
-        self._planning_scene = PlanningSceneManager(planning_frame=planning_frame)
+        self._planning_scene = planning_scene or PlanningSceneManager(planning_frame=planning_frame)
 
         self._robot = RobotCommander()
         self._display_pub = rospy.Publisher(
