@@ -8,7 +8,7 @@ import rospy
 from moveit_commander import MoveGroupCommander, RobotCommander
 from moveit_msgs.msg import DisplayTrajectory, MoveItErrorCodes, RobotTrajectory
 
-from robotics_utils.motion_planning.ros.planning_scene_manager import PlanningSceneManager
+from robotics_utils.motion_planning.ros.planning_scene_manager_ import PlanningSceneManager
 from robotics_utils.ros.msg_conversion import pose_to_msg, pose_to_stamped_msg
 from robotics_utils.ros.transform_manager import TransformManager as TFManager
 from robotics_utils.spatial import Pose3D
@@ -57,22 +57,19 @@ class MoveItMotionPlanner:
         :param query: Specifies an end-effector target and (optionally) objects to ignore
         :return: Message containing the planned trajectory, or None if no plan is found
         """
-        if not self._planning_scene.apply_query_ignores(query):
-            error_msg = f"Unable to ignore collisions for motion planning: {query}"
-            rospy.logerr(error_msg)
-            raise RuntimeError(error_msg)
+        with self._planning_scene.ignored_collisions(query):
+            if isinstance(query.ee_target, Pose3D):
+                target_b_ee = TFManager.convert_to_frame(query.ee_target, self.planning_frame)
+                ee_target_msg = pose_to_stamped_msg(target_b_ee)
+                self._move_group.set_pose_target(ee_target_msg)
+            elif isinstance(query.ee_target, dict):  # Maps joint names to their values
+                self._move_group.set_joint_value_target(query.ee_target)
+            else:
+                raise TypeError(f"Unrecognized end-effector target type: {type(query.ee_target)}.")
 
-        if isinstance(query.ee_target, Pose3D):
-            target_b_ee = TFManager.convert_to_frame(query.ee_target, self.planning_frame)
-            ee_target_msg = pose_to_stamped_msg(target_b_ee)
-            self._move_group.set_pose_target(ee_target_msg)
-        elif isinstance(query.ee_target, dict):  # Configuration maps joint names to their values
-            self._move_group.set_joint_value_target(query.ee_target)
-        else:
-            raise TypeError(f"Unrecognized end-effector target type: {type(query.ee_target)}.")
+            self._move_group.set_start_state_to_current_state()
+            result: MoveItResult = self._move_group.plan()
 
-        self._move_group.set_start_state_to_current_state()
-        result: MoveItResult = self._move_group.plan()
         success, robot_traj, planning_time_s, error_code = result
 
         outcome_desc = "succeeded" if success else "failed"
@@ -80,12 +77,6 @@ class MoveItMotionPlanner:
 
         if not success:
             rospy.logerr(f"Motion planning error code: {error_code}.")
-
-        # Reset any modifications to the planning scene before exiting
-        if not self._planning_scene.revert_query_ignores(query):
-            error_msg = f"Unable to revert collision ignores for motion planning: {query}"
-            rospy.logerr(error_msg)
-            raise RuntimeError(error_msg)
 
         return robot_traj if success else None
 

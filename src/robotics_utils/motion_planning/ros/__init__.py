@@ -3,4 +3,4 @@
 from .grasping import PickPoses as PickPoses
 from .moveit_motion_planner import MoveItMotionPlanner as MoveItMotionPlanner
 from .placing import PlacePoses as PlacePoses
-from .planning_scene_manager import PlanningSceneManager as PlanningSceneManager
+from .planning_scene_manager_ import PlanningSceneManager as PlanningSceneManager

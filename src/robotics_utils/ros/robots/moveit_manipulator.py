@@ -232,7 +232,7 @@ class MoveItManipulator(Manipulator[Trajectory]):
             robot_name=self.robot_name,
             ee_link_name=self.ee_link_name,
             pose_ee_o=pose_ee_o,
-            touching_link_names=self.gripper.link_names,
+            touching_link_names=set(self.gripper.link_names),
         )
 
         return Outcome(

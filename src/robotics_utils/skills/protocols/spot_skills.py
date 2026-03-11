@@ -36,7 +36,7 @@ from spot_skills.srv import (
 
 from robotics_utils.geometry import Point3D
 from robotics_utils.io import console
-from robotics_utils.motion_planning.ros import PickPoses, PlanningSceneManager
+from robotics_utils.motion_planning.ros import PickPoses
 from robotics_utils.ros import (
     PoseBroadcastThread,
     ServiceCaller,
@@ -101,10 +101,6 @@ class SpotSkillsProtocol(SkillsProtocol):
             "spot/grasp_object",
             NameService,
         )
-        self._release_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
-            "spot/release_object",
-            NameService,
-        )
         self._reset_state_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
             "spot/reset_state",
             NameService,
@@ -118,24 +114,15 @@ class SpotSkillsProtocol(SkillsProtocol):
             CaptureImageObservationResponse,
         ]("spot/capture_image_observation", CaptureImageObservation)
 
-        self._hide_object_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
-            "spot/moveit/hide_object",
-            NameService,
-        )
-        self._unhide_object_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
-            "spot/moveit/unhide_object",
-            NameService,
-        )
-
         self._motion_plan_caller = ServiceCaller[
             ComputeMotionPlanRequest,
             ComputeMotionPlanResponse,
         ]("spot/compute_motion_plan", ComputeMotionPlan)
 
-        self._place_caller = ServiceCaller[PlaceObjectRequest, PlaceObjectResponse](
-            "spot/place_object",
-            PlaceObject,
-        )
+        # self._place_caller = ServiceCaller[PlaceObjectRequest, PlaceObjectResponse](
+        #     "spot/place_object",
+        #     PlaceObject,
+        # )
 
         self._arm = manipulator
         self._gripper = manipulator.gripper
@@ -153,11 +140,6 @@ class SpotSkillsProtocol(SkillsProtocol):
                 ref_frame="black_dresser",
             ),
         }
-
-    @property
-    def planning_scene(self) -> PlanningSceneManager:
-        """Access the active interface to the MoveIt planning scene."""
-        return self._arm.planning_scene
 
     @skill_method
     def capture_image_observation(
@@ -390,7 +372,7 @@ class SpotSkillsProtocol(SkillsProtocol):
             ref_frame="black_dresser",
         ),
         target_name: str = "",
-        ignored_objects: str = "black_dresser",
+        ignored_objects: str = "",
         *,
         display_and_pause: bool = False,
     ) -> Outcome:
@@ -405,10 +387,6 @@ class SpotSkillsProtocol(SkillsProtocol):
         console.print(f"Moving Spot's end-effector to '{target_name}': {ee_target}")
         if target_name:
             self._pose_broadcaster.poses[target_name] = ee_target
-
-        default_pose_outcome = trigger_service("spot/default_body_pose")
-        if not default_pose_outcome.success:
-            return default_pose_outcome
 
         # Parse ignored objects into a list
         ignored_objects_list = []
@@ -792,7 +770,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         self._pose_broadcaster.poses[f"post_grasp_{object_name}"] = valid_poses.postgrasp_pose
 
         # Open the gripper to prepare for picking
-        if not self._gripper.move_to_angle_rad(pre_grasp_rad):
+        if not self._gripper.move_to_angle_rad(pre_grasp_rad, timeout_s=5.0):
             return Outcome(
                 success=False,
                 message=f"Unable to pick '{object_name}' because the gripper didn't open.",
