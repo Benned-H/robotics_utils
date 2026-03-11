@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from robotics_utils.motion_planning.navigation_query import NavigationQuery
 from robotics_utils.motion_planning.se2_planner import plan_se2_path
+from robotics_utils.ros.rviz_converter import RVizConverter
 
 if TYPE_CHECKING:
     from robotics_utils.collision_models import CollisionModelRasterizer
@@ -28,16 +29,21 @@ class NavigationFeasibilityChecker:
         robot_footprint: RectangularFootprint,
         rasterizer: CollisionModelRasterizer,
         occupancy_grid: OccupancyGrid2D,
+        *,
+        visualization: bool = False,
     ) -> None:
         """Initialize the navigation feasibility checker.
 
         :param robot_footprint: Robot footprint used for collision checking
         :param rasterizer: Collision model rasterizer used to compute object occupancy masks
         :param occupancy_grid: Grid defining occupied space in the environment
+        :param visualization: Whether to visualize given navigation queries (default: False)
         """
         self.robot_footprint = robot_footprint
         self.rasterizer = rasterizer
         self.occupancy_grid = occupancy_grid
+
+        self._rviz_converter = RVizConverter() if visualization else None
 
     @property
     def grid_ref_frame(self) -> str:
@@ -93,4 +99,7 @@ class NavigationFeasibilityChecker:
             occupancy_grid=grid,
             robot_footprint=self.robot_footprint,
         )
+        if self._rviz_converter:
+            self._rviz_converter.visualize_nav_query(query)
+
         return plan_se2_path(query, verbose=verbose)

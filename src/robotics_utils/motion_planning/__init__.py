@@ -4,7 +4,6 @@ from .discretization import DiscreteGrid2D as DiscreteGrid2D
 from .discretization import GridCell as GridCell
 from .footprint_cell_offsets import FootprintCellOffsets as FootprintCellOffsets
 from .motion_planning_query import MotionPlanningQuery as MotionPlanningQuery
-from .navigation_feasibility import NavigationFeasibilityChecker as NavigationFeasibilityChecker
 from .navigation_goal import NavigationGoal as NavigationGoal
 from .navigation_query import NavigationQuery as NavigationQuery
 from .pure_pursuit import PurePursuitConfig as PurePursuitConfig

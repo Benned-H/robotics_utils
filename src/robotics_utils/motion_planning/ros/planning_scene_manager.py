@@ -96,7 +96,22 @@ class PlanningSceneManager:
             rospy.logwarn(f"Object '{obj_name}' is already hidden from the planning scene.")
             return False
 
-        self._hidden_objects[obj_name] = self.get_object_msg(obj_name)
+        # Held objects are represented as attached objects (not world objects), so there is no
+        # world CollisionObject message to fetch/hide. Treat this as already hidden.
+        if self.is_object_attached(obj_name):
+            rospy.loginfo(
+                f"Skipping hide for attached object '{obj_name}' (already not a world object).",
+            )
+            return True
+
+        object_msg = self.planning_scene.get_objects([obj_name]).get(obj_name)
+        if object_msg is None:
+            rospy.logwarn(
+                f"Cannot hide object '{obj_name}' because it is not in the world planning scene.",
+            )
+            return False
+
+        self._hidden_objects[obj_name] = object_msg
         object_hidden = self.remove_object(obj_name)
         return object_hidden and (obj_name in self._hidden_objects)
 
@@ -232,6 +247,10 @@ class PlanningSceneManager:
                 all_attached.update(objects)
 
         return all_attached
+
+    def is_object_attached(self, obj_name: str) -> bool:
+        """Check whether the named object is currently attached to any known end-effector."""
+        return any(obj_name in objects for objects in self._attached_objects.values())
 
     def get_object_msg(self, obj_name: str) -> CollisionObjectMsg:
         """Retrieve the CollisionObject message for the named object in the planning scene."""

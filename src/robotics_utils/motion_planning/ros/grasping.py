@@ -22,17 +22,23 @@ class PickPoses:
     postgrasp_pose: Pose3D
 
     @staticmethod
-    def compute_pre_grasp_pose(pose_o_g: Pose3D, pre_grasp_x_m: float) -> Pose3D:
+    def compute_pre_grasp_pose(pose_o_g: Pose3D, pre_grasp_x_m: float, world_frame: str) -> Pose3D:
         """Compute a pre-grasp pose for the given grasp pose.
 
         Assumes that +x is "forward" in the end-effector frame.
 
         :param pose_o_g: Grasp pose (frame g) w.r.t. an object (frame o)
         :param pre_grasp_x_m: Offset (abs. m) of the pre-grasp pose "back" (-x) from the grasp pose
-        :return: Pre-grasp pose expressed in the object frame (i.e., pose_o_pregrasp)
+        :param world_frame: Global reference frame into which the computed pose is converted
+        :return: Pre-grasp pose expressed in the world frame (i.e., pose_w_pregrasp)
         """
         pose_g_pregrasp = Pose3D.from_xyz_rpy(x=-abs(pre_grasp_x_m))  # pre-grasp w.r.t. grasp
-        return pose_o_g @ pose_g_pregrasp  # pre-grasp w.r.t. object
+        obj_frame = pose_o_g.ref_frame
+        pose_w_o = TransformManager.lookup_transform(obj_frame, world_frame)
+        if pose_w_o is None:
+            raise RuntimeError(f"Unable to find transform from {world_frame} to {obj_frame}.")
+
+        return pose_w_o @ pose_o_g @ pose_g_pregrasp  # pre-grasp w.r.t. world
 
     @staticmethod
     def compute_post_grasp_pose(pose_o_g: Pose3D, lift_z_m: float, world_frame: str) -> Pose3D:
@@ -64,7 +70,7 @@ class PickPoses:
         :param world_frame: Global reference frame used to define "up"
         :return: Constructed PickPoses instance containing the computed poses
         """
-        pre_grasp = PickPoses.compute_pre_grasp_pose(pose_o_g, pre_grasp_x_m=pre_grasp_x_m)
+        pre_grasp = PickPoses.compute_pre_grasp_pose(pose_o_g, pre_grasp_x_m, world_frame)
         post_grasp = PickPoses.compute_post_grasp_pose(pose_o_g, lift_z_m, world_frame)
         return PickPoses(pregrasp_pose=pre_grasp, grasp_pose=pose_o_g, postgrasp_pose=post_grasp)
 

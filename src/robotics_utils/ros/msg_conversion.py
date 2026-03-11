@@ -19,7 +19,7 @@ from visualization_msgs.msg import Marker
 
 from robotics_utils.collision_models import Box, Cylinder, PrimitiveShape, Sphere
 from robotics_utils.geometry import Point3D
-from robotics_utils.motion_planning import Trajectory, TrajectoryPoint
+from robotics_utils.motion_planning.trajectories import Trajectory, TrajectoryPoint
 from robotics_utils.spatial import DEFAULT_FRAME, Pose2D, Pose3D, Quaternion
 
 if TYPE_CHECKING:

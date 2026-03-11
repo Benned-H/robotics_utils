@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, overload
+from typing import TYPE_CHECKING
 
 import rospy
 from tf2_ros import (
