@@ -14,6 +14,9 @@ from spot_skills.srv import (
     ComputeMotionPlan,
     ComputeMotionPlanRequest,
     ComputeMotionPlanResponse,
+    GraspObject,
+    GraspObjectRequest,
+    GraspObjectResponse,
     NameService,
     NameServiceRequest,
     NameServiceResponse,
@@ -97,9 +100,9 @@ class SpotSkillsProtocol(SkillsProtocol):
             ProbeSurface,
         )
 
-        self._grasp_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
+        self._grasp_caller = ServiceCaller[GraspObjectRequest, GraspObjectResponse](
             "spot/grasp_object",
-            NameService,
+            GraspObject,
         )
         self._reset_state_caller = ServiceCaller[NameServiceRequest, NameServiceResponse](
             "spot/reset_state",
@@ -239,7 +242,7 @@ class SpotSkillsProtocol(SkillsProtocol):
             ref_frame="black_dresser",
         ),
         pull_pose_ee: Pose3D = Pose3D.from_xyz_rpy(
-            x=0.68,
+            x=0.72,
             z=0.63,
             yaw_rad=3.1416,
             ref_frame="black_dresser",
@@ -269,7 +272,10 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         # Move Spot's end-effector to approximate viewing location for the drawer
         ee_during_pose_est = self._EE_POSES_FOR_POSE_ESTIMATION[container_name]
-        pre_estimation_outcome = self._move_ee_to_pose(ee_during_pose_est)
+        pre_estimation_outcome = self._move_ee_to_pose(
+            ee_during_pose_est,
+            ignore_all_collisions=True,
+        )
         if not pre_estimation_outcome.success:
             return pre_estimation_outcome
 
@@ -280,7 +286,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         pre_outcome = self._move_ee_to_pose(
             pregrasp_pose_ee,
             # "pregrasp_drawer",
-            ignored_objects="black_dresser",
+            ignore_all_collisions=True,
         )
         if not pre_outcome.success:
             return pre_outcome
@@ -288,7 +294,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         grasp_outcome = self._move_ee_to_pose(
             grasp_pose_ee,
             # "grasp_drawer",
-            ignored_objects="black_dresser",
+            ignore_all_collisions=True,
         )
         if not grasp_outcome.success:
             return grasp_outcome
@@ -301,7 +307,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         pull_outcome = self._move_ee_to_pose(
             pull_pose_ee,
             # "pull_drawer",
-            ignored_objects="black_dresser",
+            ignore_all_collisions=True,
         )
         if not pull_outcome.success:
             return pull_outcome
@@ -316,7 +322,10 @@ class SpotSkillsProtocol(SkillsProtocol):
         post_pull_position = replace(pull_pose_ee.position, x=post_pull_x)
         post_pull_pose = replace(pull_pose_ee, position=post_pull_position)
 
-        post_outcome = self._move_ee_to_pose(post_pull_pose)  # , "postpull_drawer")
+        post_outcome = self._move_ee_to_pose(
+            post_pull_pose,
+            ignore_all_collisions=True,
+        )  # , "postpull_drawer")
         if not post_outcome.success:
             return post_outcome
 
@@ -375,6 +384,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         ignored_objects: str = "",
         *,
         display_and_pause: bool = False,
+        ignore_all_collisions: bool = False,
     ) -> Outcome:
         """Move Spot's end-effector to the specified pose.
 
@@ -382,6 +392,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param target_name: Name describing the end-effector target pose
         :param ignored_objects: Comma-separated list of object names to ignore (defaults to "")
         :param display_and_pause: If True, display the trajectory in RViz and pause for user input
+        :param ignore_all_collisions: If True, skip all collision checking
         :return: Boolean success indicator and an outcome message
         """
         console.print(f"Moving Spot's end-effector to '{target_name}': {ee_target}")
@@ -397,7 +408,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         request = ComputeMotionPlanRequest()
         request.target_pose = pose_to_stamped_msg(ee_target)
         request.ignored_objects = ignored_objects_list
-        request.ignore_all_collisions = False
+        request.ignore_all_collisions = ignore_all_collisions
 
         console.print(f"Calling compute_motion_plan service for target: {ee_target}")
 
@@ -550,7 +561,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         :return: Boolean success indicator and an outcome message
         """
         console.print(f"Grasping object '{object_name}'...")
-        response = self._grasp_caller(NameServiceRequest(name=object_name))
+        response = self._grasp_caller(GraspObjectRequest(object_name=object_name))
         if response is None:
             return Outcome(success=False, message="Grasp object service returned None.")
 
@@ -717,11 +728,6 @@ class SpotSkillsProtocol(SkillsProtocol):
         :return: Boolean success indicator and an outcome message
         """
         console.print(f"Picking object '{object_name}' from drawer of '{drawer_name}'...")
-
-        # Navigate to the "pick_from_drawer" navigation waypoint
-        nav_outcome = self.navigate_to_waypoint(waypoint="pick_from_drawer")
-        if not nav_outcome.success:
-            return nav_outcome
 
         # Move Spot's end-effector to approximate viewing location for the object
         ee_during_pose_est = self._EE_POSES_FOR_POSE_ESTIMATION[drawer_name]

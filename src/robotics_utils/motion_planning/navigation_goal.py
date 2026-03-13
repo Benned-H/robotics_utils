@@ -13,10 +13,10 @@ class NavigationGoal:
 
     pose: Pose2D
 
-    goal_reached_m: float = 0.2
+    goal_reached_m: float = 0.05
     """Distance (meters) within which a base pose is considered to have 'reached' the goal."""
 
-    goal_yaw_tolerance_rad: float = 0.3
+    goal_yaw_tolerance_rad: float = 0.1
     """Absolute angle (radians) within which the robot's yaw is 'close enough' to the goal yaw."""
 
     def check_reached_by(self, base_pose: Pose2D, *, change_frames: bool) -> bool:

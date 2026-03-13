@@ -23,17 +23,20 @@ class PurePursuitConfig:
     min_lookahead_m: float = 0.3
     """Minimum lookahead when close to goal."""
 
+    lookahead_steps: int = 5
+    """Number of waypoints ahead of the closest point to target."""
+
 
 class PurePursuitFollower:
     """Pure pursuit path follower for holonomic robots.
 
     For holonomic robots, pure pursuit simplifies to finding and targeting
-    a base pose at the lookahead distance along the path.
+    a base pose a few steps ahead on the path.
 
     The algorithm:
     1. Find the closest point on the path to the robot's current position
-    2. From that point, walk along the path for `lookahead_distance` meters
-    3. That point becomes the target - command the robot directly toward it
+    2. Step forward a fixed number of waypoints from that point
+    3. That waypoint becomes the target - command the robot directly toward it
     4. Repeat until the goal is reached
 
     Since Spot is holonomic (can move in any direction), we don't need to
@@ -59,6 +62,9 @@ class PurePursuitFollower:
     def get_target_pose(self, robot_pose: Pose2D) -> tuple[Pose2D, bool]:
         """Get the target pose for the robot to navigate toward.
 
+        Finds the closest waypoint on the path, then steps forward a fixed number
+        of waypoints to produce a reactive target that stays close to the path.
+
         :param robot_pose: Current robot pose (must be in same frame as path)
         :return: Tuple of (target_pose, is_complete)
                  - target_pose: The pose to navigate toward
@@ -74,32 +80,26 @@ class PurePursuitFollower:
 
         # Find the waypoint nearest to the robot
         distances_from_robot_m = np.linalg.norm(self._path_xy - robot_xy, axis=1)
-        closest_idx = np.argmin(distances_from_robot_m)
-        target_idx = max(closest_idx, self._furthest_target_idx)  # Monotonically increase target
+        closest_idx = int(np.argmin(distances_from_robot_m))
 
-        dist_left_m = self.config.lookahead_distance_m
-        if dist_to_goal_m < dist_left_m:
-            dist_left_m = self.config.min_lookahead_m
+        # Ensure monotonic progress along the path
+        closest_idx = max(closest_idx, self._furthest_target_idx)
 
-        # Iterate along the remainder of the path until we've covered the remaining distance
-        for curr_idx in range(target_idx, self._path_xy.shape[0] - 1):
-            curr_xy = self._path_xy[curr_idx]
-            next_xy = self._path_xy[curr_idx + 1]
+        # Step forward a fixed number of waypoints from the closest point
+        target_idx = min(closest_idx + self.config.lookahead_steps, len(self.path) - 1)
+        self._furthest_target_idx = target_idx
 
-            pair_dist_m = np.linalg.norm(curr_xy - next_xy)
+        # If we've reached the last waypoint, signal completion
+        if target_idx >= len(self.path) - 1:
+            return (self.path[-1], True)
 
-            if pair_dist_m < dist_left_m:
-                dist_left_m -= pair_dist_m
-                continue
+        # Compute heading from the path direction at the target
+        target_pose = self.path[target_idx]
+        next_xy = self._path_xy[min(target_idx + 1, len(self.path) - 1)]
+        diff_xy = next_xy - self._path_xy[target_idx]
+        target_yaw_rad = np.arctan2(diff_xy[1], diff_xy[0])
 
-            # Otherwise, interpolate along the line segment between these waypoints
-            fraction = dist_left_m / pair_dist_m
-            target_xy = (1 - fraction) * curr_xy + fraction * next_xy
-            diff_xy = next_xy - curr_xy
-            target_yaw_rad = np.arctan2(diff_xy[1], diff_xy[0])
-
-            self._furthest_target_idx = curr_idx
-            return (Pose2D(target_xy[0], target_xy[1], target_yaw_rad, self._ref_frame), False)
-
-        self._furthest_target_idx = len(self.path) - 1
-        return (self.path[-1], True)
+        return (
+            Pose2D(target_pose.x, target_pose.y, target_yaw_rad, self._ref_frame),
+            False,
+        )
