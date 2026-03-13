@@ -44,3 +44,13 @@ class PlacementSurface:
             y_range=ClosedInterval(minimum=aabb.min_xyz.y, maximum=aabb.max_xyz.y),
             frame=obj_kin_state.name,
         )
+
+    @property
+    def only_left_half(self) -> PlacementSurface:
+        """Create a placement surface on this surface's left half (greater y-values)."""
+        return PlacementSurface(
+            height_m=self.height_m,
+            x_range=self.x_range,
+            y_range=ClosedInterval(minimum=self.y_range.midpoint, maximum=self.y_range.maximum),
+            frame=self.frame,
+        )

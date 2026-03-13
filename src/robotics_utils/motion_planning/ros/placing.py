@@ -75,13 +75,16 @@ class PlacePoses:
         pre_ok = manipulator.compute_ik(self.preplace_pose) is not None
         if not pre_ok:
             console.print(f"[red]Invalid pre-place pose: {self.preplace_pose}[/]")
+            TransformManager.broadcast_transform("failed_preplace", self.preplace_pose)
 
         place_ok = manipulator.compute_ik(self.place_pose) is not None
         if not place_ok:
             console.print(f"[red]Invalid place pose: {self.place_pose}[/]")
+            TransformManager.broadcast_transform("failed_place", self.place_pose)
 
         post_ok = manipulator.compute_ik(self.postplace_pose) is not None
         if not post_ok:
             console.print(f"[red]Invalid post-place pose: {self.postplace_pose}[/]")
+            TransformManager.broadcast_transform("failed_postplace", self.postplace_pose)
 
         return pre_ok and place_ok and post_ok

@@ -44,7 +44,7 @@ class PlaceObjectPoseGenerator(Generator[PlaceObjectPoseArgs, Pose3D]):
             yield Pose3D.from_xyz_rpy(
                 x=narrowed_x_range.uniform_sample(self._rng),
                 y=narrowed_y_range.uniform_sample(self._rng),
-                z=inputs.surface.height_m,
+                z=inputs.surface.height_m + 0.05,  # HACK: Increased by 5 cm to counteract cabinet
                 yaw_rad=self._rng.uniform(-np.pi, np.pi),
                 ref_frame=inputs.surface.frame,
             )

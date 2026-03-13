@@ -28,7 +28,13 @@ class ClosedInterval:
         :param x: Length (unitless) by which each bound of the interval is narrowed
         :return: Resulting closed interval: [a + x, b - x]
         """
-        return ClosedInterval(self.minimum + x, self.maximum - x)
+        new_min = self.minimum + x
+        new_max = self.maximum - x
+        if new_max < new_min:
+            new_min = self.midpoint
+            new_max = self.midpoint
+
+        return ClosedInterval(new_min, new_max)
 
     def uniform_sample(self, rng: np.random.Generator | None = None) -> float:
         """Sample from the interval uniformly.
