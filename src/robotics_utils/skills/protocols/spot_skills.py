@@ -41,7 +41,7 @@ from spot_skills.srv import (
 
 from robotics_utils.geometry import Point3D
 from robotics_utils.io import console
-from robotics_utils.motion_planning.ros import PickPoses
+from robotics_utils.motion_planning.ros import PickPoses, PlacePoses
 from robotics_utils.ros import (
     PoseBroadcastThread,
     ServiceCaller,
@@ -152,9 +152,9 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         self._EE_POSES_FOR_POSE_ESTIMATION: dict[str, Pose3D] = {
             "black_dresser": Pose3D.from_xyz_rpy(
-                x=0.666,
-                y=-0.075,
-                z=1.251,
+                x=0.63,
+                y=-0.175,
+                z=1.151,
                 roll_rad=-0.125,
                 pitch_rad=1.139,
                 yaw_rad=-2.952,
@@ -674,9 +674,11 @@ class SpotSkillsProtocol(SkillsProtocol):
         console.print(f"Picking object '{object_name}'...")
 
         # Open the gripper to prepare for picking
-        open_outcome = self.open_gripper()
-        if not open_outcome.success:
-            return open_outcome
+        if not self._gripper.move_to_angle_rad(pre_grasp_rad, timeout_s=10.0):
+            return Outcome(
+                success=False,
+                message=f"Unable to pick '{object_name}' because the gripper didn't open.",
+            )
 
         # Identify which candidate grasp pose to use, if the object is symmetric
         if object_name != pose_o_g.ref_frame:
@@ -832,8 +834,14 @@ class SpotSkillsProtocol(SkillsProtocol):
     @skill_method
     def place(
         self,
-        object_name: str,
-        surface_name: str,
+        object_name: str = "eraser1",
+        surface_name: str = "filing_cabinet",
+        pose_s_o: Pose3D = Pose3D.from_xyz_rpy(
+            x=0.06,
+            y=0.08,
+            z=0.7,
+            yaw_rad=0.3,
+        ),
         *,
         stow_after: bool = True,
         pauses: bool = False,
@@ -844,6 +852,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         :param object_name: Name of the held object to be placed
         :param surface_name: Name of the surface onto which the object is placed
+        :param pose_s_o: Hard-coded pose of the placed object w.r.t. the surface
         :param stow_after: If True, stow Spot's arm after placing the object
         :param pauses: If True, pause for user input between major placement steps
         :param max_pose_samples: Maximum number of sampled place poses to attempt
@@ -852,140 +861,215 @@ class SpotSkillsProtocol(SkillsProtocol):
         """
         console.print(f"Placing object '{object_name}' on surface '{surface_name}'...")
 
-        if max_pose_samples <= 0:
-            return Outcome(success=False, message="max_pose_samples must be positive.")
-
-        if self._env_state is None:
-            load_outcome = self._load_env_state(self._env_yaml_path)
-            if not load_outcome.success:
-                return load_outcome
-
-        if self._env_state is None:
-            return Outcome(
-                success=False,
-                message="Local environment state was unexpectedly None after load attempt.",
-            )
-
-        if object_name not in self._env_state.object_names:
-            return Outcome(success=False, message=f"Cannot place unknown object: '{object_name}'.")
-        if surface_name not in self._env_state.object_names:
-            return Outcome(
-                success=False,
-                message=f"Cannot place onto unknown surface: '{surface_name}'.",
-            )
-
-        placed_obj = self._env_state.get_object_kinematic_state(object_name)
-        if placed_obj is None:
-            return Outcome(
-                success=False,
-                message=f"Unable to retrieve kinematic state of '{object_name}'.",
-            )
-
-        surface_obj = self._env_state.get_object_kinematic_state(surface_name)
-        if surface_obj is None:
-            return Outcome(
-                success=False,
-                message=f"Unable to retrieve kinematic state of '{surface_name}'.",
-            )
-
-        pose_ee_o = self._resolve_pose_ee_o(object_name)
-        if pose_ee_o is None:
-            return Outcome(
-                success=False,
-                message=f"Cannot place '{object_name}' because it is not currently grasped.",
-            )
-
-        surface = PlacementSurface.from_object_aabb(surface_obj)
-        place_pose_args = PlacePosesArgs(
-            surface=surface,
-            placed_object=placed_obj,
-            pose_ee_o=pose_ee_o,
-            manipulator=self._arm,
+        pose_ee_o = Pose3D.from_xyz_rpy(
+            x=-0.02,
+            z=0.255,
+            pitch_rad=1.5708,
+            ref_frame="eraser1",
         )
-        if only_left_half:
-            place_pose_args = replace(
-                place_pose_args,
-                surface=place_pose_args.surface.only_left_half.only_left_half,
-            )
+        if self._held_pose_ee_o is not None:
+            pose_ee_o = self._held_pose_ee_o
 
-        generator = PlacePosesGenerator(place_pose_args)
+        pose_s_o = replace(pose_s_o, ref_frame=surface_name)
+        pose_o_ee = pose_ee_o.inverse(pose_frame=object_name)
 
-        last_failure = "No sampled place poses were attempted."
-        for _ in range(max_pose_samples):
-            place_poses = next(generator)
-            sample_idx = generator.count
-            rospy.loginfo(f"Attempting place sample {sample_idx}/{max_pose_samples}...")
+        place_poses = PlacePoses.from_place_pose(pose_s_ee=pose_s_o @ pose_o_ee)
 
-            self._pose_broadcaster.poses[f"pre_place_{object_name}"] = place_poses.preplace_pose
-            self._pose_broadcaster.poses[f"place_{object_name}"] = place_poses.place_pose
-            self._pose_broadcaster.poses[f"post_place_{object_name}"] = place_poses.postplace_pose
+        self._pose_broadcaster.poses[f"pre_place_{object_name}"] = place_poses.preplace_pose
+        self._pose_broadcaster.poses[f"place_{object_name}"] = place_poses.place_pose
+        self._pose_broadcaster.poses[f"post_place_{object_name}"] = place_poses.postplace_pose
 
+        if pauses:
+            Prompt.ask("Press [bold]Enter[/] to move to the pre-place pose")
+
+        pre_outcome = self._move_ee_to_pose(
+            place_poses.preplace_pose,
+            ignored_objects=object_name,
+            display_and_pause=pauses,
+        )
+        if not pre_outcome.success:
+            return pre_outcome
+
+        if pauses:
+            Prompt.ask("Press [bold]Enter[/] to move to the place pose")
+
+        place_outcome = self._move_ee_to_pose(
+            place_poses.place_pose,
+            ignored_objects=object_name,
+            display_and_pause=pauses,
+        )
+        if not place_outcome.success:
+            return place_outcome
+
+        if pauses:
+            Prompt.ask(f"Press [bold]Enter[/] to release [cyan]'{object_name}'[/]")
+
+        release_outcome = self._release_object(
+            object_name=object_name,
+            parent_frame=surface_name,
+        )
+        if not release_outcome.success:
+            return release_outcome
+
+        if pauses:
+            Prompt.ask("Press [bold]Enter[/] to move to the post-place pose")
+
+        post_outcome = self._move_ee_to_pose(
+            place_poses.postplace_pose,
+            ignored_objects=object_name,
+            display_and_pause=pauses,
+        )
+        if not post_outcome.success:
+            return post_outcome
+
+        if stow_after:
             if pauses:
-                Prompt.ask("Press [bold]Enter[/] to move to the pre-place pose")
+                Prompt.ask("Press [bold]Enter[/] to stow Spot's arm")
 
-            pre_outcome = self._move_ee_to_pose(
-                place_poses.preplace_pose,
-                ignored_objects=object_name,
-                display_and_pause=pauses,
-            )
-            if not pre_outcome.success:
-                last_failure = f"Sample {sample_idx} failed at pre-place: {pre_outcome.message}"
-                continue
-
-            if pauses:
-                Prompt.ask("Press [bold]Enter[/] to move to the place pose")
-
-            place_outcome = self._move_ee_to_pose(
-                place_poses.place_pose,
-                ignored_objects=object_name,
-                display_and_pause=pauses,
-            )
-            if not place_outcome.success:
-                last_failure = f"Sample {sample_idx} failed at place: {place_outcome.message}"
-                continue
-
-            if pauses:
-                Prompt.ask(f"Press [bold]Enter[/] to release [cyan]'{object_name}'[/]")
-
-            release_outcome = self._release_object(
-                object_name=object_name,
-                parent_frame=surface_name,
-            )
-            if not release_outcome.success:
-                return release_outcome
-
-            if pauses:
-                Prompt.ask("Press [bold]Enter[/] to move to the post-place pose")
-
-            post_outcome = self._move_ee_to_pose(
-                place_poses.postplace_pose,
-                ignored_objects=object_name,
-                display_and_pause=pauses,
-            )
-            if not post_outcome.success:
-                return post_outcome
-
-            if stow_after:
-                if pauses:
-                    Prompt.ask("Press [bold]Enter[/] to stow Spot's arm")
-
-                time.sleep(1.5)
-                stow_outcome = self.stow_arm(close_gripper=True)
-                if not stow_outcome.success:
-                    return stow_outcome
-
-            return Outcome(
-                success=True,
-                message=f"Placed '{object_name}' on '{surface_name}' with sample {sample_idx}.",
-            )
+            time.sleep(1.5)
+            stow_outcome = self.stow_arm(close_gripper=True)
+            if not stow_outcome.success:
+                return stow_outcome
 
         return Outcome(
-            success=False,
-            message=(
-                f"Could not place '{object_name}' on '{surface_name}' after "
-                f"{max_pose_samples} sampled poses. Last failure: {last_failure}"
-            ),
+            success=True,
+            message=f"Placed '{object_name}' on '{surface_name}' with sample {sample_idx}.",
         )
+
+        # if max_pose_samples <= 0:
+        #     return Outcome(success=False, message="max_pose_samples must be positive.")
+
+        # if self._env_state is None:
+        #     load_outcome = self._load_env_state(self._env_yaml_path)
+        #     if not load_outcome.success:
+        #         return load_outcome
+
+        # if self._env_state is None:
+        #     return Outcome(
+        #         success=False,
+        #         message="Local environment state was unexpectedly None after load attempt.",
+        #     )
+
+        # if object_name not in self._env_state.object_names:
+        #     return Outcome(success=False, message=f"Cannot place unknown object: '{object_name}'.")
+        # if surface_name not in self._env_state.object_names:
+        #     return Outcome(
+        #         success=False,
+        #         message=f"Cannot place onto unknown surface: '{surface_name}'.",
+        #     )
+
+        # placed_obj = self._env_state.get_object_kinematic_state(object_name)
+        # if placed_obj is None:
+        #     return Outcome(
+        #         success=False,
+        #         message=f"Unable to retrieve kinematic state of '{object_name}'.",
+        #     )
+
+        # surface_obj = self._env_state.get_object_kinematic_state(surface_name)
+        # if surface_obj is None:
+        #     return Outcome(
+        #         success=False,
+        #         message=f"Unable to retrieve kinematic state of '{surface_name}'.",
+        #     )
+
+        # pose_ee_o = self._resolve_pose_ee_o(object_name)
+        # if pose_ee_o is None:
+        #     return Outcome(
+        #         success=False,
+        #         message=f"Cannot place '{object_name}' because it is not currently grasped.",
+        #     )
+
+        # surface = PlacementSurface.from_object_aabb(surface_obj)
+        # place_pose_args = PlacePosesArgs(
+        #     surface=surface,
+        #     placed_object=placed_obj,
+        #     pose_ee_o=pose_ee_o,
+        #     manipulator=self._arm,
+        # )
+        # if only_left_half:
+        #     place_pose_args = replace(
+        #         place_pose_args,
+        #         surface=place_pose_args.surface.only_left_half.only_left_half,
+        #     )
+
+        # generator = PlacePosesGenerator(place_pose_args)
+
+        # last_failure = "No sampled place poses were attempted."
+        # for _ in range(max_pose_samples):
+        #     place_poses = next(generator)
+        #     sample_idx = generator.count
+        #     rospy.loginfo(f"Attempting place sample {sample_idx}/{max_pose_samples}...")
+
+        #     self._pose_broadcaster.poses[f"pre_place_{object_name}"] = place_poses.preplace_pose
+        #     self._pose_broadcaster.poses[f"place_{object_name}"] = place_poses.place_pose
+        #     self._pose_broadcaster.poses[f"post_place_{object_name}"] = place_poses.postplace_pose
+
+        #     if pauses:
+        #         Prompt.ask("Press [bold]Enter[/] to move to the pre-place pose")
+
+        #     pre_outcome = self._move_ee_to_pose(
+        #         place_poses.preplace_pose,
+        #         ignored_objects=object_name,
+        #         display_and_pause=pauses,
+        #     )
+        #     if not pre_outcome.success:
+        #         last_failure = f"Sample {sample_idx} failed at pre-place: {pre_outcome.message}"
+        #         continue
+
+        #     if pauses:
+        #         Prompt.ask("Press [bold]Enter[/] to move to the place pose")
+
+        #     place_outcome = self._move_ee_to_pose(
+        #         place_poses.place_pose,
+        #         ignored_objects=object_name,
+        #         display_and_pause=pauses,
+        #     )
+        #     if not place_outcome.success:
+        #         last_failure = f"Sample {sample_idx} failed at place: {place_outcome.message}"
+        #         continue
+
+        #     if pauses:
+        #         Prompt.ask(f"Press [bold]Enter[/] to release [cyan]'{object_name}'[/]")
+
+        #     release_outcome = self._release_object(
+        #         object_name=object_name,
+        #         parent_frame=surface_name,
+        #     )
+        #     if not release_outcome.success:
+        #         return release_outcome
+
+        #     if pauses:
+        #         Prompt.ask("Press [bold]Enter[/] to move to the post-place pose")
+
+        #     post_outcome = self._move_ee_to_pose(
+        #         place_poses.postplace_pose,
+        #         ignored_objects=object_name,
+        #         display_and_pause=pauses,
+        #     )
+        #     if not post_outcome.success:
+        #         return post_outcome
+
+        #     if stow_after:
+        #         if pauses:
+        #             Prompt.ask("Press [bold]Enter[/] to stow Spot's arm")
+
+        #         time.sleep(1.5)
+        #         stow_outcome = self.stow_arm(close_gripper=True)
+        #         if not stow_outcome.success:
+        #             return stow_outcome
+
+        #     return Outcome(
+        #         success=True,
+        #         message=f"Placed '{object_name}' on '{surface_name}' with sample {sample_idx}.",
+        #     )
+
+        # return Outcome(
+        #     success=False,
+        #     message=(
+        #         f"Could not place '{object_name}' on '{surface_name}' after "
+        #         f"{max_pose_samples} sampled poses. Last failure: {last_failure}"
+        #     ),
+        # )
 
     @skill_method
     def _reset_state(
