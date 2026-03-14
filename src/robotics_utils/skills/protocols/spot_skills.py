@@ -151,17 +151,17 @@ class SpotSkillsProtocol(SkillsProtocol):
         self._held_pose_ee_o: Pose3D | None = None
 
         self._EE_POSES_FOR_POSE_ESTIMATION: dict[str, Pose3D] = {
-            "black_dresser": Pose3D.from_xyz_rpy(
-                x=0.666,
-                y=-0.075,
-                z=1.251,
-                roll_rad=-0.125,
-                pitch_rad=1.139,
-                yaw_rad=-2.952,
-                ref_frame="black_dresser",
+            "open_black_dresser": Pose3D.from_xyz_rpy(
+                0.8089203113607548,
+                0.1261554203615498,
+                0.5735128340217828,
+                -0.010550122480134828,
+                0.8448743712043602,
+                0.18808896901890296,
+                ref_frame="body",
             ),
             "filing_cabinet": Pose3D.from_xyz_rpy(
-                x=0.621,
+                x=0.521,
                 y=-0.032,
                 z=0.572,
                 roll_rad=-0.009,
@@ -169,6 +169,16 @@ class SpotSkillsProtocol(SkillsProtocol):
                 yaw_rad=-0.104,
                 ref_frame="body",
             ),
+            "pick_from_black_dresser": Pose3D.from_xyz_rpy(
+                0.722,
+                0.058,
+                0.706,
+                0.003,
+                1.143,
+                0.061,
+                ref_frame="body",
+            ),
+            # TODO: In body frame from open_drawer to see eraser in open drawer: 0.807, -0.184, 0.463, -0.095, 1.202, -0.324
         }
 
     def _resolve_env_yaml_path(self) -> Path:
@@ -328,7 +338,7 @@ class SpotSkillsProtocol(SkillsProtocol):
             return open_outcome
 
         # Move Spot's end-effector to approximate viewing location for the drawer
-        ee_during_pose_est = self._EE_POSES_FOR_POSE_ESTIMATION[container_name]
+        ee_during_pose_est = self._EE_POSES_FOR_POSE_ESTIMATION[f"open_{container_name}"]
         pre_estimation_outcome = self._move_ee_to_pose(
             ee_during_pose_est,
             ignore_all_collisions=True,
@@ -336,7 +346,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not pre_estimation_outcome.success:
             return pre_estimation_outcome
 
-        estimate_outcome = self.estimate_pose(container_name, duration_s=5.0)
+        estimate_outcome = self.estimate_pose(container_name, duration_s=10.0)
         if not estimate_outcome.success:
             return estimate_outcome
 
@@ -438,7 +448,7 @@ class SpotSkillsProtocol(SkillsProtocol):
             ref_frame="black_dresser",
         ),
         target_name: str = "",
-        ignored_objects: list[str] = (),
+        ignored_objects: str = "",
         *,
         display_and_pause: bool = False,
         ignore_all_collisions: bool = False,
@@ -447,7 +457,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         :param ee_target: End-effector target pose
         :param target_name: Name describing the end-effector target pose
-        :param ignored_objects: List of object names to ignore during collision checking
+        :param ignored_objects: String list of object names to ignore during collision checking
         :param display_and_pause: If True, display the trajectory in RViz and pause for user input
         :param ignore_all_collisions: If True, skip all collision checking
         :return: Boolean success indicator and an outcome message
@@ -459,7 +469,9 @@ class SpotSkillsProtocol(SkillsProtocol):
         # Use the centralized motion planning service (SpotROS1Wrapper owns the planning scene)
         request = ComputeMotionPlanRequest()
         request.target_pose = pose_to_stamped_msg(ee_target)
-        request.ignored_objects = list(ignored_objects)
+
+        ignored_objects_list = [] if not ignored_objects else ignored_objects.split(",")
+        request.ignored_objects = ignored_objects_list
         request.ignore_all_collisions = ignore_all_collisions
 
         console.print(f"Calling compute_motion_plan service for target: {ee_target}")
@@ -661,7 +673,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         *,
         pauses: bool = False,
         yaw_symmetric: bool = True,
-        ignored_objects: list[str] = (),
+        ignored_objects: str = "",
         stow_after: bool = True,
     ) -> Outcome:
         """Pick the named object using Spot's gripper.
@@ -673,20 +685,22 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param lift_z_m: Offset (m) of the post-grasp pose "up" (+z) w.r.t. the world frame
         :param pauses: If True, the skill will pause until user input between each major motion
         :param yaw_symmetric: Indicates that the object is rotationally symmetric about its z-axis
-        :param ignored_objects: List of object names to ignore during collision checking
+        :param ignored_objects: String list of object names to ignore during collision checking
         :param stow_after: If True, stow the arm after picking the object
         :return: Boolean success indicator and an outcome message
         """
-        ignored_objects = list(ignored_objects)
-        if object_name not in ignored_objects:
-            ignored_objects.append(object_name)
+        ignored_objects_list = [] if not ignored_objects else ignored_objects.split(",")
+        if object_name not in ignored_objects_list:
+            ignored_objects_list.append(object_name)
         console.print(f"Picking object '{object_name}'...")
-        console.print(f"Ignore collision: {ignored_objects}")
+        console.print(f"Ignore collisions for: {ignored_objects_list}")
 
-        # Open the gripper to prepare for picking
-        open_outcome = self.open_gripper()
-        if not open_outcome.success:
-            return open_outcome
+        # Partially open the gripper to prepare for picking
+        if not self._gripper.move_to_angle_rad(pre_grasp_rad, timeout_s=10.0):
+            return Outcome(
+                success=False,
+                message=f"Unable to pick '{object_name}' because the gripper didn't half-open.",
+            )
 
         # Identify which candidate grasp pose to use, if the object is symmetric
         if object_name != pose_o_g.ref_frame:
@@ -721,7 +735,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         pre_outcome = self._move_ee_to_pose(
             valid_poses.pregrasp_pose,
-            ignored_objects=ignored_objects,
+            ignored_objects=",".join(ignored_objects_list),
             display_and_pause=pauses,
         )
         if not pre_outcome.success:
@@ -733,7 +747,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         to_grasp_outcome = self._move_ee_to_pose(
             valid_poses.grasp_pose,
-            ignored_objects=ignored_objects,
+            ignored_objects=",".join(ignored_objects_list),
             display_and_pause=pauses,
         )
         if not to_grasp_outcome.success:
@@ -753,7 +767,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         post_outcome = self._move_ee_to_pose(
             valid_poses.postgrasp_pose,
-            ignored_objects=ignored_objects,
+            ignored_objects=",".join(ignored_objects_list),
             display_and_pause=pauses,
         )
         if not post_outcome.success:
@@ -806,7 +820,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         console.print(f"Picking object '{object_name}' from drawer of '{drawer_name}'...")
 
         # Move Spot's end-effector to approximate viewing location for the object
-        ee_during_pose_est = self._EE_POSES_FOR_POSE_ESTIMATION[drawer_name]
+        ee_during_pose_est = self._EE_POSES_FOR_POSE_ESTIMATION[f"pick_from_{drawer_name}"]
         pre_estimation_outcome = self._move_ee_to_pose(ee_during_pose_est)
         if not pre_estimation_outcome.success:
             return pre_estimation_outcome
@@ -849,18 +863,18 @@ class SpotSkillsProtocol(SkillsProtocol):
         object_name: str = "eraser1",
         cabinet_name: str = "filing_cabinet",
         pre_grasp_rad: float = -0.9,
-        pre_grasp_x_m: float = 0.15,
+        pre_grasp_x_m: float = 0.12,
         pose_o_g: Pose3D = Pose3D.from_xyz_rpy(
             x=-0.02,
-            z=0.255,
+            z=0.245,
             pitch_rad=1.5708,
             ref_frame="eraser1",
         ),
-        lift_z_m: float = 0.15,
+        lift_z_m: float = 0.12,
         *,
         pauses: bool = False,
         yaw_symmetric: bool = True,
-        ignored_objects: list[str] = (),
+        ignored_objects: str = "",
         stow_after: bool = True,
     ) -> Outcome:
         """Pick an object from a filing cabinet using Spot's gripper.
@@ -873,15 +887,15 @@ class SpotSkillsProtocol(SkillsProtocol):
         :param lift_z_m: Offset (m) of the post-grasp pose "up" (+z) w.r.t. the world frame
         :param pauses: If True, the skill will pause until user input between each major motion
         :param yaw_symmetric: Indicates that the object is rotationally symmetric about its z-axis
-        :param ignored_objects: List of object names to ignore during collision checking
+        :param ignored_objects: String list of object names to ignore during collision checking
         :param stow_after: If True, stow the arm after picking the object
         :return: Boolean success indicator and an outcome message
         """
-        ignored_objects = list(ignored_objects)
-        if cabinet_name not in ignored_objects:
-            ignored_objects.append(cabinet_name)
-        if "obstruction_near_cabinet" not in ignored_objects:
-            ignored_objects.append("obstruction_near_cabinet")
+        ignored_objects_list = [] if not ignored_objects else ignored_objects.split(",")
+        if cabinet_name not in ignored_objects_list:
+            ignored_objects_list.append(cabinet_name)
+        if "obstruction_near_cabinet" not in ignored_objects_list:
+            ignored_objects_list.append("obstruction_near_cabinet")
         console.print(f"Picking object '{object_name}' from filing cabinet '{cabinet_name}'...")
 
         # Move Spot's end-effector to approximate viewing location for the object
@@ -911,7 +925,7 @@ class SpotSkillsProtocol(SkillsProtocol):
             pauses=pauses,
             yaw_symmetric=yaw_symmetric,
             stow_after=stow_after,
-            ignored_objects=ignored_objects,
+            ignored_objects=",".join(ignored_objects_list),
         )
 
         if pick_outcome.success:
@@ -1018,7 +1032,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
             pre_outcome = self._move_ee_to_pose(
                 place_poses.preplace_pose,
-                ignored_objects=[object_name],
+                ignored_objects=object_name,
                 display_and_pause=pauses,
             )
             if not pre_outcome.success:
@@ -1030,7 +1044,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
             place_outcome = self._move_ee_to_pose(
                 place_poses.place_pose,
-                ignored_objects=[object_name],
+                ignored_objects=object_name,
                 display_and_pause=pauses,
             )
             if not place_outcome.success:
@@ -1052,7 +1066,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
             post_outcome = self._move_ee_to_pose(
                 place_poses.postplace_pose,
-                ignored_objects=[object_name],
+                ignored_objects=object_name,
                 display_and_pause=pauses,
             )
             if not post_outcome.success:
@@ -1100,7 +1114,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         # Fixed place pose: body -> arm_link_wr1 from tf_echo
         place_pose = Pose3D.from_xyz_rpy(
             x=0.93,
-            y=-0.055,
+            y=-0.155,
             z=0.43,
             roll_rad=0.079,
             pitch_rad=1.531,
@@ -1114,7 +1128,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         place_outcome = self._move_ee_to_pose(
             place_pose,
             target_name=f"place_cabinet_{object_name}",
-            ignored_objects=[object_name, "filing_cabinet"],
+            ignored_objects=f"{object_name},filing_cabinet",
             display_and_pause=pauses,
         )
         if not place_outcome.success:
@@ -1144,7 +1158,7 @@ class SpotSkillsProtocol(SkillsProtocol):
         post_outcome = self._move_ee_to_pose(
             post_place_pose,
             target_name=f"post_place_cabinet_{object_name}",
-            ignored_objects=[object_name, "filing_cabinet"],
+            ignored_objects=f"{object_name},filing_cabinet",
             display_and_pause=pauses,
         )
         if not post_outcome.success:
