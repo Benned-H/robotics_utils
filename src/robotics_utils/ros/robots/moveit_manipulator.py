@@ -195,9 +195,34 @@ class MoveItManipulator(Manipulator[Trajectory]):
         )
 
         if ik_solution is None:
+            self._log_ik_failure(ee_target, target_b_ee)
             return None
 
         return dict(zip(self.joint_names, list(ik_solution)))
+
+    def _log_ik_failure(self, ee_target: Pose3D, target_in_base: Pose3D) -> None:
+        """Log diagnostic information when IK fails to find a solution."""
+        import math
+
+        px, py, pz = target_in_base.position.x, target_in_base.position.y, target_in_base.position.z
+        dist = math.sqrt(px**2 + py**2 + pz**2)
+
+        # Get joint limits from TRAC-IK solver
+        lb, ub = self._ik_solver.get_joint_limits()
+
+        rospy.logwarn(
+            f"[IK Failure] Target: {ee_target} | "
+            f"In base frame '{self.base_frame}': "
+            f"pos=({px:.3f}, {py:.3f}, {pz:.3f}), "
+            f"dist_from_base={dist:.3f}m | "
+            f"Joint limits: lb={[f'{v:.2f}' for v in lb]}, "
+            f"ub={[f'{v:.2f}' for v in ub]} | "
+            f"Current joints: {[f'{v:.2f}' for v in self.joint_values]} | "
+            f"Possible reasons: "
+            f"{'OUT OF REACH (dist too large), ' if dist > 1.0 else ''}"
+            f"{'BEHIND BASE (negative x), ' if px < 0 else ''}"
+            f"orientation may be infeasible at this position"
+        )
 
     def grasp(self, object_name: str) -> Outcome[GraspAttachment]:
         """Grasp the named object by closing the manipulator's gripper.

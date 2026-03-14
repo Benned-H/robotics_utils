@@ -108,14 +108,14 @@ class PickPoses:
         """
         pre_ok = manipulator.compute_ik(self.pregrasp_pose) is not None
         if not pre_ok:
-            console.print(f"[red]Invalid pre-grasp pose: {self.pregrasp_pose}[/]")
+            console.print(f"[red]Invalid pre-grasp pose (IK failed, see log for details): {self.pregrasp_pose}[/]")
 
         grasp_ok = manipulator.compute_ik(self.grasp_pose) is not None
         if not grasp_ok:
-            console.print(f"[red]Invalid grasp pose: {self.grasp_pose}[/]")
+            console.print(f"[red]Invalid grasp pose (IK failed, see log for details): {self.grasp_pose}[/]")
 
         post_ok = manipulator.compute_ik(self.postgrasp_pose) is not None
         if not post_ok:
-            console.print(f"[red]Invalid post-grasp pose: {self.postgrasp_pose}[/]")
+            console.print(f"[red]Invalid post-grasp pose (IK failed, see log for details): {self.postgrasp_pose}[/]")
 
         return pre_ok and grasp_ok and post_ok
