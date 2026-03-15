@@ -152,7 +152,7 @@ class SpotSkillsProtocol(SkillsProtocol):
 
         self._EE_POSES_FOR_POSE_ESTIMATION: dict[str, Pose3D] = {
             "open_black_dresser": Pose3D.from_xyz_rpy(
-                0.8089203113607548,
+                0.71,
                 0.1261554203615498,
                 0.5735128340217828,
                 -0.010550122480134828,
@@ -170,15 +170,14 @@ class SpotSkillsProtocol(SkillsProtocol):
                 ref_frame="body",
             ),
             "pick_from_black_dresser": Pose3D.from_xyz_rpy(
-                0.722,
-                0.058,
-                0.706,
-                0.003,
-                1.143,
-                0.061,
+                0.4844947536051112,
+                -0.036623616398333864,
+                0.7842098530021884,
+                0.3701421644226038,
+                1.167719638317894,
+                0.25498229907593467,
                 ref_frame="body",
             ),
-            # TODO: In body frame from open_drawer to see eraser in open drawer: 0.807, -0.184, 0.463, -0.095, 1.202, -0.324
         }
 
     def _resolve_env_yaml_path(self) -> Path:
@@ -393,8 +392,9 @@ class SpotSkillsProtocol(SkillsProtocol):
             post_pull_pose,
             ignore_all_collisions=True,
         )  # , "postpull_drawer")
-        if not post_outcome.success:
-            return post_outcome
+        # Allow the post-pull motion plan to fail
+        # if not post_outcome.success:
+        #     return post_outcome
 
         stow_outcome = self.stow_arm()
         if not stow_outcome.success:
@@ -830,6 +830,8 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not open_outcome.success:
             return open_outcome
 
+        time.sleep(2.0)
+
         obj_estimate_outcome = self.estimate_pose(object_name, duration_s=5.0)
         if not obj_estimate_outcome.success:
             return obj_estimate_outcome
@@ -912,7 +914,9 @@ class SpotSkillsProtocol(SkillsProtocol):
         if not open_outcome.success:
             return open_outcome
 
-        obj_estimate_outcome = self.estimate_pose(object_name, duration_s=5.0)
+        time.sleep(2.0)
+
+        obj_estimate_outcome = self.estimate_pose(object_name, duration_s=10.0)
         if not obj_estimate_outcome.success:
             return obj_estimate_outcome
 
